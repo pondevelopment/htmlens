@@ -90,11 +90,10 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
             continue;
         }
 
-        if arg.starts_with("--save=") {
+        if let Some(value) = arg.strip_prefix("--save=") {
             if save_target.is_some() {
                 return Err(anyhow!("--save specified multiple times"));
             }
-            let value = &arg["--save=".len()..];
             let path = if value.is_empty() {
                 PathBuf::from(".")
             } else {
@@ -105,11 +104,10 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
             continue;
         }
 
-        if arg.starts_with("-s=") {
+        if let Some(value) = arg.strip_prefix("-s=") {
             if save_target.is_some() {
                 return Err(anyhow!("--save specified multiple times"));
             }
-            let value = &arg[3..];
             let path = if value.is_empty() {
                 PathBuf::from(".")
             } else {
@@ -183,8 +181,20 @@ fn print_version() {
 #[tokio::main]
 async fn main() -> Result<()> {
     let raw_args = env::args().skip(1).collect::<Vec<_>>();
-    let options = parse_arguments(&raw_args)?;
+    match parse_arguments(&raw_args)? {
+        CliCommand::Help => {
+            print_help();
+            return Ok(());
+        }
+        CliCommand::Version => {
+            print_version();
+            return Ok(());
+        }
+        CliCommand::Run(options) => run(options).await,
+    }
+}
 
+async fn run(options: CliOptions) -> Result<()> {
     let parsed_url = Url::parse(&options.url).context("invalid URL")?;
     let html = fetch(parsed_url.as_str()).await?;
     let markdown = parse_html(&sanitize_html_for_markdown(&html));
@@ -213,20 +223,18 @@ async fn main() -> Result<()> {
         }
     }
 
-    let include_markdown = !options.graph_only;
-    let include_graph_sections = if options.graph_only {
-        false
-    } else {
-        options.include_graph_sections
-    };
+    let include_markdown = options.mode != OutputMode::GraphOnly;
+    let include_summary_sections = matches!(options.mode, OutputMode::SummaryWithMarkdown);
+    let include_condensed_summary = options.mode != OutputMode::MarkdownOnly;
+    let include_graph_exports = matches!(options.mode, OutputMode::SummaryWithMarkdown);
 
-    let graph_json_string = if include_graph_sections {
+    let graph_json_string = if include_graph_exports {
         Some(serde_json::to_string_pretty(&graph_json_value)?)
     } else {
         None
     };
 
-    let mermaid_diagram = if include_graph_sections {
+    let mermaid_diagram = if include_graph_exports {
         Some(graph_to_mermaid(&graph))
     } else {
         None
@@ -234,51 +242,55 @@ async fn main() -> Result<()> {
 
     let mut output = String::new();
 
-    if let Some(pg) = insights.product_group.as_ref() {
-        let title = pg
-            .name
-            .clone()
-            .unwrap_or_else(|| "ProductGroup".to_string());
-        push_section_header(&mut output, "📦", &format!("ProductGroup: {title}"));
-        if let Some(id) = pg.product_group_id.as_ref() {
-            push_key_value(&mut output, "ProductGroup ID", id);
+    if include_summary_sections {
+        if let Some(pg) = insights.product_group.as_ref() {
+            let title = pg
+                .name
+                .clone()
+                .unwrap_or_else(|| "ProductGroup".to_string());
+            push_section_header(&mut output, "📦", &format!("ProductGroup: {title}"));
+            if let Some(id) = pg.product_group_id.as_ref() {
+                push_key_value(&mut output, "ProductGroup ID", id);
+            }
+            if let Some(brand) = pg.brand.as_ref() {
+                push_key_value(&mut output, "Brand", brand);
+            }
+            if !pg.varies_by.is_empty() {
+                push_key_value(&mut output, "Varies By", &pg.varies_by.join(", "));
+            }
+            if pg.total_variants > 0 {
+                push_key_value(
+                    &mut output,
+                    "Total Variants",
+                    &pg.total_variants.to_string(),
+                );
+            }
+            if let Some(stats) = pg.price_stats.as_ref() {
+                push_key_value(&mut output, "Price Range", &format_price_range(stats));
+            }
+            if let Some(avail) = format_availability_counts(&pg.availability_counts) {
+                push_key_value(&mut output, "Availability", &avail);
+            }
+            let _ = writeln!(&mut output);
         }
-        if let Some(brand) = pg.brand.as_ref() {
-            push_key_value(&mut output, "Brand", brand);
-        }
-        if !pg.varies_by.is_empty() {
-            push_key_value(&mut output, "Varies By", &pg.varies_by.join(", "));
-        }
-        if pg.total_variants > 0 {
-            push_key_value(
-                &mut output,
-                "Total Variants",
-                &pg.total_variants.to_string(),
-            );
-        }
-        if let Some(stats) = pg.price_stats.as_ref() {
-            push_key_value(&mut output, "Price Range", &format_price_range(stats));
-        }
-        if let Some(avail) = format_availability_counts(&pg.availability_counts) {
-            push_key_value(&mut output, "Availability", &avail);
-        }
-        let _ = writeln!(&mut output);
-    }
 
-    if !insights.variants.is_empty() {
-        let total_variants = insights
-            .product_group
-            .as_ref()
-            .map(|pg| pg.total_variants)
-            .unwrap_or_else(|| insights.variants.len());
-        render_variant_table(&mut output, &insights.variants, total_variants);
+        if !insights.variants.is_empty() {
+            let total_variants = insights
+                .product_group
+                .as_ref()
+                .map(|pg| pg.total_variants)
+                .unwrap_or_else(|| insights.variants.len());
+            render_variant_table(&mut output, &insights.variants, total_variants);
+        }
     }
 
     if options.include_data_downloads {
         render_data_downloads_section(&mut output, &insights.data_downloads);
     }
 
-    render_graph_summary(&mut output, &insights.graph_summary);
+    if include_condensed_summary {
+        render_graph_summary(&mut output, &insights.graph_summary);
+    }
 
     if include_markdown {
         push_section_header(&mut output, "📝", "Source Page (Markdown)");
@@ -565,46 +577,46 @@ impl GraphInsights {
                                 brand_added = true;
                             }
                         }
-                    } else if predicate_matches(&edge.predicate, "hasVariant") {
-                        if let Some(product_node) = nodes_map.get(target_id) {
-                            let variant = summarize_variant(
-                                product_node,
-                                &adjacency,
-                                &nodes_map,
-                                &mut property_names,
-                                &mut direct_properties,
-                                &mut offer_count,
-                            );
-                            if let Some(status) = variant.availability.as_ref() {
-                                *pg_summary
-                                    .availability_counts
-                                    .entry(status.clone())
-                                    .or_insert(0) += 1;
-                            }
-                            if let Some(price) = variant.price_numeric {
-                                pg_summary.price_stats = match pg_summary.price_stats.take() {
-                                    Some(mut stats) => {
-                                        if price < stats.min {
-                                            stats.min = price;
-                                        }
-                                        if price > stats.max {
-                                            stats.max = price;
-                                        }
-                                        if stats.currency.is_none() {
-                                            stats.currency = variant.price_currency.clone();
-                                        }
-                                        Some(stats)
-                                    }
-                                    None => Some(PriceStats {
-                                        min: price,
-                                        max: price,
-                                        currency: variant.price_currency.clone(),
-                                    }),
-                                };
-                            }
-                            pg_summary.total_variants += 1;
-                            insights.variants.push(variant);
+                    } else if predicate_matches(&edge.predicate, "hasVariant")
+                        && let Some(product_node) = nodes_map.get(target_id)
+                    {
+                        let variant = summarize_variant(
+                            product_node,
+                            &adjacency,
+                            &nodes_map,
+                            &mut property_names,
+                            &mut direct_properties,
+                            &mut offer_count,
+                        );
+                        if let Some(status) = variant.availability.as_ref() {
+                            *pg_summary
+                                .availability_counts
+                                .entry(status.clone())
+                                .or_insert(0) += 1;
                         }
+                        if let Some(price) = variant.price_numeric {
+                            pg_summary.price_stats = match pg_summary.price_stats.take() {
+                                Some(mut stats) => {
+                                    if price < stats.min {
+                                        stats.min = price;
+                                    }
+                                    if price > stats.max {
+                                        stats.max = price;
+                                    }
+                                    if stats.currency.is_none() {
+                                        stats.currency = variant.price_currency.clone();
+                                    }
+                                    Some(stats)
+                                }
+                                None => Some(PriceStats {
+                                    min: price,
+                                    max: price,
+                                    currency: variant.price_currency.clone(),
+                                }),
+                            };
+                        }
+                        pg_summary.total_variants += 1;
+                        insights.variants.push(variant);
                     }
                 }
             }
@@ -619,77 +631,76 @@ impl GraphInsights {
             insights.product_group = Some(pg_summary);
         }
 
-        if insights.product_group.is_none() {
-            if let Some(product_node) = nodes_map
+        if insights.product_group.is_none()
+            && let Some(product_node) = nodes_map
                 .values()
                 .find(|node| has_schema_type(node, "Product"))
-            {
-                let mut pg_summary = ProductGroupSummary::default();
-                pg_summary.name = property_text(
-                    product_node,
-                    &["https://schema.org/name", "http://schema.org/name", "name"],
-                );
-                pg_summary.product_group_id = property_text(
-                    product_node,
-                    &[
-                        "https://schema.org/productID",
-                        "http://schema.org/productID",
-                        "productID",
-                        "https://schema.org/sku",
-                        "http://schema.org/sku",
-                        "sku",
-                    ],
-                );
+        {
+            let mut pg_summary = ProductGroupSummary::default();
+            pg_summary.name = property_text(
+                product_node,
+                &["https://schema.org/name", "http://schema.org/name", "name"],
+            );
+            pg_summary.product_group_id = property_text(
+                product_node,
+                &[
+                    "https://schema.org/productID",
+                    "http://schema.org/productID",
+                    "productID",
+                    "https://schema.org/sku",
+                    "http://schema.org/sku",
+                    "sku",
+                ],
+            );
 
-                if let Some(edges) = adjacency.get(product_node.id.as_str()) {
-                    for edge in edges {
-                        let target_id = edge.to.as_str();
-                        if predicate_matches(&edge.predicate, "brand") {
-                            if let Some(brand_node) = nodes_map.get(target_id) {
-                                pg_summary.brand = property_text(
-                                    brand_node,
-                                    &["https://schema.org/name", "http://schema.org/name", "name"],
-                                );
-                                if let Some(brand_name) = pg_summary.brand.as_ref() {
-                                    insights
-                                        .graph_summary
-                                        .push(format!("Product → Brand ({brand_name})"));
-                                } else {
-                                    insights.graph_summary.push("Product → Brand".to_string());
-                                }
-                            }
+            if let Some(edges) = adjacency.get(product_node.id.as_str()) {
+                for edge in edges {
+                    let target_id = edge.to.as_str();
+                    if predicate_matches(&edge.predicate, "brand")
+                        && let Some(brand_node) = nodes_map.get(target_id)
+                    {
+                        pg_summary.brand = property_text(
+                            brand_node,
+                            &["https://schema.org/name", "http://schema.org/name", "name"],
+                        );
+                        if let Some(brand_name) = pg_summary.brand.as_ref() {
+                            insights
+                                .graph_summary
+                                .push(format!("Product → Brand ({brand_name})"));
+                        } else {
+                            insights.graph_summary.push("Product → Brand".to_string());
                         }
                     }
                 }
-
-                let variant = summarize_variant(
-                    product_node,
-                    &adjacency,
-                    &nodes_map,
-                    &mut property_names,
-                    &mut direct_properties,
-                    &mut offer_count,
-                );
-
-                if let Some(status) = variant.availability.as_ref() {
-                    *pg_summary
-                        .availability_counts
-                        .entry(status.clone())
-                        .or_insert(0) += 1;
-                }
-
-                if let Some(price) = variant.price_numeric {
-                    pg_summary.price_stats = Some(PriceStats {
-                        min: price,
-                        max: price,
-                        currency: variant.price_currency.clone(),
-                    });
-                }
-
-                pg_summary.total_variants = 1;
-                insights.variants.push(variant);
-                insights.product_group = Some(pg_summary);
             }
+
+            let variant = summarize_variant(
+                product_node,
+                &adjacency,
+                &nodes_map,
+                &mut property_names,
+                &mut direct_properties,
+                &mut offer_count,
+            );
+
+            if let Some(status) = variant.availability.as_ref() {
+                *pg_summary
+                    .availability_counts
+                    .entry(status.clone())
+                    .or_insert(0) += 1;
+            }
+
+            if let Some(price) = variant.price_numeric {
+                pg_summary.price_stats = Some(PriceStats {
+                    min: price,
+                    max: price,
+                    currency: variant.price_currency.clone(),
+                });
+            }
+
+            pg_summary.total_variants = 1;
+            insights.variants.push(variant);
+            insights.product_group = Some(pg_summary);
         }
 
         if offer_count > 0 {
@@ -780,26 +791,23 @@ fn collect_additional_properties<'a>(
     let mut result = HashMap::new();
     if let Some(edges) = adjacency.get(product.id.as_str()) {
         for edge in edges {
-            if predicate_matches(&edge.predicate, "additionalProperty") {
-                if let Some(node) = nodes.get(edge.to.as_str()) {
-                    if has_schema_type(node, "PropertyValue") {
-                        if let Some(name) = property_text(
-                            node,
-                            &["https://schema.org/name", "http://schema.org/name", "name"],
-                        ) {
-                            if let Some(value) = property_text(
-                                node,
-                                &[
-                                    "https://schema.org/value",
-                                    "http://schema.org/value",
-                                    "value",
-                                ],
-                            ) {
-                                result.insert(name.clone(), value);
-                            }
-                        }
-                    }
-                }
+            if predicate_matches(&edge.predicate, "additionalProperty")
+                && let Some(node) = nodes.get(edge.to.as_str())
+                && has_schema_type(node, "PropertyValue")
+                && let Some(name) = property_text(
+                    node,
+                    &["https://schema.org/name", "http://schema.org/name", "name"],
+                )
+                && let Some(value) = property_text(
+                    node,
+                    &[
+                        "https://schema.org/value",
+                        "http://schema.org/value",
+                        "value",
+                    ],
+                )
+            {
+                result.insert(name.clone(), value);
             }
         }
     }
@@ -813,48 +821,48 @@ fn extract_offer<'a>(
 ) -> Option<(Option<String>, Option<f64>, Option<String>, Option<String>)> {
     let edges = adjacency.get(product.id.as_str())?;
     for edge in edges {
-        if predicate_matches(&edge.predicate, "offers") {
-            if let Some(offer_node) = nodes.get(edge.to.as_str()) {
-                if !has_schema_type(offer_node, "Offer") {
-                    continue;
-                }
-                let price_raw = property_text(
-                    offer_node,
-                    &[
-                        "https://schema.org/price",
-                        "http://schema.org/price",
-                        "price",
-                    ],
-                );
-                let currency = property_text(
-                    offer_node,
-                    &[
-                        "https://schema.org/priceCurrency",
-                        "http://schema.org/priceCurrency",
-                        "priceCurrency",
-                    ],
-                );
-                let price_numeric = price_raw
-                    .as_ref()
-                    .and_then(|raw| raw.replace(',', ".").parse::<f64>().ok());
-                let price_display = if let Some(value) = price_numeric {
-                    Some(format_price(value, currency.as_deref()))
-                } else {
-                    price_raw.clone()
-                };
-
-                let availability = property_text(
-                    offer_node,
-                    &[
-                        "https://schema.org/availability",
-                        "http://schema.org/availability",
-                        "availability",
-                    ],
-                )
-                .map(|s| shorten_iri(&s));
-
-                return Some((price_display, price_numeric, currency, availability));
+        if predicate_matches(&edge.predicate, "offers")
+            && let Some(offer_node) = nodes.get(edge.to.as_str())
+        {
+            if !has_schema_type(offer_node, "Offer") {
+                continue;
             }
+            let price_raw = property_text(
+                offer_node,
+                &[
+                    "https://schema.org/price",
+                    "http://schema.org/price",
+                    "price",
+                ],
+            );
+            let currency = property_text(
+                offer_node,
+                &[
+                    "https://schema.org/priceCurrency",
+                    "http://schema.org/priceCurrency",
+                    "priceCurrency",
+                ],
+            );
+            let price_numeric = price_raw
+                .as_ref()
+                .and_then(|raw| raw.replace(',', ".").parse::<f64>().ok());
+            let price_display = if let Some(value) = price_numeric {
+                Some(format_price(value, currency.as_deref()))
+            } else {
+                price_raw.clone()
+            };
+
+            let availability = property_text(
+                offer_node,
+                &[
+                    "https://schema.org/availability",
+                    "http://schema.org/availability",
+                    "availability",
+                ],
+            )
+            .map(|s| shorten_iri(&s));
+
+            return Some((price_display, price_numeric, currency, availability));
         }
     }
     None
@@ -1064,7 +1072,7 @@ fn value_object_to_json(value: &json_ld::Value<iref::IriBuf>) -> Option<JsonValu
         json_ld::Value::Literal(lit, _) => match lit {
             Literal::Null => Some(JsonValue::Null),
             Literal::Boolean(b) => Some(JsonValue::Bool(*b)),
-            Literal::Number(n) => serde_json::Number::from_str(&n.to_string())
+            Literal::Number(n) => serde_json::Number::from_str(n.as_ref())
                 .ok()
                 .map(JsonValue::Number),
             Literal::String(s) => Some(JsonValue::String(s.to_string())),
@@ -1092,7 +1100,7 @@ fn json_syntax_value_to_json(value: &SyntaxValue) -> JsonValue {
     match value {
         SyntaxValue::Null => JsonValue::Null,
         SyntaxValue::Boolean(b) => JsonValue::Bool(*b),
-        SyntaxValue::Number(n) => serde_json::Number::from_str(&n.to_string())
+        SyntaxValue::Number(n) => serde_json::Number::from_str(n.as_ref())
             .ok()
             .map(JsonValue::Number)
             .unwrap_or_else(|| JsonValue::String(n.to_string())),
@@ -1201,10 +1209,10 @@ fn node_label(node: &GraphNode) -> NodeLabel {
 
 fn property_text(node: &GraphNode, keys: &[&str]) -> Option<String> {
     for key in keys {
-        if let Some(value) = resolve_node_property(&node.properties, key) {
-            if let Some(text) = json_value_to_string(value) {
-                return Some(text);
-            }
+        if let Some(value) = resolve_node_property(&node.properties, key)
+            && let Some(text) = json_value_to_string(value)
+        {
+            return Some(text);
         }
     }
     None
@@ -1230,10 +1238,10 @@ fn resolve_node_property<'a>(
         }
     }
 
-    if let Some(last) = key.rsplit('/').next() {
-        if let Some(value) = props.get(last) {
-            return Some(value);
-        }
+    if let Some(last) = key.rsplit('/').next()
+        && let Some(value) = props.get(last)
+    {
+        return Some(value);
     }
 
     None
@@ -1561,10 +1569,10 @@ fn resolve_json_property<'a>(
         }
     }
 
-    if let Some(last) = key.rsplit('/').next() {
-        if let Some(value) = map.get(last) {
-            return Some(value);
-        }
+    if let Some(last) = key.rsplit('/').next()
+        && let Some(value) = map.get(last)
+    {
+        return Some(value);
     }
 
     None
@@ -1727,10 +1735,10 @@ fn derive_output_filename(url: &Url) -> String {
         parts.push(sanitize_for_filename(&path_component));
     }
 
-    if let Some(query) = url.query() {
-        if !query.is_empty() {
-            parts.push(sanitize_for_filename(query));
-        }
+    if let Some(query) = url.query()
+        && !query.is_empty()
+    {
+        parts.push(sanitize_for_filename(query));
     }
 
     format!("{}.md", parts.join("__"))

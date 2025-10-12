@@ -38,6 +38,12 @@ Example:
 htmlens https://example.com/product-page --graph-summary --save reports
 ```
 
+Running directly with Cargo:
+
+```bash
+cargo run --release --bin htmlens -- <url> [OPTIONS]
+```
+
 The program emits the Markdown, JSON, Mermaid graph, and data download URLs to
 `stdout` so they can be saved or piped as needed.
 

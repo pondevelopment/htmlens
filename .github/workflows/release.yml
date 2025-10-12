@@ -1,0 +1,84 @@
+name: Release htmlens
+
+on:
+  push:
+    tags:
+      - "v*"  # Trigger only when version tags are pushed (e.g., v1.0.0)
+
+permissions:
+  contents: write  # Required to create GitHub releases
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: ""
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
+            archive: zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          rustup target add ${{ matrix.target }}
+          sudo apt-get update -y || true
+          make deps || true  # optional: if you have a deps target
+
+      - name: Build binary
+        run: |
+          make build TARGET=${{ matrix.target }} || cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          BIN_NAME="htmlens${{ matrix.ext }}"
+          cp target/${{ matrix.target }}/release/htmlens dist/$BIN_NAME
+
+          cd dist
+          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar -czvf htmlens-${{ matrix.target }}.tar.gz $BIN_NAME
+          else
+            powershell Compress-Archive -Path $BIN_NAME -DestinationPath htmlens-${{ matrix.target }}.zip
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: htmlens-${{ matrix.target }}
+          path: dist/htmlens-*.${{ matrix.archive }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
