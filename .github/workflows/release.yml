@@ -34,29 +34,29 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: |
-          rustup target add ${{ matrix.target }}
-          sudo apt-get update -y || true
-          make deps || true  # optional: if you have a deps target
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Build binary
-        run: |
-          make build TARGET=${{ matrix.target }} || cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package binary
+      - name: Package binary (Unix)
+        if: matrix.archive == 'tar.gz'
         run: |
           mkdir -p dist
           BIN_NAME="htmlens${{ matrix.ext }}"
           cp target/${{ matrix.target }}/release/htmlens dist/$BIN_NAME
-
           cd dist
-          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
-            tar -czvf htmlens-${{ matrix.target }}.tar.gz $BIN_NAME
-          else
-            powershell Compress-Archive -Path $BIN_NAME -DestinationPath htmlens-${{ matrix.target }}.zip
-          fi
+          tar -czvf htmlens-${{ matrix.target }}.tar.gz $BIN_NAME
+
+      - name: Package binary (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          $BIN_NAME = "htmlens${{ matrix.ext }}"
+          Copy-Item "target/${{ matrix.target }}/release/htmlens.exe" "dist/$BIN_NAME"
+          Compress-Archive -Path "dist/$BIN_NAME" -DestinationPath "dist/htmlens-${{ matrix.target }}.zip"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
