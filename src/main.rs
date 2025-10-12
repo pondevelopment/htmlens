@@ -213,7 +213,10 @@ async fn run(options: CliOptions) -> Result<()> {
     let graph_json_value = serde_json::to_value(&graph)?;
     let mut insights = GraphInsights::from(&graph);
 
-    if options.include_data_downloads {
+    let include_data_downloads =
+        options.include_data_downloads || matches!(options.mode, OutputMode::SummaryWithMarkdown);
+
+    if include_data_downloads {
         insights.data_downloads = render_data_downloads(&graph_json_value);
         if !insights.data_downloads.is_empty() {
             insights.graph_summary.push(format!(
@@ -223,10 +226,10 @@ async fn run(options: CliOptions) -> Result<()> {
         }
     }
 
-    let include_markdown = options.mode != OutputMode::GraphOnly;
+    let include_markdown = matches!(options.mode, OutputMode::MarkdownOnly);
     let include_summary_sections = matches!(options.mode, OutputMode::SummaryWithMarkdown);
-    let include_condensed_summary = options.mode != OutputMode::MarkdownOnly;
-    let include_graph_exports = matches!(options.mode, OutputMode::SummaryWithMarkdown);
+    let include_condensed_summary = matches!(options.mode, OutputMode::GraphOnly);
+    let include_graph_exports = false;
 
     let graph_json_string = if include_graph_exports {
         Some(serde_json::to_string_pretty(&graph_json_value)?)
@@ -284,7 +287,7 @@ async fn run(options: CliOptions) -> Result<()> {
         }
     }
 
-    if options.include_data_downloads {
+    if include_data_downloads {
         render_data_downloads_section(&mut output, &insights.data_downloads);
     }
 

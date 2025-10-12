@@ -60,6 +60,14 @@ The program emits the Markdown, JSON, Mermaid graph, and data download URLs to
 - `-v`, `--version` &mdash; Show version information.
 - `-h`, `--help` &mdash; Show this help message.
 
+### Output Modes
+
+- *Default* (no flags) — render only the page Markdown.
+- `--graph-summary` — render Markdown plus product summaries, variant table,
+  data downloads, and condensed graph relationships.
+- `--graph-only` — show just the condensed graph summary (and optional
+  DataDownload section when `-dd` is present).
+
 ## Implementation Notes
 
 - Uses `reqwest` for HTTP, `html2md` to generate Markdown, and `scraper` to
