@@ -188,4 +188,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Built for Marketeers and Developers to understand better what an Agent or Screper sees.
+Built for Marketeers and Developers to understand better what an Agent or Scraper sees.
