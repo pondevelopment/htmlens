@@ -288,6 +288,8 @@ Add new sections by:
 - **tokio**: Async runtime
 - **anyhow**: Error handling
 - **url**: URL parsing
+- **once_cell**: For lazy static initialization
+- **regex**: For efficient text processing
 
 ### Version Constraints
 - Rust edition: 2024
