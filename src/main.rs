@@ -487,6 +487,8 @@ struct DataDownloadEntry {
     license: Option<String>,
 }
 
+type OfferInfo = (Option<String>, Option<f64>, Option<String>, Option<String>);
+
 impl GraphNode {
     fn new(id: String) -> Self {
         Self {
@@ -539,24 +541,26 @@ impl GraphInsights {
             .values()
             .find(|node| has_schema_type(node, "ProductGroup"))
         {
-            let mut pg_summary = ProductGroupSummary::default();
-            pg_summary.name = property_text(product_group, &["https://schema.org/name", "name"]);
-            pg_summary.product_group_id = property_text(
-                product_group,
-                &[
-                    "https://schema.org/productGroupID",
-                    "http://schema.org/productGroupID",
-                    "productGroupID",
-                ],
-            );
-            pg_summary.varies_by = property_list(
-                product_group,
-                &[
-                    "https://schema.org/variesBy",
-                    "http://schema.org/variesBy",
-                    "variesBy",
-                ],
-            );
+            let mut pg_summary = ProductGroupSummary {
+                name: property_text(product_group, &["https://schema.org/name", "name"]),
+                product_group_id: property_text(
+                    product_group,
+                    &[
+                        "https://schema.org/productGroupID",
+                        "http://schema.org/productGroupID",
+                        "productGroupID",
+                    ],
+                ),
+                varies_by: property_list(
+                    product_group,
+                    &[
+                        "https://schema.org/variesBy",
+                        "http://schema.org/variesBy",
+                        "variesBy",
+                    ],
+                ),
+                ..Default::default()
+            };
 
             let mut brand_added = false;
 
@@ -639,22 +643,24 @@ impl GraphInsights {
                 .values()
                 .find(|node| has_schema_type(node, "Product"))
         {
-            let mut pg_summary = ProductGroupSummary::default();
-            pg_summary.name = property_text(
-                product_node,
-                &["https://schema.org/name", "http://schema.org/name", "name"],
-            );
-            pg_summary.product_group_id = property_text(
-                product_node,
-                &[
-                    "https://schema.org/productID",
-                    "http://schema.org/productID",
-                    "productID",
-                    "https://schema.org/sku",
-                    "http://schema.org/sku",
-                    "sku",
-                ],
-            );
+            let mut pg_summary = ProductGroupSummary {
+                name: property_text(
+                    product_node,
+                    &["https://schema.org/name", "http://schema.org/name", "name"],
+                ),
+                product_group_id: property_text(
+                    product_node,
+                    &[
+                        "https://schema.org/productID",
+                        "http://schema.org/productID",
+                        "productID",
+                        "https://schema.org/sku",
+                        "http://schema.org/sku",
+                        "sku",
+                    ],
+                ),
+                ..Default::default()
+            };
 
             if let Some(edges) = adjacency.get(product_node.id.as_str()) {
                 for edge in edges {
@@ -741,23 +747,26 @@ fn summarize_variant<'a>(
     direct_properties: &mut BTreeSet<String>,
     offer_count: &mut usize,
 ) -> VariantSummary {
-    let mut summary = VariantSummary::default();
-    summary.sku = property_text(
-        product,
-        &["https://schema.org/sku", "http://schema.org/sku", "sku"],
-    );
-    summary.color = property_text(
-        product,
-        &[
-            "https://schema.org/color",
-            "http://schema.org/color",
-            "color",
-        ],
-    );
-    summary.size = property_text(
-        product,
-        &["https://schema.org/size", "http://schema.org/size", "size"],
-    );
+    let mut summary = VariantSummary {
+        sku: property_text(
+            product,
+            &["https://schema.org/sku", "http://schema.org/sku", "sku"],
+        ),
+        color: property_text(
+            product,
+            &[
+                "https://schema.org/color",
+                "http://schema.org/color",
+                "color",
+            ],
+        ),
+        size: property_text(
+            product,
+            &["https://schema.org/size", "http://schema.org/size", "size"],
+        ),
+        ..Default::default()
+    };
+
     if summary.color.is_some() {
         direct_properties.insert("color".to_string());
     }
@@ -821,7 +830,7 @@ fn extract_offer<'a>(
     product: &GraphNode,
     adjacency: &HashMap<&'a str, Vec<&'a GraphEdge>>,
     nodes: &HashMap<&'a str, &'a GraphNode>,
-) -> Option<(Option<String>, Option<f64>, Option<String>, Option<String>)> {
+) -> Option<OfferInfo> {
     let edges = adjacency.get(product.id.as_str())?;
     for edge in edges {
         if predicate_matches(&edge.predicate, "offers")
