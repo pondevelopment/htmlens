@@ -1,7 +1,16 @@
 [package]
 name = "htmlens"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
+license = "MIT"
+authors = ["Pon Datalab"]
+description = "Extract semantic knowledge graphs and readable text from HTML pages - see what crawlers see and visualize JSON-LD/Schema.org data"
+repository = "https://github.com/pondevelopment/htmlens"
+homepage = "https://github.com/pondevelopment/htmlens"
+readme = "README.md"
+keywords = ["html", "json-ld", "crawler", "seo", "geo", "knowledge-graph"]
+categories = ["command-line-utilities", "web-programming", "parser-implementations"]
+rust-version = "1.70"
 
 [dependencies]
 anyhow = "1.0"
