@@ -10,7 +10,7 @@ homepage = "https://github.com/pondevelopment/htmlens"
 readme = "README.md"
 keywords = ["html", "json-ld", "crawler", "seo", "geo", "knowledge-graph"]
 categories = ["command-line-utilities", "web-programming", "parser-implementations"]
-rust-version = "1.70"
+rust-version = "1.85"
 
 [dependencies]
 anyhow = "1.0"
