@@ -14,12 +14,12 @@ use json_ld::{JsonLdProcessor, RemoteDocument, ReqwestLoader};
 use json_syntax::Value as SyntaxValue;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use reqwest::Client;
-use scraper::{Html, Selector};
 use serde::Serialize;
 use serde_json::{Map, Value as JsonValue};
 use url::Url;
 use uuid::Uuid;
+
+mod parser;
 
 const APP_NAME: &str = "htmlens";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -224,9 +224,9 @@ async fn run(options: CliOptions) -> Result<()> {
     let (base_url, markdown, json_ld_blocks) = match &options.input {
         InputSource::Url(url) => {
             let parsed_url = Url::parse(url).context("invalid URL")?;
-            let html = fetch(parsed_url.as_str()).await?;
+            let html = parser::fetch_html(parsed_url.as_str()).await?;
             let markdown = parse_html(&sanitize_html_for_markdown(&html));
-            let json_ld_blocks = extract_json_ld_blocks(&html)?;
+            let json_ld_blocks = parser::extract_json_ld_blocks(&html)?;
             (url.clone(), markdown, json_ld_blocks)
         }
         InputSource::JsonLd(json_ld) => {
@@ -242,7 +242,7 @@ async fn run(options: CliOptions) -> Result<()> {
     let mut builder = GraphBuilder::new();
 
     // Combine multiple JSON-LD blocks into a single graph
-    let combined_doc = combine_json_ld_blocks(&json_ld_blocks)?;
+    let combined_doc = parser::combine_json_ld_blocks(&json_ld_blocks)?;
     if let Ok(expanded) = expand_block(&base_url, &combined_doc, &mut loader).await {
         builder.ingest_document(&expanded);
     }
@@ -422,91 +422,6 @@ async fn run(options: CliOptions) -> Result<()> {
     }
 
     Ok(())
-}
-
-async fn fetch(url: &str) -> Result<String> {
-    let client = Client::new();
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .with_context(|| format!("failed to fetch {}", url))?;
-
-    response
-        .error_for_status()
-        .with_context(|| format!("non-success status from {}", url))?
-        .text()
-        .await
-        .with_context(|| format!("failed to read response body from {}", url))
-}
-
-fn extract_json_ld_blocks(html: &str) -> Result<Vec<String>> {
-    let document = Html::parse_document(html);
-    let script_selector =
-        Selector::parse("script").map_err(|e| anyhow!("unable to parse selector: {e}"))?;
-
-    Ok(document
-        .select(&script_selector)
-        .filter_map(|element| {
-            let script_type = element
-                .value()
-                .attr("type")
-                .map(|t| t.trim().to_ascii_lowercase())
-                .unwrap_or_default();
-
-            if script_type.contains("ld+json") {
-                let text = element.text().collect::<String>().trim().to_string();
-                if text.is_empty() { None } else { Some(text) }
-            } else {
-                None
-            }
-        })
-        .collect())
-}
-
-fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
-    if blocks.is_empty() {
-        return Ok(r#"{"@context": "https://schema.org", "@graph": []}"#.to_string());
-    }
-
-    if blocks.len() == 1 {
-        return Ok(blocks[0].clone());
-    }
-
-    // Parse each block and collect into a graph array
-    let mut graph_items = Vec::new();
-    let mut common_context = None;
-
-    for block in blocks {
-        let parsed: JsonValue = serde_json::from_str(block)
-            .with_context(|| format!("failed to parse JSON-LD block: {}", block))?;
-
-        // Use the @context from the first entry that has one
-        if common_context.is_none() {
-            if let Some(ctx) = parsed.get("@context") {
-                common_context = Some(ctx.clone());
-            }
-        }
-
-        // Remove @context from the item and add to graph
-        if let JsonValue::Object(mut obj) = parsed {
-            obj.remove("@context");
-            graph_items.push(JsonValue::Object(obj));
-        }
-    }
-
-    // Build combined document with the context from the first entry
-    // If no context was found in any block, we have to use a default
-    let context = common_context.unwrap_or_else(|| {
-        JsonValue::String("https://schema.org".to_string())
-    });
-
-    let combined = serde_json::json!({
-        "@context": context,
-        "@graph": graph_items
-    });
-
-    Ok(serde_json::to_string(&combined)?)
 }
 
 async fn expand_block(

@@ -36,7 +36,7 @@ pub struct GraphEdge {
 }
 
 impl GraphNode {
-    fn new(id: String) -> Self {
+    pub fn new(id: String) -> Self {
         Self {
             id,
             types: Vec::new(),
