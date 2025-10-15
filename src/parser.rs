@@ -6,7 +6,7 @@ use scraper::{Html, Selector};
 /// Fetch HTML content from a URL
 pub async fn fetch_html(url: &str) -> Result<String> {
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (compatible; htmlens/0.1)")
+        .user_agent(&format!("Mozilla/5.0 (compatible; htmlens/{})", env!("CARGO_PKG_VERSION")))
         .build()?;
 
     let response = client
