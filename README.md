@@ -41,7 +41,9 @@ offline analysis.
 htmlens/
 ├── Cargo.toml           # Project metadata and dependencies
 ├── src/
-│   └── main.rs          # Main application logic
+│   ├── main.rs          # CLI interface and output formatting
+│   ├── parser.rs        # HTML fetching, parsing, and JSON-LD extraction
+│   └── ld_graph.rs      # JSON-LD expansion and knowledge graph building
 ├── LICENSE              # MIT License
 └── README.md            # This file
 ```
@@ -200,14 +202,19 @@ The tool intelligently filters properties based on `variesBy` using substring ma
 ### Adding New Features
 
 When adding new features:
-1. Update the CLI argument parsing in `main.rs`
-2. Add corresponding logic for new extraction or formatting capabilities
-3. Update documentation in this README
-4. Test with various real-world URLs
+1. **Parser module** (`src/parser.rs`): Add new HTML/JSON-LD parsing or fetching capabilities
+2. **LD Graph module** (`src/ld_graph.rs`): Extend JSON-LD expansion or graph building logic
+3. **Main module** (`src/main.rs`): Update CLI arguments, output formatting, or entity extraction
+4. Update documentation in this README
+5. Test with various real-world URLs and JSON-LD inputs
 
 ## Implementation Notes
 
-- Uses `reqwest` for HTTP, `html2md` to generate Markdown, and `scraper` to
+- **Modular architecture**: Code is organized into three main modules:
+  - `parser`: HTTP fetching, HTML sanitization, and JSON-LD extraction
+  - `ld_graph`: JSON-LD expansion and knowledge graph construction
+  - `main`: CLI interface, entity extraction, and output formatting
+- Uses `reqwest` for HTTP with custom user agent, `html2md` to generate Markdown, and `scraper` to
   locate `application/ld+json` blocks.
 - JSON‑LD expansion relies on the `json-ld` crate's `ReqwestLoader` to resolve
   remote contexts.
