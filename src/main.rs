@@ -19,9 +19,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, PartialEq)]
 enum OutputMode {
-    MarkdownOnly,
-    SummaryWithMarkdown,
-    GraphOnly,
+    Default,      // Markdown + summaries (default behavior)
+    GraphOnly,    // Only condensed graph summary
 }
 
 enum InputSource {
@@ -49,7 +48,7 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
     }
 
     let mut url: Option<String> = None;
-    let mut mode = OutputMode::MarkdownOnly;
+    let mut mode = OutputMode::Default;
     let mut include_data_downloads = false;
     let mut include_mermaid = false;
     let mut save_target: Option<PathBuf> = None;
@@ -67,7 +66,7 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         }
 
         if matches!(arg.as_str(), "-g" | "--graph-only") {
-            if mode != OutputMode::MarkdownOnly {
+            if mode != OutputMode::Default {
                 return Err(anyhow!("conflicting graph options supplied"));
             }
             mode = OutputMode::GraphOnly;
@@ -76,10 +75,11 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         }
 
         if matches!(arg.as_str(), "-G" | "--graph-summary") {
-            if mode != OutputMode::MarkdownOnly {
+            // This flag is now just an alias for the default behavior (backwards compatibility)
+            if mode != OutputMode::Default {
                 return Err(anyhow!("conflicting graph options supplied"));
             }
-            mode = OutputMode::SummaryWithMarkdown;
+            // mode stays as Default - this is now a no-op for backwards compatibility
             i += 1;
             continue;
         }
@@ -244,8 +244,7 @@ async fn run(options: CliOptions) -> Result<()> {
     let graph_json_value = serde_json::to_value(&graph)?;
     let mut insights = GraphInsights::from(&graph);
 
-    let include_data_downloads =
-        options.include_data_downloads || matches!(options.mode, OutputMode::SummaryWithMarkdown);
+    let include_data_downloads = options.include_data_downloads || matches!(options.mode, OutputMode::Default);
 
     if include_data_downloads {
         insights.data_downloads = render_data_downloads(&graph_json_value);
@@ -257,9 +256,9 @@ async fn run(options: CliOptions) -> Result<()> {
         }
     }
 
-    // Default mode (MarkdownOnly) now includes both summary sections and markdown
-    let include_markdown = matches!(options.mode, OutputMode::MarkdownOnly | OutputMode::SummaryWithMarkdown);
-    let include_summary_sections = matches!(options.mode, OutputMode::MarkdownOnly | OutputMode::SummaryWithMarkdown);
+    // Determine what to include based on mode
+    let include_markdown = matches!(options.mode, OutputMode::Default);
+    let include_summary_sections = matches!(options.mode, OutputMode::Default);
     let include_condensed_summary = matches!(options.mode, OutputMode::GraphOnly);
     let include_graph_exports = options.include_mermaid;
 
@@ -976,13 +975,60 @@ fn extract_common_properties<'a>(
         .map(|s| s.to_lowercase())
         .collect();
     
+    // Helper function to normalize property names by extracting tokens
+    // e.g., "FrameSize" -> ["frame", "size"], "BatteryCapacity" -> ["battery", "capacity"]
+    let normalize_tokens = |s: &str| -> Vec<String> {
+        // Split on case boundaries and non-alphanumeric characters
+        let mut tokens = Vec::new();
+        let mut current = String::new();
+        
+        for ch in s.chars() {
+            if ch.is_uppercase() && !current.is_empty() {
+                tokens.push(current.to_lowercase());
+                current = String::new();
+            }
+            if ch.is_alphanumeric() {
+                current.push(ch);
+            } else if !current.is_empty() {
+                tokens.push(current.to_lowercase());
+                current = String::new();
+            }
+        }
+        if !current.is_empty() {
+            tokens.push(current.to_lowercase());
+        }
+        tokens
+    };
+    
     // Helper function to check if a property varies
     let is_varying = |prop_name: &str| -> bool {
         let prop_lower = prop_name.to_lowercase();
+        let prop_tokens = normalize_tokens(prop_name);
+        
         varies_by_lower.iter().any(|vb| {
-            // Check for exact match or if one contains the other
-            // e.g., "size" matches "framesize", "color" matches "color"
-            vb == &prop_lower || vb.contains(&prop_lower) || prop_lower.contains(vb)
+            // Exact match
+            if vb == &prop_lower {
+                return true;
+            }
+            
+            // Token-based matching: if all tokens from variesBy appear in the property name
+            // e.g., "size" in variesBy matches "FrameSize" (tokens: ["frame", "size"])
+            // but not "colorway" (tokens: ["colorway"])
+            let vb_tokens = normalize_tokens(vb);
+            
+            // Check if all variesBy tokens are present in property tokens
+            // This handles cases like "Size" matching "FrameSize"
+            // but avoids false positives like "Color" matching "Colorway"
+            if vb_tokens.len() == 1 && prop_tokens.contains(&vb_tokens[0]) {
+                return true;
+            }
+            
+            // For multi-token variesBy (e.g., "FrameSize"), require exact token sequence
+            if vb_tokens.len() > 1 && vb_tokens == prop_tokens {
+                return true;
+            }
+            
+            false
         })
     };
     

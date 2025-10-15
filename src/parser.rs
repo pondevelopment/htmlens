@@ -9,7 +9,7 @@ use serde_json::Value as JsonValue;
 /// Fetch HTML content from a URL
 pub async fn fetch_html(url: &str) -> Result<String> {
     let client = reqwest::Client::builder()
-        .user_agent(&format!("Mozilla/5.0 (compatible; htmlens/{})", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("Mozilla/5.0 (compatible; htmlens/{})", env!("CARGO_PKG_VERSION")))
         .build()?;
 
     let response = client
@@ -53,6 +53,15 @@ pub fn extract_json_ld_blocks(html: &str) -> Result<Vec<String>> {
 }
 
 /// Combine multiple JSON-LD blocks into a single @graph structure
+/// 
+/// Uses the @context from the first block that has one. This works well when all blocks
+/// use the same context (e.g., https://schema.org), which is the common case.
+/// 
+/// Handles both object and array top-level JSON-LD structures.
+/// 
+/// Note: If blocks use different contexts, this may cause incorrect term expansion.
+/// For such cases, consider processing blocks separately or using a JSON-LD processor
+/// that can handle multiple contexts correctly.
 pub fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
     if blocks.is_empty() {
         return Ok(r#"{"@context": "https://schema.org", "@graph": []}"#.to_string());
@@ -77,15 +86,41 @@ pub fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
             }
         }
 
-        // Remove @context from the item and add to graph
-        if let JsonValue::Object(mut obj) = parsed {
-            obj.remove("@context");
-            graph_items.push(JsonValue::Object(obj));
+        // Handle both objects and arrays
+        match parsed {
+            JsonValue::Object(mut obj) => {
+                // Remove @context from the item and add to graph
+                obj.remove("@context");
+                graph_items.push(JsonValue::Object(obj));
+            }
+            JsonValue::Array(arr) => {
+                // Array at top level: add each object item to the graph
+                for item in arr {
+                    match item {
+                        JsonValue::Object(mut obj) => {
+                            obj.remove("@context");
+                            graph_items.push(JsonValue::Object(obj));
+                        }
+                        _ => {
+                            // Non-object items in arrays are unusual but valid JSON-LD
+                            // (e.g., literal values). Include them as-is.
+                            graph_items.push(item);
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Top-level primitives (string, number, bool, null) are not valid JSON-LD documents
+                return Err(anyhow::anyhow!(
+                    "Invalid JSON-LD: top level must be an object or array, got {:?}",
+                    parsed
+                ));
+            }
         }
     }
 
     // Build combined document with the context from the first entry
-    // If no context was found in any block, we have to use a default
+    // If no context was found in any block, use schema.org as default
     let context = common_context.unwrap_or_else(|| {
         JsonValue::String("https://schema.org".to_string())
     });
