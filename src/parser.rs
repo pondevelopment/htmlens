@@ -1,6 +1,8 @@
 //! HTML fetching and parsing functionality
 
 use anyhow::{Context, Result};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use scraper::{Html, Selector};
 use serde_json::Value as JsonValue;
 
@@ -18,11 +20,6 @@ pub async fn fetch_html(url: &str) -> Result<String> {
 
     let html = response.text().await.context("Failed to read response body")?;
     Ok(html)
-}
-
-/// Convert HTML to Markdown
-pub fn html_to_markdown(html: &str) -> String {
-    html2md::parse_html(html)
 }
 
 /// Extract JSON-LD script blocks from HTML
@@ -99,4 +96,34 @@ pub fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
     });
 
     Ok(serde_json::to_string(&combined)?)
+}
+
+/// Sanitize HTML by removing script, style, and other unwanted elements
+fn sanitize_html(html: &str) -> String {
+    static RE_TAG_BLOCKS: Lazy<Vec<Regex>> = Lazy::new(|| {
+        [
+            r"(?is)<script[^>]*?>[\s\S]*?</script>",
+            r"(?is)<style[^>]*?>[\s\S]*?</style>",
+            r"(?is)<noscript[^>]*?>[\s\S]*?</noscript>",
+            r"(?is)<template[^>]*?>[\s\S]*?</template>",
+        ]
+        .into_iter()
+        .map(|pattern| Regex::new(pattern).expect("invalid block regex"))
+        .collect()
+    });
+    static RE_COMMENT: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"(?is)<!--.*?-->").expect("invalid comment regex"));
+
+    let mut clean = html.to_string();
+    for re in RE_TAG_BLOCKS.iter() {
+        clean = re.replace_all(&clean, "").into_owned();
+    }
+
+    RE_COMMENT.replace_all(&clean, "").into_owned()
+}
+
+/// Convert HTML to Markdown (with sanitization)
+pub fn html_to_markdown(html: &str) -> String {
+    let sanitized = sanitize_html(html);
+    html2md::parse_html(&sanitized)
 }
