@@ -875,12 +875,22 @@ fn summarize_variant<'a>(
             &[
                 "https://schema.org/color",
                 "http://schema.org/color",
+                "https://schema.org/Color",  // Capitalized schema.org variant
+                "http://schema.org/Color",
                 "color",
+                "Color",
             ],
         ),
         size: property_text(
             product,
-            &["https://schema.org/size", "http://schema.org/size", "size"],
+            &[
+                "https://schema.org/size", 
+                "http://schema.org/size",
+                "https://schema.org/Size",  // Capitalized schema.org variant
+                "http://schema.org/Size",
+                "size",
+                "Size",
+            ],
         ),
         ..Default::default()
     };
@@ -1460,16 +1470,35 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
 
     // Build dynamic headers based on variesBy
     let mut headers = vec!["SKU"];
+    let mut columns_to_show: Vec<String> = Vec::new();
     
-    // Add columns based on variesBy
+    // Add columns based on variesBy - show ALL properties
     for vary in varies_by {
-        match vary.as_str() {
-            "Color" => headers.push("Color"),
-            "Size" | "FrameSize" => headers.push("Size"),
-            "FrameType" | "FrameShape" => headers.push("FrameShape"),
-            "BatteryCapacity" => headers.push("Battery"),
-            _ => {}, // Skip unknown properties
-        }
+        let (header_name, column_key) = match vary.as_str() {
+            "Color" => ("Color", "Color"),
+            "Size" => ("Size", "Size"),
+            "FrameSize" => {
+                // Avoid duplicate if we already have Size
+                if columns_to_show.contains(&"Size".to_string()) {
+                    continue;
+                }
+                ("Size", "Size")
+            }
+            "FrameType" => {
+                // Avoid duplicate if we already have FrameShape
+                if columns_to_show.contains(&"FrameShape".to_string()) {
+                    continue;
+                }
+                ("FrameShape", "FrameShape")
+            }
+            "FrameShape" => ("FrameShape", "FrameShape"),
+            "BatteryCapacity" => ("Battery", "BatteryCapacity"),
+            // For any other property, use the property name as-is
+            other => (other, other),
+        };
+        
+        headers.push(header_name);
+        columns_to_show.push(column_key.to_string());
     }
     
     // Always add Price and Availability at the end
@@ -1480,12 +1509,12 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
     for variant in variants {
         let mut row = vec![variant.sku.clone().unwrap_or_else(|| "–".to_string())];
         
-        // Add cells based on variesBy
-        for vary in varies_by {
-            let cell = match vary.as_str() {
+        // Add cells based on which columns we're showing
+        for column in &columns_to_show {
+            let cell = match column.as_str() {
+                "Size" => variant.size.clone().unwrap_or_else(|| "–".to_string()),
                 "Color" => variant.color.clone().unwrap_or_else(|| "–".to_string()),
-                "Size" | "FrameSize" => variant.size.clone().unwrap_or_else(|| "–".to_string()),
-                "FrameType" | "FrameShape" => variant
+                "FrameShape" => variant
                     .frame_shape
                     .clone()
                     .or_else(|| variant.additional.get("FrameType").cloned())
@@ -1496,7 +1525,8 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
                     .clone()
                     .or_else(|| variant.additional.get("BatteryCapacity").cloned())
                     .unwrap_or_else(|| "–".to_string()),
-                _ => continue, // Skip unknown properties
+                // For any other property, look it up in additional properties
+                other => variant.additional.get(other).cloned().unwrap_or_else(|| "–".to_string()),
             };
             row.push(cell);
         }
