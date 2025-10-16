@@ -1,40 +1,38 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow};
-use html2md::parse_html;
-use iref::IriBuf;
-use json_ld::object::Literal;
-use json_ld::syntax::{Parse, Value};
-use json_ld::{JsonLdProcessor, RemoteDocument, ReqwestLoader};
-use json_syntax::Value as SyntaxValue;
-use once_cell::sync::Lazy;
-use regex::Regex;
-use reqwest::Client;
-use scraper::{Html, Selector};
-use serde::Serialize;
-use serde_json::{Map, Value as JsonValue};
+use json_ld::ReqwestLoader;
+use serde_json::Value as JsonValue;
 use url::Url;
-use uuid::Uuid;
+
+mod parser;
+mod ld_graph;
+
+use ld_graph::{KnowledgeGraph, GraphNode, GraphEdge, GraphBuilder};
 
 const APP_NAME: &str = "htmlens";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, PartialEq)]
 enum OutputMode {
-    MarkdownOnly,
-    SummaryWithMarkdown,
-    GraphOnly,
+    Default,      // Markdown + summaries (default behavior)
+    GraphOnly,    // Only condensed graph summary
+}
+
+enum InputSource {
+    Url(String),
+    JsonLd(String),
 }
 
 struct CliOptions {
-    url: String,
+    input: InputSource,
     mode: OutputMode,
     include_data_downloads: bool,
+    include_mermaid: bool,
     save_target: Option<PathBuf>,
 }
 
@@ -50,8 +48,9 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
     }
 
     let mut url: Option<String> = None;
-    let mut mode = OutputMode::MarkdownOnly;
+    let mut mode = OutputMode::Default;
     let mut include_data_downloads = false;
+    let mut include_mermaid = false;
     let mut save_target: Option<PathBuf> = None;
     let mut i = 0;
 
@@ -67,7 +66,7 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         }
 
         if matches!(arg.as_str(), "-g" | "--graph-only") {
-            if mode != OutputMode::MarkdownOnly {
+            if mode != OutputMode::Default {
                 return Err(anyhow!("conflicting graph options supplied"));
             }
             mode = OutputMode::GraphOnly;
@@ -76,16 +75,23 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         }
 
         if matches!(arg.as_str(), "-G" | "--graph-summary") {
-            if mode != OutputMode::MarkdownOnly {
+            // This flag is now just an alias for the default behavior (backwards compatibility)
+            if mode != OutputMode::Default {
                 return Err(anyhow!("conflicting graph options supplied"));
             }
-            mode = OutputMode::SummaryWithMarkdown;
+            // mode stays as Default - this is now a no-op for backwards compatibility
             i += 1;
             continue;
         }
 
         if matches!(arg.as_str(), "-dd" | "--data-downloads") {
             include_data_downloads = true;
+            i += 1;
+            continue;
+        }
+
+        if matches!(arg.as_str(), "-m" | "--mermaid") {
+            include_mermaid = true;
             i += 1;
             continue;
         }
@@ -152,26 +158,39 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         i += 1;
     }
 
-    let url = url.ok_or_else(|| anyhow!("missing <url> argument"))?;
+    let url = url.ok_or_else(|| anyhow!("missing <url> or <json-ld> argument"))?;
+
+    // Detect if input is JSON-LD or a URL
+    let input = if url.trim().starts_with('{') || url.trim().starts_with('[') {
+        InputSource::JsonLd(url)
+    } else {
+        InputSource::Url(url)
+    };
 
     Ok(CliCommand::Run(CliOptions {
-        url,
+        input,
         mode,
         include_data_downloads,
+        include_mermaid,
         save_target,
     }))
 }
 
 fn print_help() {
     println!("{APP_NAME} — A semantic lens for the web");
-    println!("Usage: {APP_NAME} [OPTIONS] <URL>\n");
+    println!("Usage: {APP_NAME} [OPTIONS] <URL|JSON-LD>\n");
+    println!("Arguments:");
+    println!("  <URL>         A web page URL to fetch and extract JSON-LD from");
+    println!("  <JSON-LD>     Direct JSON-LD input (must start with '{{' or '[')\n");
     println!("Options:");
-    println!("  -g, --graph-only        Output condensed graph summary only");
-    println!("  -G, --graph-summary     Include product summaries and condensed graph");
+    println!("  -g, --graph-only        Output condensed graph summary only (no markdown)");
+    println!("  -G, --graph-summary     Include product summaries and condensed graph (alias for default)");
+    println!("  -m, --mermaid           Include Mermaid diagram visualization of the knowledge graph");
     println!("  -dd, --data-downloads   Include DataDownload references in output");
     println!("  -s, --save [PATH]       Save markdown output to file");
     println!("  -v, --version           Show version information");
-    println!("  -h, --help              Show this help message");
+    println!("  -h, --help              Show this help message\n");
+    println!("Default behavior (no flags): Shows product summaries + markdown");
 }
 
 fn print_version() {
@@ -195,26 +214,37 @@ async fn main() -> Result<()> {
 }
 
 async fn run(options: CliOptions) -> Result<()> {
-    let parsed_url = Url::parse(&options.url).context("invalid URL")?;
-    let html = fetch(parsed_url.as_str()).await?;
-    let markdown = parse_html(&sanitize_html_for_markdown(&html));
-    let json_ld_blocks = extract_json_ld_blocks(&html)?;
+    let (base_url, markdown, json_ld_blocks) = match &options.input {
+        InputSource::Url(url) => {
+            let parsed_url = Url::parse(url).context("invalid URL")?;
+            let html = parser::fetch_html(parsed_url.as_str()).await?;
+            let markdown = parser::html_to_markdown(&html);
+            let json_ld_blocks = parser::extract_json_ld_blocks(&html)?;
+            (url.clone(), markdown, json_ld_blocks)
+        }
+        InputSource::JsonLd(json_ld) => {
+            // For direct JSON-LD input, use a placeholder URL and no markdown
+            let base_url = "https://example.com/".to_string();
+            let markdown = String::new();
+            let json_ld_blocks = vec![json_ld.clone()];
+            (base_url, markdown, json_ld_blocks)
+        }
+    };
 
     let mut loader = ReqwestLoader::default();
     let mut builder = GraphBuilder::new();
 
-    for block in json_ld_blocks {
-        if let Ok(expanded) = expand_block(parsed_url.as_str(), &block, &mut loader).await {
-            builder.ingest_document(&expanded);
-        }
+    // Combine multiple JSON-LD blocks into a single graph
+    let combined_doc = parser::combine_json_ld_blocks(&json_ld_blocks)?;
+    if let Ok(expanded) = ld_graph::expand_json_ld(&base_url, &combined_doc, &mut loader).await {
+        builder.ingest_document(&expanded);
     }
 
     let graph = builder.into_graph();
     let graph_json_value = serde_json::to_value(&graph)?;
     let mut insights = GraphInsights::from(&graph);
 
-    let include_data_downloads =
-        options.include_data_downloads || matches!(options.mode, OutputMode::SummaryWithMarkdown);
+    let include_data_downloads = options.include_data_downloads || matches!(options.mode, OutputMode::Default);
 
     if include_data_downloads {
         insights.data_downloads = render_data_downloads(&graph_json_value);
@@ -226,10 +256,11 @@ async fn run(options: CliOptions) -> Result<()> {
         }
     }
 
-    let include_markdown = matches!(options.mode, OutputMode::MarkdownOnly);
-    let include_summary_sections = matches!(options.mode, OutputMode::SummaryWithMarkdown);
+    // Determine what to include based on mode
+    let include_markdown = matches!(options.mode, OutputMode::Default);
+    let include_summary_sections = matches!(options.mode, OutputMode::Default);
     let include_condensed_summary = matches!(options.mode, OutputMode::GraphOnly);
-    let include_graph_exports = false;
+    let include_graph_exports = options.include_mermaid;
 
     let graph_json_string = if include_graph_exports {
         Some(serde_json::to_string_pretty(&graph_json_value)?)
@@ -245,8 +276,36 @@ async fn run(options: CliOptions) -> Result<()> {
 
     let mut output = String::new();
 
+    // 1. Markdown first (if enabled)
+    if include_markdown {
+        push_section_header(&mut output, "📝", "Source Page (Markdown)");
+        output.push_str(markdown.trim());
+        output.push('\n');
+    }
+
+    // 2. Product summaries and structured data
     if include_summary_sections {
-        if let Some(pg) = insights.product_group.as_ref() {
+        // Organization first (only if exists)
+        for org in &insights.organizations {
+            render_organization(&mut output, org);
+        }
+
+        // ContactPoint (from other_entities, only if exists)
+        for entity in &insights.other_entities {
+            if entity.entity_type == "ContactPoint" {
+                render_entity(&mut output, entity);
+            }
+        }
+
+        // Breadcrumbs (only if exists)
+        for breadcrumb in &insights.breadcrumbs {
+            if !breadcrumb.items.is_empty() {
+                render_breadcrumb(&mut output, breadcrumb);
+            }
+        }
+
+        // Product/ProductGroup
+        for pg in &insights.product_groups {
             let title = pg
                 .name
                 .clone()
@@ -274,16 +333,44 @@ async fn run(options: CliOptions) -> Result<()> {
             if let Some(avail) = format_availability_counts(&pg.availability_counts) {
                 push_key_value(&mut output, "Availability", &avail);
             }
+            
+            // Display common properties (non-varies properties shared by all variants)
+            if !pg.common_properties.is_empty() {
+                let _ = writeln!(&mut output);
+                let _ = writeln!(&mut output, "**Common Properties** (shared by all variants):");
+                
+                // Sort keys for consistent display
+                let mut sorted_keys: Vec<_> = pg.common_properties.keys().collect();
+                sorted_keys.sort();
+                
+                for key in sorted_keys {
+                    if let Some(value) = pg.common_properties.get(key) {
+                        // Skip name as it's already shown in the title
+                        if key.to_lowercase() != "name" {
+                            push_key_value(&mut output, key, value);
+                        }
+                    }
+                }
+            }
+            
             let _ = writeln!(&mut output);
+
+            // Render variants for this product group
+            if !pg.variants.is_empty() {
+                render_variant_table(&mut output, &pg.variants, &pg.varies_by, pg.total_variants);
+            }
         }
 
-        if !insights.variants.is_empty() {
-            let total_variants = insights
-                .product_group
-                .as_ref()
-                .map(|pg| pg.total_variants)
-                .unwrap_or_else(|| insights.variants.len());
-            render_variant_table(&mut output, &insights.variants, total_variants);
+        // 5. Web pages
+        for webpage in &insights.web_pages {
+            render_webpage(&mut output, webpage);
+        }
+
+        // 6. Other entities (except ContactPoint which was already rendered)
+        for entity in &insights.other_entities {
+            if entity.entity_type != "ContactPoint" {
+                render_entity(&mut output, entity);
+            }
         }
     }
 
@@ -293,12 +380,6 @@ async fn run(options: CliOptions) -> Result<()> {
 
     if include_condensed_summary {
         render_graph_summary(&mut output, &insights.graph_summary);
-    }
-
-    if include_markdown {
-        push_section_header(&mut output, "📝", "Source Page (Markdown)");
-        output.push_str(markdown.trim());
-        output.push('\n');
     }
 
     if let Some(json_pretty) = graph_json_string.as_ref() {
@@ -318,6 +399,7 @@ async fn run(options: CliOptions) -> Result<()> {
     print!("{}", output);
 
     if let Some(save_base) = options.save_target {
+        let parsed_url = Url::parse(&base_url)?;
         let output_path = build_output_path(&save_base, &parsed_url);
         if let Some(parent) = output_path.parent().filter(|p| !p.as_os_str().is_empty()) {
             fs::create_dir_all(parent).with_context(|| {
@@ -332,92 +414,6 @@ async fn run(options: CliOptions) -> Result<()> {
     }
 
     Ok(())
-}
-
-async fn fetch(url: &str) -> Result<String> {
-    let client = Client::new();
-    let response = client
-        .get(url)
-        .send()
-        .await
-        .with_context(|| format!("failed to fetch {}", url))?;
-
-    response
-        .error_for_status()
-        .with_context(|| format!("non-success status from {}", url))?
-        .text()
-        .await
-        .with_context(|| format!("failed to read response body from {}", url))
-}
-
-fn extract_json_ld_blocks(html: &str) -> Result<Vec<String>> {
-    let document = Html::parse_document(html);
-    let script_selector =
-        Selector::parse("script").map_err(|e| anyhow!("unable to parse selector: {e}"))?;
-
-    Ok(document
-        .select(&script_selector)
-        .filter_map(|element| {
-            let script_type = element
-                .value()
-                .attr("type")
-                .map(|t| t.trim().to_ascii_lowercase())
-                .unwrap_or_default();
-
-            if script_type.contains("ld+json") {
-                let text = element.text().collect::<String>().trim().to_string();
-                if text.is_empty() { None } else { Some(text) }
-            } else {
-                None
-            }
-        })
-        .collect())
-}
-
-async fn expand_block(
-    base_url: &str,
-    raw_json_ld: &str,
-    loader: &mut ReqwestLoader,
-) -> Result<json_ld::ExpandedDocument> {
-    let (value, _) = Value::parse_str(raw_json_ld)
-        .map_err(|err| anyhow!("failed to parse JSON-LD block: {err}"))?;
-
-    let base_iri = IriBuf::new(base_url.to_string())
-        .map_err(|_| anyhow!("invalid URL provided: {base_url}"))?;
-
-    let remote = RemoteDocument::new(
-        Some(base_iri),
-        Some("application/ld+json".parse().unwrap()),
-        value,
-    );
-
-    remote
-        .expand(loader)
-        .await
-        .map_err(|err| anyhow!("JSON-LD expansion failed: {err}"))
-}
-
-#[derive(Debug, Serialize)]
-struct KnowledgeGraph {
-    nodes: Vec<GraphNode>,
-    edges: Vec<GraphEdge>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-struct GraphNode {
-    #[serde(rename = "@id")]
-    id: String,
-    #[serde(rename = "@type")]
-    types: Vec<String>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    properties: HashMap<String, JsonValue>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-struct GraphEdge {
-    from: String,
-    to: String,
-    predicate: String,
 }
 
 enum NodeLabel {
@@ -443,10 +439,62 @@ fn push_key_value(buf: &mut String, label: &str, value: &str) {
 
 #[derive(Default)]
 struct GraphInsights {
-    product_group: Option<ProductGroupSummary>,
-    variants: Vec<VariantSummary>,
+    product_groups: Vec<ProductGroupSummary>,
+    organizations: Vec<OrganizationSummary>,
+    web_pages: Vec<WebPageSummary>,
+    breadcrumbs: Vec<BreadcrumbSummary>,
+    other_entities: Vec<EntitySummary>,
     graph_summary: Vec<String>,
     data_downloads: Vec<DataDownloadEntry>,
+}
+
+#[derive(Default)]
+struct OrganizationSummary {
+    name: Option<String>,
+    logo: Option<String>,
+    telephone: Option<String>,
+    email: Option<String>,
+    address: Option<AddressSummary>,
+    rating: Option<RatingSummary>,
+}
+
+#[derive(Default)]
+struct AddressSummary {
+    street: Option<String>,
+    locality: Option<String>,
+    postal_code: Option<String>,
+    country: Option<String>,
+}
+
+#[derive(Default)]
+struct RatingSummary {
+    rating_value: Option<String>,
+    review_count: Option<String>,
+}
+
+#[derive(Default)]
+struct WebPageSummary {
+    url: Option<String>,
+    speakable: Option<String>,
+}
+
+#[derive(Default)]
+struct EntitySummary {
+    id: String,
+    entity_type: String,
+    properties: HashMap<String, String>,
+}
+
+#[derive(Default)]
+struct BreadcrumbSummary {
+    items: Vec<BreadcrumbItem>,
+}
+
+#[derive(Default, Clone)]
+struct BreadcrumbItem {
+    position: usize,
+    name: String,
+    url: String,
 }
 
 #[derive(Default)]
@@ -455,6 +503,8 @@ struct ProductGroupSummary {
     product_group_id: Option<String>,
     brand: Option<String>,
     varies_by: Vec<String>,
+    common_properties: HashMap<String, String>, // Properties shared by all variants (not in variesBy)
+    variants: Vec<VariantSummary>,
     total_variants: usize,
     price_stats: Option<PriceStats>,
     availability_counts: HashMap<String, usize>,
@@ -488,16 +538,6 @@ struct DataDownloadEntry {
 }
 
 type OfferInfo = (Option<String>, Option<f64>, Option<String>, Option<String>);
-
-impl GraphNode {
-    fn new(id: String) -> Self {
-        Self {
-            id,
-            types: Vec::new(),
-            properties: HashMap::new(),
-        }
-    }
-}
 
 fn predicate_matches(predicate: &str, name: &str) -> bool {
     predicate.ends_with(name)
@@ -537,10 +577,8 @@ impl GraphInsights {
         let mut direct_properties = BTreeSet::new();
         let mut offer_count = 0usize;
 
-        if let Some(product_group) = nodes_map
-            .values()
-            .find(|node| has_schema_type(node, "ProductGroup"))
-        {
+        // Process ALL ProductGroups (not just the first one)
+        for product_group in nodes_map.values().filter(|node| has_schema_type(node, "ProductGroup")) {
             let mut pg_summary = ProductGroupSummary {
                 name: property_text(product_group, &["https://schema.org/name", "name"]),
                 product_group_id: property_text(
@@ -623,7 +661,7 @@ impl GraphInsights {
                             };
                         }
                         pg_summary.total_variants += 1;
-                        insights.variants.push(variant);
+                        pg_summary.variants.push(variant);
                     }
                 }
             }
@@ -635,10 +673,38 @@ impl GraphInsights {
                 ));
             }
 
-            insights.product_group = Some(pg_summary);
+            // Sort variants within this product group
+            pg_summary.variants.sort_by(|a, b| a.sku.cmp(&b.sku));
+            
+            // Extract common properties (properties not in variesBy) from the first variant
+            if let Some(first_variant) = pg_summary.variants.first() {
+                // Get the first variant's product node to extract direct properties
+                if let Some(edges) = adjacency.get(product_group.id.as_str()) {
+                    for edge in edges {
+                        if predicate_matches(&edge.predicate, "hasVariant") {
+                            if let Some(variant_node) = nodes_map.get(edge.to.as_str()) {
+                                // Check if this is the first variant by SKU
+                                let variant_sku = property_text(variant_node, &["https://schema.org/sku", "http://schema.org/sku", "sku"]);
+                                if variant_sku == first_variant.sku {
+                                    pg_summary.common_properties = extract_common_properties(
+                                        variant_node,
+                                        &adjacency,
+                                        &nodes_map,
+                                        &pg_summary.varies_by,
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            insights.product_groups.push(pg_summary);
         }
 
-        if insights.product_group.is_none()
+        // If no ProductGroups found, check for standalone Products
+        if insights.product_groups.is_empty()
             && let Some(product_node) = nodes_map
                 .values()
                 .find(|node| has_schema_type(node, "Product"))
@@ -708,8 +774,8 @@ impl GraphInsights {
             }
 
             pg_summary.total_variants = 1;
-            insights.variants.push(variant);
-            insights.product_group = Some(pg_summary);
+            pg_summary.variants.push(variant);
+            insights.product_groups.push(pg_summary);
         }
 
         if offer_count > 0 {
@@ -733,7 +799,59 @@ impl GraphInsights {
             }
         }
 
-        insights.variants.sort_by(|a, b| a.sku.cmp(&b.sku));
+        // Extract Organization entities
+        for node in nodes_map.values() {
+            if has_schema_type(node, "Organization") {
+                insights.organizations.push(extract_organization(node, &adjacency, &nodes_map));
+                insights.graph_summary.push("Organization".to_string());
+            }
+        }
+
+        // Extract WebPage entities
+        for node in nodes_map.values() {
+            if has_schema_type(node, "WebPage") {
+                insights.web_pages.push(extract_webpage(node));
+                insights.graph_summary.push("WebPage".to_string());
+            }
+        }
+
+        // Extract BreadcrumbList
+        for node in nodes_map.values() {
+            if has_schema_type(node, "BreadcrumbList") {
+                insights.breadcrumbs.push(extract_breadcrumb(node, &adjacency, &nodes_map));
+                insights.graph_summary.push("BreadcrumbList".to_string());
+            }
+        }
+
+        // Extract other interesting entities
+        for node in nodes_map.values() {
+            // Skip entities we already process elsewhere or are sub-entities
+            if has_schema_type(node, "Product")
+                || has_schema_type(node, "ProductGroup")
+                || has_schema_type(node, "Organization")
+                || has_schema_type(node, "WebPage")
+                || has_schema_type(node, "Offer")
+                || has_schema_type(node, "Brand")
+                || has_schema_type(node, "PropertyValue")
+                || has_schema_type(node, "PostalAddress")
+                || has_schema_type(node, "AggregateRating")
+                || has_schema_type(node, "SpeakableSpecification")
+                || has_schema_type(node, "BreadcrumbList")
+                || has_schema_type(node, "ListItem")
+            {
+                continue;
+            }
+
+            // Collect interesting types
+            for node_type in &node.types {
+                let short_type = shorten_iri(node_type);
+                if !short_type.starts_with('_') && short_type != "@graph" {
+                    insights.other_entities.push(extract_generic_entity(node));
+                    insights.graph_summary.push(short_type);
+                    break; // Only add once per node
+                }
+            }
+        }
 
         insights
     }
@@ -774,8 +892,26 @@ fn summarize_variant<'a>(
         direct_properties.insert("size".to_string());
     }
 
-    let additional = collect_additional_properties(product, adjacency, nodes);
-    summary.frame_shape = additional.get("FrameShape").cloned();
+    let mut additional = collect_additional_properties(product, adjacency, nodes);
+    
+    // Check for isVariantOf to inherit properties from parent variant
+    if let Some(edges) = adjacency.get(product.id.as_str()) {
+        for edge in edges {
+            if predicate_matches(&edge.predicate, "isVariantOf") {
+                if let Some(parent_node) = nodes.get(edge.to.as_str()) {
+                    let parent_additional = collect_additional_properties(parent_node, adjacency, nodes);
+                    // Inherit properties that aren't already set
+                    for (key, value) in parent_additional {
+                        additional.entry(key).or_insert(value);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Support both FrameShape and FrameType
+    summary.frame_shape = additional.get("FrameShape").cloned()
+        .or_else(|| additional.get("FrameType").cloned());
     summary.battery = additional.get("BatteryCapacity").cloned();
     for key in additional.keys() {
         property_names.insert(key.clone());
@@ -824,6 +960,114 @@ fn collect_additional_properties<'a>(
         }
     }
     result
+}
+
+fn extract_common_properties<'a>(
+    product: &GraphNode,
+    adjacency: &HashMap<&'a str, Vec<&'a GraphEdge>>,
+    nodes: &HashMap<&'a str, &'a GraphNode>,
+    varies_by: &[String],
+) -> HashMap<String, String> {
+    let mut common = HashMap::new();
+    
+    // Normalize variesBy to lowercase for case-insensitive comparison
+    let varies_by_lower: Vec<String> = varies_by.iter()
+        .map(|s| s.to_lowercase())
+        .collect();
+    
+    // Helper function to normalize property names by extracting tokens
+    // e.g., "FrameSize" -> ["frame", "size"], "BatteryCapacity" -> ["battery", "capacity"]
+    let normalize_tokens = |s: &str| -> Vec<String> {
+        // Split on case boundaries and non-alphanumeric characters
+        let mut tokens = Vec::new();
+        let mut current = String::new();
+        
+        for ch in s.chars() {
+            if ch.is_uppercase() && !current.is_empty() {
+                tokens.push(current.to_lowercase());
+                current = String::new();
+            }
+            if ch.is_alphanumeric() {
+                current.push(ch);
+            } else if !current.is_empty() {
+                tokens.push(current.to_lowercase());
+                current = String::new();
+            }
+        }
+        if !current.is_empty() {
+            tokens.push(current.to_lowercase());
+        }
+        tokens
+    };
+    
+    // Helper function to check if a property varies
+    let is_varying = |prop_name: &str| -> bool {
+        let prop_lower = prop_name.to_lowercase();
+        let prop_tokens = normalize_tokens(prop_name);
+        
+        varies_by_lower.iter().any(|vb| {
+            // Exact match
+            if vb == &prop_lower {
+                return true;
+            }
+            
+            // Token-based matching: if all tokens from variesBy appear in the property name
+            // e.g., "size" in variesBy matches "FrameSize" (tokens: ["frame", "size"])
+            // but not "colorway" (tokens: ["colorway"])
+            let vb_tokens = normalize_tokens(vb);
+            
+            // Check if all variesBy tokens are present in property tokens
+            // This handles cases like "Size" matching "FrameSize"
+            // but avoids false positives like "Color" matching "Colorway"
+            if vb_tokens.len() == 1 && prop_tokens.contains(&vb_tokens[0]) {
+                return true;
+            }
+            
+            // For multi-token variesBy (e.g., "FrameSize"), require exact token sequence
+            if vb_tokens.len() > 1 && vb_tokens == prop_tokens {
+                return true;
+            }
+            
+            false
+        })
+    };
+    
+    // Extract direct properties from the product node
+    let direct_props = vec![
+        ("name", &["https://schema.org/name", "http://schema.org/name", "name"] as &[&str]),
+        ("description", &["https://schema.org/description", "http://schema.org/description", "description"]),
+        ("material", &["https://schema.org/material", "http://schema.org/material", "material"]),
+        ("color", &["https://schema.org/color", "http://schema.org/color", "color"]),
+        ("size", &["https://schema.org/size", "http://schema.org/size", "size"]),
+        ("brand", &["https://schema.org/brand", "http://schema.org/brand", "brand"]),
+        ("model", &["https://schema.org/model", "http://schema.org/model", "model"]),
+        ("category", &["https://schema.org/category", "http://schema.org/category", "category"]),
+        ("width", &["https://schema.org/width", "http://schema.org/width", "width"]),
+        ("height", &["https://schema.org/height", "http://schema.org/height", "height"]),
+        ("depth", &["https://schema.org/depth", "http://schema.org/depth", "depth"]),
+        ("weight", &["https://schema.org/weight", "http://schema.org/weight", "weight"]),
+    ];
+    
+    for (prop_name, prop_paths) in direct_props {
+        // Skip if this property varies
+        if is_varying(prop_name) {
+            continue;
+        }
+        
+        if let Some(value) = property_text(product, prop_paths) {
+            common.insert(prop_name.to_string(), value);
+        }
+    }
+    
+    // Also extract additionalProperty items that aren't in variesBy
+    let additional = collect_additional_properties(product, adjacency, nodes);
+    for (key, value) in additional {
+        if !is_varying(&key) {
+            common.insert(key, value);
+        }
+    }
+    
+    common
 }
 
 fn extract_offer<'a>(
@@ -880,277 +1124,119 @@ fn extract_offer<'a>(
     None
 }
 
-struct GraphBuilder {
-    nodes: HashMap<String, GraphNode>,
-    edges: Vec<GraphEdge>,
-    processing: HashSet<String>,
+fn extract_organization<'a>(
+    node: &GraphNode,
+    adjacency: &HashMap<&'a str, Vec<&'a GraphEdge>>,
+    nodes_map: &HashMap<&'a str, &'a GraphNode>,
+) -> OrganizationSummary {
+    let mut org = OrganizationSummary {
+        name: property_text(node, &["https://schema.org/name", "http://schema.org/name", "name"]),
+        logo: property_text(node, &["https://schema.org/logo", "http://schema.org/logo", "logo"]),
+        telephone: property_text(node, &["https://schema.org/telephone", "http://schema.org/telephone", "telephone"]),
+        email: property_text(node, &["https://schema.org/email", "http://schema.org/email", "email"]),
+        ..Default::default()
+    };
+
+    // Extract address if present
+    if let Some(edges) = adjacency.get(node.id.as_str()) {
+        for edge in edges {
+            if predicate_matches(&edge.predicate, "address") {
+                if let Some(address_node) = nodes_map.get(edge.to.as_str()) {
+                    org.address = Some(AddressSummary {
+                        street: property_text(address_node, &["https://schema.org/streetAddress", "http://schema.org/streetAddress", "streetAddress"]),
+                        locality: property_text(address_node, &["https://schema.org/addressLocality", "http://schema.org/addressLocality", "addressLocality"]),
+                        postal_code: property_text(address_node, &["https://schema.org/postalCode", "http://schema.org/postalCode", "postalCode"]),
+                        country: property_text(address_node, &["https://schema.org/addressCountry", "http://schema.org/addressCountry", "addressCountry"]),
+                    });
+                }
+            } else if predicate_matches(&edge.predicate, "aggregateRating") {
+                if let Some(rating_node) = nodes_map.get(edge.to.as_str()) {
+                    org.rating = Some(RatingSummary {
+                        rating_value: property_text(rating_node, &["https://schema.org/ratingValue", "http://schema.org/ratingValue", "ratingValue"]),
+                        review_count: property_text(rating_node, &["https://schema.org/reviewCount", "http://schema.org/reviewCount", "reviewCount"]),
+                    });
+                }
+            }
+        }
+    }
+
+    org
 }
 
-impl GraphBuilder {
-    fn new() -> Self {
-        Self {
-            nodes: HashMap::new(),
-            edges: Vec::new(),
-            processing: HashSet::new(),
-        }
+fn extract_webpage(node: &GraphNode) -> WebPageSummary {
+    let speakable_text = property_text(node, &["https://schema.org/speakable", "http://schema.org/speakable", "speakable"]);
+    
+    WebPageSummary {
+        url: property_text(node, &["https://schema.org/url", "http://schema.org/url", "url"]),
+        speakable: speakable_text,
     }
+}
 
-    fn ingest_document(&mut self, doc: &json_ld::ExpandedDocument) {
-        for object in doc.iter() {
-            self.process_indexed_object(object);
-        }
-    }
+fn extract_breadcrumb<'a>(
+    node: &GraphNode,
+    adjacency: &HashMap<&'a str, Vec<&'a GraphEdge>>,
+    nodes_map: &HashMap<&'a str, &'a GraphNode>,
+) -> BreadcrumbSummary {
+    let mut items = Vec::new();
 
-    fn process_indexed_object(
-        &mut self,
-        object: &json_ld::IndexedObject<iref::IriBuf, rdf_types::BlankIdBuf>,
-    ) -> Option<String> {
-        match object.as_ref() {
-            json_ld::Object::Node(node) => Some(self.process_node(node)),
-            json_ld::Object::List(list) => {
-                for item in list.iter() {
-                    self.process_indexed_object(item);
-                }
-                None
-            }
-            json_ld::Object::Value(_) => None,
-        }
-    }
+    if let Some(edges) = adjacency.get(node.id.as_str()) {
+        for edge in edges {
+            if predicate_matches(&edge.predicate, "itemListElement") {
+                if let Some(list_item_node) = nodes_map.get(edge.to.as_str()) {
+                    if has_schema_type(list_item_node, "ListItem") {
+                        let position = property_text(
+                            list_item_node,
+                            &["https://schema.org/position", "http://schema.org/position", "position"],
+                        )
+                        .and_then(|s| s.parse::<usize>().ok())
+                        .unwrap_or(0);
 
-    fn process_node(
-        &mut self,
-        node: &json_ld::Node<iref::IriBuf, rdf_types::BlankIdBuf>,
-    ) -> String {
-        let node_id = node_identifier(node.id.as_ref());
-        self.nodes
-            .entry(node_id.clone())
-            .or_insert_with(|| GraphNode::new(node_id.clone()));
+                        let name = property_text(
+                            list_item_node,
+                            &["https://schema.org/name", "http://schema.org/name", "name"],
+                        )
+                        .unwrap_or_default();
 
-        if !self.processing.insert(node_id.clone()) {
-            return node_id;
-        }
+                        let url = property_text(
+                            list_item_node,
+                            &["https://schema.org/item", "http://schema.org/item", "item"],
+                        )
+                        .unwrap_or_default();
 
-        if let Some(types) = &node.types {
-            for ty in types {
-                let ty_str = id_to_string(ty);
-                let entry = self
-                    .nodes
-                    .get_mut(&node_id)
-                    .expect("node should exist before types update");
-                if !entry.types.contains(&ty_str) {
-                    entry.types.push(ty_str);
-                }
-            }
-        }
-
-        if let Some(graph) = &node.graph {
-            for object in graph.iter() {
-                if let Some(target_id) = self.process_indexed_object(object) {
-                    self.edges.push(GraphEdge {
-                        from: node_id.clone(),
-                        to: target_id,
-                        predicate: "@graph".to_string(),
-                    });
-                }
-            }
-        }
-
-        if let Some(included) = &node.included {
-            for indexed_node in included.iter() {
-                let target_id = self.process_node(indexed_node.as_ref());
-                self.edges.push(GraphEdge {
-                    from: node_id.clone(),
-                    to: target_id,
-                    predicate: "@included".to_string(),
-                });
-            }
-        }
-
-        if let Some(reverse) = &node.reverse_properties {
-            for (predicate, nodes) in reverse.iter() {
-                let predicate_str = id_to_string(predicate);
-                for reverse_node in nodes.iter() {
-                    let source_id = self.process_node(reverse_node.as_ref());
-                    self.edges.push(GraphEdge {
-                        from: source_id,
-                        to: node_id.clone(),
-                        predicate: predicate_str.clone(),
-                    });
-                }
-            }
-        }
-
-        for (predicate, values) in node.properties.iter() {
-            let predicate_str = id_to_string(predicate);
-            let collected = self.collect_property_values(&node_id, &predicate_str, values);
-            if !collected.is_empty() {
-                for value in collected {
-                    self.add_property_value(&node_id, &predicate_str, value);
-                }
-            }
-        }
-
-        self.processing.remove(&node_id);
-        node_id
-    }
-
-    fn collect_property_values(
-        &mut self,
-        source_id: &str,
-        predicate: &str,
-        values: &[json_ld::IndexedObject<iref::IriBuf, rdf_types::BlankIdBuf>],
-    ) -> Vec<JsonValue> {
-        let mut collected = Vec::new();
-
-        for value in values {
-            self.handle_value(source_id, predicate, value, &mut collected);
-        }
-
-        collected
-    }
-
-    fn handle_value(
-        &mut self,
-        source_id: &str,
-        predicate: &str,
-        value: &json_ld::IndexedObject<iref::IriBuf, rdf_types::BlankIdBuf>,
-        collected: &mut Vec<JsonValue>,
-    ) {
-        match value.as_ref() {
-            json_ld::Object::Value(v) => {
-                if let Some(json) = value_object_to_json(v) {
-                    collected.push(json);
-                }
-            }
-            json_ld::Object::Node(node) => {
-                let target_id = self.process_node(node);
-                self.edges.push(GraphEdge {
-                    from: source_id.to_string(),
-                    to: target_id,
-                    predicate: predicate.to_string(),
-                });
-            }
-            json_ld::Object::List(list) => {
-                let mut list_values = Vec::new();
-                for item in list.iter() {
-                    self.handle_value(source_id, predicate, item, &mut list_values);
-                }
-                if !list_values.is_empty() {
-                    collected.push(JsonValue::Array(list_values));
-                }
-            }
-        }
-    }
-
-    fn add_property_value(&mut self, node_id: &str, predicate: &str, value: JsonValue) {
-        let entry = self
-            .nodes
-            .get_mut(node_id)
-            .expect("node must exist before adding properties");
-        match entry.properties.get_mut(predicate) {
-            Some(existing) => {
-                if existing.is_array() {
-                    if let Some(arr) = existing.as_array_mut() {
-                        arr.push(value);
+                        items.push(BreadcrumbItem {
+                            position,
+                            name,
+                            url,
+                        });
                     }
-                } else {
-                    let old = existing.take();
-                    *existing = JsonValue::Array(vec![old, value]);
                 }
             }
-            None => {
-                entry.properties.insert(predicate.to_string(), value);
-            }
         }
     }
 
-    fn into_graph(mut self) -> KnowledgeGraph {
-        for node in self.nodes.values_mut() {
-            node.types.sort();
-            node.types.dedup();
-        }
-        let mut nodes: Vec<GraphNode> = self.nodes.into_values().collect();
-        nodes.sort_by(|a, b| a.id.cmp(&b.id));
-
-        KnowledgeGraph {
-            nodes,
-            edges: self.edges,
-        }
-    }
+    BreadcrumbSummary { items }
 }
 
-fn value_object_to_json(value: &json_ld::Value<iref::IriBuf>) -> Option<JsonValue> {
-    match value {
-        json_ld::Value::Literal(lit, _) => match lit {
-            Literal::Null => Some(JsonValue::Null),
-            Literal::Boolean(b) => Some(JsonValue::Bool(*b)),
-            Literal::Number(n) => serde_json::Number::from_str(n.as_ref())
-                .ok()
-                .map(JsonValue::Number),
-            Literal::String(s) => Some(JsonValue::String(s.to_string())),
-        },
-        json_ld::Value::LangString(lang) => {
-            let (value, language, direction) = lang.clone().into_parts();
-            let mut obj = Map::new();
-            obj.insert("@value".to_string(), JsonValue::String(value.to_string()));
-            if let Some(lang_tag) = language {
-                obj.insert(
-                    "@language".to_string(),
-                    JsonValue::String(lang_tag.to_string()),
-                );
-            }
-            if let Some(dir) = direction {
-                obj.insert("@direction".to_string(), JsonValue::String(dir.to_string()));
-            }
-            Some(JsonValue::Object(obj))
-        }
-        json_ld::Value::Json(json) => Some(json_syntax_value_to_json(json)),
-    }
-}
-
-fn json_syntax_value_to_json(value: &SyntaxValue) -> JsonValue {
-    match value {
-        SyntaxValue::Null => JsonValue::Null,
-        SyntaxValue::Boolean(b) => JsonValue::Bool(*b),
-        SyntaxValue::Number(n) => serde_json::Number::from_str(n.as_ref())
-            .ok()
-            .map(JsonValue::Number)
-            .unwrap_or_else(|| JsonValue::String(n.to_string())),
-        SyntaxValue::String(s) => JsonValue::String(s.to_string()),
-        SyntaxValue::Array(items) => {
-            JsonValue::Array(items.iter().map(json_syntax_value_to_json).collect())
-        }
-        SyntaxValue::Object(obj) => {
-            let mut map = Map::new();
-            for entry in obj.iter() {
-                map.insert(
-                    entry.as_key().to_string(),
-                    json_syntax_value_to_json(entry.as_value()),
-                );
-            }
-            JsonValue::Object(map)
+fn extract_generic_entity(node: &GraphNode) -> EntitySummary {
+    let mut properties = HashMap::new();
+    
+    // Extract all simple string properties
+    for (key, value) in &node.properties {
+        let short_key = shorten_iri(key);
+        let value_str = json_value_display(value);
+        if !value_str.is_empty() {
+            properties.insert(short_key, value_str);
         }
     }
-}
 
-fn node_identifier(id: Option<&json_ld::Id<iref::IriBuf, rdf_types::BlankIdBuf>>) -> String {
-    match id {
-        Some(json_ld::Id::Valid(json_ld::ValidId::Iri(iri))) => iri.as_str().to_string(),
-        Some(json_ld::Id::Valid(json_ld::ValidId::Blank(blank))) => {
-            format!("_:{}", blank.as_str())
-        }
-        Some(json_ld::Id::Invalid(raw)) => raw.clone(),
-        None => format!("_:{}", Uuid::new_v4()),
-    }
-}
+    let entity_type = node.types.first()
+        .map(|t| shorten_iri(t))
+        .unwrap_or_else(|| "Entity".to_string());
 
-fn id_to_string(id: &json_ld::Id<iref::IriBuf, rdf_types::BlankIdBuf>) -> String {
-    match id {
-        json_ld::Id::Valid(json_ld::ValidId::Iri(iri)) => iri.as_str().to_string(),
-        json_ld::Id::Valid(json_ld::ValidId::Blank(blank)) => {
-            format!("_:{}", blank.as_str())
-        }
-        json_ld::Id::Invalid(raw) => raw.clone(),
+    EntitySummary {
+        id: node.id.clone(),
+        entity_type,
+        properties,
     }
 }
 
@@ -1365,49 +1451,67 @@ fn format_price_with_precision(value: f64, currency: Option<&str>, decimals: usi
     }
 }
 
-fn render_variant_table(buf: &mut String, variants: &[VariantSummary], total_variants: usize) {
+fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by: &[String], total_variants: usize) {
     if variants.is_empty() {
         return;
     }
 
     push_section_header(buf, "🧩", "Variants");
 
-    let headers = [
-        "SKU",
-        "Color",
-        "Size",
-        "FrameShape",
-        "Battery",
-        "Price",
-        "Availability",
-    ];
+    // Build dynamic headers based on variesBy
+    let mut headers = vec!["SKU"];
+    
+    // Add columns based on variesBy
+    for vary in varies_by {
+        match vary.as_str() {
+            "Color" => headers.push("Color"),
+            "Size" | "FrameSize" => headers.push("Size"),
+            "FrameType" | "FrameShape" => headers.push("FrameShape"),
+            "BatteryCapacity" => headers.push("Battery"),
+            _ => {}, // Skip unknown properties
+        }
+    }
+    
+    // Always add Price and Availability at the end
+    headers.push("Price");
+    headers.push("Availability");
 
     let mut rows: Vec<Vec<String>> = Vec::new();
     for variant in variants {
-        rows.push(vec![
-            variant.sku.clone().unwrap_or_else(|| "–".to_string()),
-            variant.color.clone().unwrap_or_else(|| "–".to_string()),
-            variant.size.clone().unwrap_or_else(|| "–".to_string()),
-            variant
-                .frame_shape
-                .clone()
-                .or_else(|| variant.additional.get("FrameShape").cloned())
-                .unwrap_or_else(|| "–".to_string()),
-            variant
-                .battery
-                .clone()
-                .or_else(|| variant.additional.get("BatteryCapacity").cloned())
-                .unwrap_or_else(|| "–".to_string()),
-            variant
-                .price_display
-                .clone()
-                .unwrap_or_else(|| "–".to_string()),
+        let mut row = vec![variant.sku.clone().unwrap_or_else(|| "–".to_string())];
+        
+        // Add cells based on variesBy
+        for vary in varies_by {
+            let cell = match vary.as_str() {
+                "Color" => variant.color.clone().unwrap_or_else(|| "–".to_string()),
+                "Size" | "FrameSize" => variant.size.clone().unwrap_or_else(|| "–".to_string()),
+                "FrameType" | "FrameShape" => variant
+                    .frame_shape
+                    .clone()
+                    .or_else(|| variant.additional.get("FrameType").cloned())
+                    .or_else(|| variant.additional.get("FrameShape").cloned())
+                    .unwrap_or_else(|| "–".to_string()),
+                "BatteryCapacity" => variant
+                    .battery
+                    .clone()
+                    .or_else(|| variant.additional.get("BatteryCapacity").cloned())
+                    .unwrap_or_else(|| "–".to_string()),
+                _ => continue, // Skip unknown properties
+            };
+            row.push(cell);
+        }
+        
+        // Add price and availability
+        row.push(variant.price_display.clone().unwrap_or_else(|| "–".to_string()));
+        row.push(
             variant
                 .availability
                 .as_ref()
                 .map(|status| availability_label(status))
-                .unwrap_or_else(|| "–".to_string()),
-        ]);
+                .unwrap_or_else(|| "–".to_string())
+        );
+        
+        rows.push(row);
     }
 
     let mut widths: Vec<usize> = headers.iter().map(|h| h.len()).collect();
@@ -1453,6 +1557,98 @@ fn render_graph_summary(buf: &mut String, lines: &[String]) {
     push_section_header(buf, "🕸️", "Graph Summary (condensed)");
     for line in lines {
         let _ = writeln!(buf, "{}", line);
+    }
+    let _ = writeln!(buf);
+}
+
+fn render_organization(buf: &mut String, org: &OrganizationSummary) {
+    push_section_header(buf, "🏢", "Organization");
+    if let Some(name) = org.name.as_ref() {
+        push_key_value(buf, "Name", name);
+    }
+    if let Some(logo) = org.logo.as_ref() {
+        push_key_value(buf, "Logo", logo);
+    }
+    if let Some(telephone) = org.telephone.as_ref() {
+        push_key_value(buf, "Telephone", telephone);
+    }
+    if let Some(email) = org.email.as_ref() {
+        push_key_value(buf, "Email", email);
+    }
+    if let Some(address) = org.address.as_ref() {
+        if let Some(street) = address.street.as_ref() {
+            push_key_value(buf, "Street", street);
+        }
+        if let Some(locality) = address.locality.as_ref() {
+            push_key_value(buf, "City", locality);
+        }
+        if let Some(postal_code) = address.postal_code.as_ref() {
+            push_key_value(buf, "Postal Code", postal_code);
+        }
+        if let Some(country) = address.country.as_ref() {
+            push_key_value(buf, "Country", country);
+        }
+    }
+    if let Some(rating) = org.rating.as_ref() {
+        if let Some(rating_value) = rating.rating_value.as_ref() {
+            push_key_value(buf, "Rating", rating_value);
+        }
+        if let Some(review_count) = rating.review_count.as_ref() {
+            push_key_value(buf, "Review Count", review_count);
+        }
+    }
+    let _ = writeln!(buf);
+}
+
+fn render_breadcrumb(buf: &mut String, breadcrumb: &BreadcrumbSummary) {
+    if breadcrumb.items.is_empty() {
+        return;
+    }
+
+    push_section_header(buf, "🍞", "Breadcrumb Navigation");
+    
+    let mut sorted_items = breadcrumb.items.clone();
+    sorted_items.sort_by_key(|item| item.position);
+    
+    let breadcrumb_trail: Vec<String> = sorted_items
+        .iter()
+        .map(|item| format!("{} ({})", item.name, item.url))
+        .collect();
+    
+    let _ = writeln!(buf, "{}", breadcrumb_trail.join(" → "));
+    let _ = writeln!(buf);
+}
+
+fn render_webpage(buf: &mut String, webpage: &WebPageSummary) {
+    // Only render if there's actual content
+    if webpage.url.is_none() && webpage.speakable.is_none() {
+        return;
+    }
+    
+    push_section_header(buf, "🌐", "Web Page");
+    if let Some(url) = webpage.url.as_ref() {
+        push_key_value(buf, "URL", url);
+    }
+    if let Some(speakable) = webpage.speakable.as_ref() {
+        push_key_value(buf, "Speakable", speakable);
+    }
+    let _ = writeln!(buf);
+}
+
+fn render_entity(buf: &mut String, entity: &EntitySummary) {
+    // Only render if there are properties to show
+    let has_real_id = !entity.id.starts_with("_:");
+    if !has_real_id && entity.properties.is_empty() {
+        return;
+    }
+    
+    push_section_header(buf, "📋", &entity.entity_type);
+    // Don't show internal blank node IDs to users
+    if has_real_id {
+        push_key_value(buf, "ID", &entity.id);
+    }
+    for (key, value) in &entity.properties {
+        push_key_value(buf, key, value);
     }
     let _ = writeln!(buf);
 }
@@ -1599,29 +1795,6 @@ fn title_case(input: &str) -> String {
     let mut result = first.to_uppercase().collect::<String>();
     result.push_str(&chars.as_str().to_lowercase());
     result
-}
-
-fn sanitize_html_for_markdown(html: &str) -> String {
-    static RE_TAG_BLOCKS: Lazy<Vec<Regex>> = Lazy::new(|| {
-        [
-            r"(?is)<script[^>]*?>[\s\S]*?</script>",
-            r"(?is)<style[^>]*?>[\s\S]*?</style>",
-            r"(?is)<noscript[^>]*?>[\s\S]*?</noscript>",
-            r"(?is)<template[^>]*?>[\s\S]*?</template>",
-        ]
-        .into_iter()
-        .map(|pattern| Regex::new(pattern).expect("invalid block regex"))
-        .collect()
-    });
-    static RE_COMMENT: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?is)<!--.*?-->").expect("invalid comment regex"));
-
-    let mut clean = html.to_string();
-    for re in RE_TAG_BLOCKS.iter() {
-        clean = re.replace_all(&clean, "").into_owned();
-    }
-
-    RE_COMMENT.replace_all(&clean, "").into_owned()
 }
 
 fn shorten_iri(iri: &str) -> String {
