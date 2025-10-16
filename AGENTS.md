@@ -4,7 +4,7 @@ This document provides context and guidelines for AI agents working with the htm
 
 ## Project Overview
 
-**htmlens** is a Rust-based command-line tool that extracts semantic knowledge graphs and readable text from HTML pages. It reveals structured data (JSON-LD/Schema.org) embedded in web pages, making it valuable for SEO analysis, web scraping, and understanding how search engines interpret content.
+**htmlens** is a Rust-based toolkit that extracts semantic knowledge graphs and readable text from HTML pages. It reveals structured data (JSON-LD/Schema.org) embedded in web pages, making it valuable for SEO analysis, web scraping, and understanding how search engines interpret content.
 
 ### Core Purpose
 - Extract JSON-LD structured data from HTML or accept direct JSON-LD input
@@ -13,46 +13,79 @@ This document provides context and guidelines for AI agents working with the htm
 - Analyze product variants and extract common properties
 - Visualize entity relationships with Mermaid diagrams
 - Identify DataDownload resources
+- **NEW**: Provide web API and UI via Cloudflare Workers
 
 ### Version & Status
-- **Current Version**: 0.3.0
+- **Current Version**: 0.4.0
 - **Rust Edition**: 2024
 - **License**: MIT
 - **Repository**: https://github.com/pondevelopment/htmlens
+- **Developed by**: Pon Datalab
 
 ## Architecture
 
-### Modular Structure
+### Workspace Structure
 
-The project is organized into **three main modules** for maintainability:
+The project is organized as a **Cargo workspace** with **three main crates**:
 
 ```
-src/
-├── main.rs      (~1,943 lines) - CLI interface and output formatting
-├── parser.rs    (~164 lines)   - HTML fetching and JSON-LD extraction
-└── ld_graph.rs  (~351 lines)   - JSON-LD expansion and graph building
+htmlens/                                          # Workspace root v0.4.0
+├── Cargo.toml                                   # Workspace definition
+├── crates/
+│   ├── htmlens-core/                           # 🔧 Core library (~680 lines)
+│   │   ├── Cargo.toml                          # Feature flags
+│   │   ├── src/
+│   │   │   ├── lib.rs          (~30 lines)     # Public API
+│   │   │   ├── types.rs        (~50 lines)     # Core types (always)
+│   │   │   ├── parser.rs       (~250 lines)    # HTML/JSON-LD (always)
+│   │   │   └── graph.rs        (~350 lines)    # Graph building (feature)
+│   │   └── README.md
+│   ├── htmlens-cli/                            # 📦 CLI tool (~2200 lines)
+│   │   ├── Cargo.toml                          # Uses full-expansion
+│   │   ├── src/
+│   │   │   └── main.rs                         # Complete CLI
+│   │   └── README.md
+│   └── htmlens-worker/                         # ☁️ Cloudflare Worker (~655 lines)
+│       ├── Cargo.toml                          # Lightweight (no expansion)
+│       ├── src/
+│       │   ├── lib.rs          (~440 lines)    # Worker API
+│       │   └── frontend.html   (~215 lines)    # Web UI
+│       ├── wrangler.toml                       # CF config
+│       ├── package.json                        # Node deps
+│       ├── .nvmrc                              # Node v22
+│       ├── .cargo/config.toml                  # WASM config
+│       └── README.md
+├── reports/                                     # Example outputs
+├── LICENSE
+├── README.md
+└── AGENTS.md                                    # This file
 ```
+
+### Feature Flag System
+
+The `htmlens-core` library uses feature flags to optimize build size and dependencies:
+
+**Features:**
+- **`default`** (empty): Lightweight parsing only
+  - Includes: `types`, `parser` (HTML/JSON-LD extraction, sanitization, markdown)
+  - No heavy dependencies
+  - Perfect for WASM/worker environments
+  
+- **`full-expansion`**: Complete functionality
+  - Includes: All default + `graph` module + JSON-LD expansion
+  - Dependencies: `json-ld`, `reqwest`, `tokio`, `uuid`
+  - Used by: CLI
+  - Build time: ~30s (due to heavy deps)
+
+**Dependency Strategy:**
+- Shared in workspace: `serde`, `serde_json`, `url`, `regex`, `once_cell`, `scraper`, `html2md`, `anyhow`
+- Optional (full-expansion): `json-ld`, `reqwest`, `tokio`, `uuid`
+- Worker-specific: `worker` SDK, `getrandom` (wasm_js), `console_error_panic_hook`, `urlencoding`
 
 ### Module Responsibilities
 
-#### `src/parser.rs` - Input Processing
-**Purpose**: Handle HTML fetching, sanitization, and JSON-LD extraction
-
-**Key Functions**:
-- `fetch_html(url: &str) -> Result<String>` - HTTP client with custom user agent
-- `extract_json_ld_blocks(html: &str) -> Result<Vec<String>>` - Finds `<script type="application/ld+json">` tags
-- `combine_json_ld_blocks(blocks: Vec<String>) -> Result<String>` - Merges multiple JSON-LD blocks, handles arrays
-- `sanitize_html(html: &str) -> String` - Removes scripts, styles, and comments
-- `html_to_markdown(html: &str) -> String` - Converts sanitized HTML to Markdown
-
-**Design Notes**:
-- Uses `reqwest` with Mozilla user agent for better compatibility
-- Flexible JSON-LD detection with `.contains("ld+json")`
-- Hoists first `@context` when merging multiple blocks
-- Handles both object and array-based JSON-LD documents
-
-#### `src/ld_graph.rs` - Graph Construction
-**Purpose**: Expand JSON-LD and build knowledge graph structures
+#### `crates/htmlens-core/src/types.rs` - Core Types (Always Available)
+**Purpose**: Define core data structures used across all crates
 
 **Key Structures**:
 ```rust
@@ -72,12 +105,35 @@ pub struct GraphEdge {
     pub to: String,        // Target node ID  
     pub predicate: String, // Relationship type
 }
-
-pub struct GraphBuilder {
-    nodes: HashMap<String, GraphNode>,
-    edges: Vec<GraphEdge>,
-}
 ```
+
+**Design Notes**:
+- No feature gates - always compiled
+- Serializable with `serde`
+- Used by both CLI and Worker
+- Minimal dependencies
+
+#### `crates/htmlens-core/src/parser.rs` - Input Processing (Always Available)
+**Purpose**: Handle HTML fetching, sanitization, and JSON-LD extraction
+
+**Key Functions**:
+- `fetch_html(url: &str) -> Result<String>` - HTTP client with Mozilla user agent
+- `extract_json_ld_blocks(html: &str) -> Result<Vec<String>>` - Finds `<script type="application/ld+json">` tags
+- `combine_json_ld_blocks(blocks: &[String]) -> Result<String>` - Merges multiple JSON-LD blocks into `@graph` structure
+- `sanitize_html(html: &str) -> String` - Removes scripts, styles, and comments
+- `html_to_markdown(html: &str) -> String` - Converts sanitized HTML to Markdown
+
+**Design Notes**:
+- Uses `reqwest` with Mozilla user agent for better compatibility
+- Flexible JSON-LD detection with `.contains("ld+json")`
+- Hoists first `@context` when merging multiple blocks into `@graph` array
+- Handles both object and array-based JSON-LD documents
+- No feature gates - always available
+
+#### `crates/htmlens-core/src/graph.rs` - Graph Construction (Feature-Gated)
+**Purpose**: Expand JSON-LD and build knowledge graph structures
+
+**Feature Gate**: `#[cfg(feature = "full-expansion")]`
 
 **Key Functions**:
 - `expand_json_ld(base_url: &str, json_ld: &str, loader: &ReqwestLoader) -> Result<ExpandedDocument>` - Expands JSON-LD with context resolution
@@ -91,8 +147,9 @@ pub struct GraphBuilder {
 - Handles nested structures and blank nodes
 - Separates literals (properties) from object references (edges)
 - Resolves remote contexts asynchronously
+- **Only available when full-expansion feature is enabled**
 
-#### `src/main.rs` - CLI & Output
+#### `crates/htmlens-cli/src/main.rs` - CLI & Output (~2200 lines)
 **Purpose**: Command-line interface, entity extraction, and formatted output
 
 **Key Sections**:
@@ -126,26 +183,162 @@ struct GraphInsights {
 }
 ```
 
+**Dependencies**:
+- Uses `htmlens-core` with `full-expansion` feature enabled
+- Includes all heavy dependencies: `json-ld`, `reqwest`, `tokio`, `uuid`
+- Build time: ~30 seconds due to JSON-LD expansion dependencies
+
+#### `crates/htmlens-worker/src/lib.rs` - Cloudflare Worker API (~440 lines)
+**Purpose**: Lightweight web API for HTML analysis without JSON-LD expansion
+
+**Feature Gate**: Uses `htmlens-core` with NO features (default = lightweight mode)
+
+**Key Sections**:
+1. **API Response** (~lines 1-20): Response structure with both raw and combined JSON-LD
+2. **Helpers** (~lines 37-68): Title/description extraction from HTML
+3. **Formatting** (~lines 70-289): CLI-style markdown formatter (no graph expansion)
+4. **Worker Handler** (~lines 291-442): HTTP endpoints with CORS support
+
+**Key Types**:
+```rust
+#[derive(Serialize)]
+struct ApiResponse {
+    url: String,
+    title: String,
+    description: String,
+    jsonld: Vec<serde_json::Value>,        // Raw blocks
+    jsonld_graph: serde_json::Value,       // Combined @graph
+    markdown: String,                      // CLI-style tables
+    page_markdown: String,                 // Clean HTML→Markdown
+}
+```
+
+**Key Functions**:
+- `extract_title(html: &str) -> String` - Extracts `<title>` or generates from URL
+- `extract_description(html: &str) -> String` - Finds meta description
+- `format_cli_style_markdown(url: &str, jsonld_blocks: &[serde_json::Value]) -> String` - Formats structured data as tables (no expansion)
+- `main()` - Worker entry point with GET `/` and `/api` endpoints
+
+**API Endpoints**:
+- `GET /?url=<URL>` - Returns HTML frontend
+- `GET /api?url=<URL>` - Returns JSON with analyzed data
+
+**Design Notes**:
+- **NO JSON-LD expansion** - keeps worker lightweight for fast cold starts
+- Uses `parser::extract_json_ld_blocks()` and `parser::combine_json_ld_blocks()`
+- Direct JSON parsing without schema resolution
+- Simple entity type detection from `@type` fields
+- WASM-compatible with `getrandom` wasm_js feature
+- Build time: ~5 seconds (no heavy dependencies)
+
+**Dependencies**:
+- `worker` 0.6 - Cloudflare Workers SDK
+- `htmlens-core` (default features only) - Lightweight parsing
+- `getrandom` 0.3 with `wasm_js` feature - WASM random number generation
+- `console_error_panic_hook` - Better error messages in browser console
+- `urlencoding` - URL parameter decoding
+
+**WASM Configuration** (`.cargo/config.toml`):
+```toml
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
+```
+
+#### `crates/htmlens-worker/src/frontend.html` - Web UI (~215 lines)
+**Purpose**: Beautiful browser interface for HTML analysis
+
+**Key Features**:
+- 🎨 Gradient purple/blue theme
+- 📊 Business Summary tab with entity overview
+- 🔍 JSON-LD tab with syntax highlighting
+- 📋 Structured Data tab with HTML tables
+- 📄 Page Content tab with clean markdown
+
+**Key Sections**:
+1. **CSS** (~lines 1-42): Gradient theme, table styles, responsive design
+2. **HTML** (~lines 43-85): Tab structure, form input, loading states
+3. **JavaScript** (~lines 86-175): API client, tab rendering
+4. **Utilities** (~lines 177-274): Error display, table conversion, syntax highlighting
+
+**Key Functions**:
+- `analyzeUrl()` - Fetches from `/api?url=...` and renders tabs
+- `formatMarkdownTables(markdown)` - Converts markdown pipe tables to HTML tables with borders
+- `syntaxHighlight(json)` - Colorizes JSON with purple keys, blue strings, cyan numbers
+- `showError(message)` - Displays friendly error messages
+
+**Table Rendering**:
+```css
+.markdown-output {
+    white-space: pre;      /* Preserve formatting */
+    font-family: monospace;
+}
+
+table {
+    border-collapse: collapse;
+    background: white;
+}
+
+th {
+    background: #667eea;   /* Purple headers */
+    color: white;
+}
+
+tr:nth-child(even) {
+    background: #f8f9fa;   /* Alternating rows */
+}
+```
+
+**JSON Syntax Highlighting**:
+- Keys: `#881391` (purple)
+- Strings: `#1A1AA6` (blue)
+- Numbers: `#1C00CF` (cyan)
+- Booleans/null: `#0D47A1` (dark blue)
+
+**Branding**:
+- Footer: "Powered by htmlens | **Developed by Pon Datalab**"
+
 ### Data Flow
+
+#### CLI Flow (with full-expansion)
 
 ```
 URL/JSON-LD Input
     ↓
-parser::fetch_html() or direct input
+htmlens-core::parser::fetch_html() or direct input
     ↓
-parser::extract_json_ld_blocks()
+htmlens-core::parser::extract_json_ld_blocks()
     ↓
-parser::combine_json_ld_blocks()
+htmlens-core::parser::combine_json_ld_blocks()
     ↓
-ld_graph::expand_json_ld()
+htmlens-core::graph::expand_json_ld()  [full-expansion only]
     ↓
-ld_graph::GraphBuilder::ingest_document()
+htmlens-core::graph::GraphBuilder::ingest_document()
     ↓
-ld_graph::GraphBuilder::into_graph()
+htmlens-core::graph::GraphBuilder::into_graph()
     ↓
-GraphInsights::from() - Analysis
+htmlens-cli: GraphInsights::from() - Analysis
     ↓
-render_*() functions - Output
+htmlens-cli: render_*() functions - Output
+```
+
+#### Worker Flow (lightweight, no expansion)
+
+```
+URL Parameter
+    ↓
+htmlens-core::parser::fetch_html()
+    ↓
+htmlens-core::parser::extract_json_ld_blocks()
+    ↓
+htmlens-core::parser::combine_json_ld_blocks()
+    ↓
+Direct JSON parsing (serde_json::from_str)
+    ↓
+htmlens-worker: format_cli_style_markdown() - Simple formatting
+    ↓
+ApiResponse with jsonld + jsonld_graph + markdown
+    ↓
+Frontend: Render tabs with syntax highlighting
 ```
 
 ## CLI Interface
@@ -197,24 +390,24 @@ htmlens '{"@context": "https://schema.org", "@type": "Product", ...}'
 ## Key Functions Reference
 
 ### Entry Points
-- `main()` - Parses CLI args, routes to help/version/run
+- `main()` (in crates/htmlens-cli/src/main.rs) - Parses CLI args, routes to help/version/run
 - `run(options: CliOptions) -> Result<()>` - Main execution flow
 - `parse_arguments(args: &[String]) -> Result<CliCommand>` - CLI argument parser
 
-### Graph Analysis (in main.rs)
+### Graph Analysis (in crates/htmlens-cli/src/main.rs)
 - `GraphInsights::from(graph: &KnowledgeGraph) -> GraphInsights` - Extracts product/variant insights
 - `summarize_variant(product, adjacency, nodes, ...) -> VariantSummary` - Analyzes product variants
 - `extract_offer(product, adjacency, nodes) -> Option<OfferInfo>` - Finds pricing/availability
 - `extract_common_properties(product_group, variants) -> HashMap<String, String>` - Identifies shared properties using token-based matching
 - `collect_additional_properties(product, adjacency, nodes) -> HashMap<String, String>` - Extracts PropertyValue entities
 
-### Output Rendering (in main.rs)
+### Output Rendering (in crates/htmlens-cli/src/main.rs)
 - `render_variant_table(buf, variants, total)` - Creates markdown table
 - `render_graph_summary(buf, lines)` - Outputs condensed relationships
 - `render_data_downloads_section(buf, entries)` - Lists DataDownload resources
 - `graph_to_mermaid(graph) -> String` - Generates Mermaid diagram
 
-### Utility Functions (in main.rs)
+### Utility Functions (in crates/htmlens-cli/src/main.rs)
 - `property_text(node, keys) -> Option<String>` - Extracts text from node properties (handles multiple key variations)
 - `has_schema_type(node, type_name) -> bool` - Checks if node has specific @type
 - `shorten_iri(iri) -> String` - Converts full IRI to short name (e.g., "https://schema.org/name" → "name")
@@ -301,7 +494,7 @@ When merging multiple blocks, the first `@context` is hoisted to the top level.
 
 #### 1. New CLI Options
 
-**Where to edit**: `src/main.rs`
+**Where to edit**: `crates/htmlens-cli/src/main.rs`
 
 Steps:
 1. Update `OutputMode` enum if adding new modes (around line 20)
@@ -332,7 +525,7 @@ println!("  -n, --new-mode          Description of new mode");
 
 #### 2. New Schema.org Types
 
-**Where to edit**: `src/main.rs` (GraphInsights section)
+**Where to edit**: `crates/htmlens-cli/src/main.rs` (GraphInsights section)
 
 Steps:
 1. Create summary struct for the new type (around lines 350-600)
@@ -383,7 +576,7 @@ if !insights.events.is_empty() {
 
 #### 3. New Output Formats
 
-**Where to edit**: `src/main.rs` (rendering section)
+**Where to edit**: `crates/htmlens-cli/src/main.rs` (rendering section)
 
 Steps:
 1. Add conversion function (around lines 1000-1300)
@@ -423,7 +616,7 @@ if options.export_csv {
 
 #### 4. New Property Extractors
 
-**Where to edit**: `src/main.rs` (analysis section)
+**Where to edit**: `crates/htmlens-cli/src/main.rs` (analysis section)
 
 Follow the `property_text()` pattern for consistency:
 
@@ -441,7 +634,7 @@ Always check multiple key variations (http/https, full/short).
 
 ### When Modifying Modules
 
-#### Modifying `parser.rs`
+#### Modifying `crates/htmlens-core/src/parser.rs`
 
 **Common changes**:
 - Adjusting HTML sanitization rules
@@ -450,7 +643,7 @@ Always check multiple key variations (http/https, full/short).
 
 **Testing**: Use real-world URLs with various JSON-LD structures.
 
-#### Modifying `ld_graph.rs`
+#### Modifying `crates/htmlens-core/src/graph.rs`
 
 **Common changes**:
 - Adjusting how blank nodes are handled
@@ -459,7 +652,9 @@ Always check multiple key variations (http/https, full/short).
 
 **Testing**: Use `json-ld` crate's test suite patterns.
 
-#### Modifying `main.rs`
+**Note**: This module is only available with `full-expansion` feature enabled.
+
+#### Modifying `crates/htmlens-cli/src/main.rs`
 
 **Common changes**:
 - Adding new entity types
@@ -467,6 +662,17 @@ Always check multiple key variations (http/https, full/short).
 - Enhancing output formatting
 
 **Testing**: Run against e-commerce sites with complex product data.
+
+#### Modifying `crates/htmlens-worker/src/lib.rs`
+
+**Common changes**:
+- Adjusting CLI-style markdown formatting
+- Adding new API response fields
+- Improving entity type detection
+
+**Testing**: Test locally with `npx wrangler dev`, verify WASM build with `cargo build --target wasm32-unknown-unknown`
+
+**Important**: Worker uses lightweight mode (no full-expansion), so no JSON-LD expansion is available.
 
 ### Code Style
 
@@ -503,7 +709,7 @@ Good sites for manual testing:
 
 **Example**: Add "Material" to product variants
 
-1. **Update VariantSummary** (in main.rs, around line 400):
+1. **Update VariantSummary** (in crates/htmlens-cli/src/main.rs, around line 400):
 ```rust
 struct VariantSummary {
     // ... existing fields
@@ -548,7 +754,7 @@ See `GraphInsights::from()` around line 650.
 
 ### Modifying JSON-LD Context Handling
 
-**Location**: `src/parser.rs`, `combine_json_ld_blocks()`
+**Location**: `crates/htmlens-core/src/parser.rs`, `combine_json_ld_blocks()`
 
 Current behavior:
 - Hoists first `@context` to top level
@@ -666,7 +872,7 @@ if include_new_section && !insights.new_data.is_empty() {
 - Regex patterns too broad in `sanitize_html()`
 
 **Solutions**:
-- Adjust regex patterns in `src/parser.rs`
+- Adjust regex patterns in `crates/htmlens-core/src/parser.rs`
 - Test with specific HTML structures
 - Consider using CSS selectors instead
 
@@ -679,7 +885,7 @@ if include_new_section && !insights.new_data.is_empty() {
 - Duplicate keys in merged objects
 
 **Solutions**:
-- Review `combine_json_ld_blocks()` logic
+- Review `combine_json_ld_blocks()` logic in `crates/htmlens-core/src/parser.rs`
 - Consider keeping separate graphs
 - Document trade-offs in comments
 
@@ -741,6 +947,13 @@ For very large HTML documents, consider using a streaming HTML parser instead of
 - **Add config file support** - YAML/TOML for default options
 - **Create trait abstractions** - `EntityExtractor` trait for different Schema.org types
 
+### Refactoring Opportunities
+
+- **Add unit tests** for core functions (property extraction, token matching)
+- **Extract render module** - Move all rendering functions to `crates/htmlens-cli/src/render.rs`
+- **Add config file support** - YAML/TOML for default options
+- **Create trait abstractions** - `EntityExtractor` trait for different Schema.org types
+
 ### Feature Ideas
 
 #### Short-term
@@ -757,8 +970,8 @@ For very large HTML documents, consider using a streaming HTML parser instead of
 
 #### Long-term
 - **Plugin system**: Load custom extractors as dynamic libraries
-- **Web UI**: Browser-based interface
-- **API mode**: Run as HTTP service
+- ~~**Web UI**: Browser-based interface~~ ✅ **DONE** (Cloudflare Worker with frontend.html)
+- ~~**API mode**: Run as HTTP service~~ ✅ **DONE** (Worker API)
 - **Database storage**: Store graphs in SQLite/PostgreSQL
 
 ### Schema.org Type Coverage
@@ -860,7 +1073,7 @@ cargo test                     # Run tests (when added)
 
 **Steps**:
 
-1. **Add data structure** (main.rs ~line 450):
+1. **Add data structure** (crates/htmlens-cli/src/main.rs ~line 450):
 ```rust
 #[derive(Debug, Clone)]
 struct RecipeSummary {
@@ -955,7 +1168,18 @@ if !insights.recipes.is_empty() {
 
 **Goal**: Export graph data as CSV
 
-1. **Add CLI flag** (main.rs ~line 55):
+6. **Call from run()** (~line 300):
+```rust
+if !insights.recipes.is_empty() {
+    render_recipe_section(&mut output, &insights.recipes);
+}
+```
+
+### Example 2: Adding CSV Export
+
+**Goal**: Export graph data as CSV
+
+1. **Add CLI flag** (crates/htmlens-cli/src/main.rs ~line 55):
 ```rust
 let mut export_csv = false;
 

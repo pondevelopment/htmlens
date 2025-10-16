@@ -41,8 +41,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Build binary
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Build CLI binary
+        run: cargo build --release --target ${{ matrix.target }} --package htmlens-cli
 
       - name: Package binary (Unix)
         if: matrix.archive == 'tar.gz'

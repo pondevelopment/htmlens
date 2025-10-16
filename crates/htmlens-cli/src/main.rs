@@ -9,10 +9,11 @@ use json_ld::ReqwestLoader;
 use serde_json::Value as JsonValue;
 use url::Url;
 
-mod parser;
-mod ld_graph;
-
-use ld_graph::{KnowledgeGraph, GraphNode, GraphEdge, GraphBuilder};
+// Import from htmlens-core instead of local modules
+use htmlens_core::{
+    parser,
+    graph::{KnowledgeGraph, GraphNode, GraphEdge, GraphBuilder, expand_json_ld},
+};
 
 const APP_NAME: &str = "htmlens";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -190,7 +191,8 @@ fn print_help() {
     println!("  -s, --save [PATH]       Save markdown output to file");
     println!("  -v, --version           Show version information");
     println!("  -h, --help              Show this help message\n");
-    println!("Default behavior (no flags): Shows product summaries + markdown");
+    println!("Default behavior (no flags): Shows product summaries + markdown\n");
+    println!("Developed by Pon Datalab");
 }
 
 fn print_version() {
@@ -236,7 +238,7 @@ async fn run(options: CliOptions) -> Result<()> {
 
     // Combine multiple JSON-LD blocks into a single graph
     let combined_doc = parser::combine_json_ld_blocks(&json_ld_blocks)?;
-    if let Ok(expanded) = ld_graph::expand_json_ld(&base_url, &combined_doc, &mut loader).await {
+    if let Ok(expanded) = expand_json_ld(&base_url, &combined_doc, &mut loader).await {
         builder.ingest_document(&expanded);
     }
 
@@ -691,8 +693,8 @@ impl GraphInsights {
                 // Get the first variant's product node to extract direct properties
                 if let Some(edges) = adjacency.get(product_group.id.as_str()) {
                     for edge in edges {
-                        if predicate_matches(&edge.predicate, "hasVariant") {
-                            if let Some(variant_node) = nodes_map.get(edge.to.as_str()) {
+                        if predicate_matches(&edge.predicate, "hasVariant")
+                            && let Some(variant_node) = nodes_map.get(edge.to.as_str()) {
                                 // Check if this is the first variant by SKU
                                 let variant_sku = property_text(variant_node, &["https://schema.org/sku", "http://schema.org/sku", "sku"]);
                                 if variant_sku == first_variant.sku {
@@ -705,7 +707,6 @@ impl GraphInsights {
                                     break;
                                 }
                             }
-                        }
                     }
                 }
             }
@@ -1031,15 +1032,14 @@ fn summarize_variant<'a>(
     // Check for isVariantOf to inherit properties from parent variant
     if let Some(edges) = adjacency.get(product.id.as_str()) {
         for edge in edges {
-            if predicate_matches(&edge.predicate, "isVariantOf") {
-                if let Some(parent_node) = nodes.get(edge.to.as_str()) {
+            if predicate_matches(&edge.predicate, "isVariantOf")
+                && let Some(parent_node) = nodes.get(edge.to.as_str()) {
                     let parent_additional = collect_additional_properties(parent_node, adjacency, nodes);
                     // Inherit properties that aren't already set
                     for (key, value) in parent_additional {
                         additional.entry(key).or_insert(value);
                     }
                 }
-            }
         }
     }
     
@@ -1283,14 +1283,13 @@ fn extract_organization<'a>(
                         country: property_text(address_node, &["https://schema.org/addressCountry", "http://schema.org/addressCountry", "addressCountry"]),
                     });
                 }
-            } else if predicate_matches(&edge.predicate, "aggregateRating") {
-                if let Some(rating_node) = nodes_map.get(edge.to.as_str()) {
+            } else if predicate_matches(&edge.predicate, "aggregateRating")
+                && let Some(rating_node) = nodes_map.get(edge.to.as_str()) {
                     org.rating = Some(RatingSummary {
                         rating_value: property_text(rating_node, &["https://schema.org/ratingValue", "http://schema.org/ratingValue", "ratingValue"]),
                         review_count: property_text(rating_node, &["https://schema.org/reviewCount", "http://schema.org/reviewCount", "reviewCount"]),
                     });
                 }
-            }
         }
     }
 
@@ -1315,35 +1314,34 @@ fn extract_breadcrumb<'a>(
 
     if let Some(edges) = adjacency.get(node.id.as_str()) {
         for edge in edges {
-            if predicate_matches(&edge.predicate, "itemListElement") {
-                if let Some(list_item_node) = nodes_map.get(edge.to.as_str()) {
-                    if has_schema_type(list_item_node, "ListItem") {
-                        let position = property_text(
-                            list_item_node,
-                            &["https://schema.org/position", "http://schema.org/position", "position"],
-                        )
-                        .and_then(|s| s.parse::<usize>().ok())
-                        .unwrap_or(0);
+            if predicate_matches(&edge.predicate, "itemListElement")
+                && let Some(list_item_node) = nodes_map.get(edge.to.as_str())
+                && has_schema_type(list_item_node, "ListItem")
+            {
+                let position = property_text(
+                    list_item_node,
+                    &["https://schema.org/position", "http://schema.org/position", "position"],
+                )
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
 
-                        let name = property_text(
-                            list_item_node,
-                            &["https://schema.org/name", "http://schema.org/name", "name"],
-                        )
-                        .unwrap_or_default();
+                let name = property_text(
+                    list_item_node,
+                    &["https://schema.org/name", "http://schema.org/name", "name"],
+                )
+                .unwrap_or_default();
 
-                        let url = property_text(
-                            list_item_node,
-                            &["https://schema.org/item", "http://schema.org/item", "item"],
-                        )
-                        .unwrap_or_default();
+                let url = property_text(
+                    list_item_node,
+                    &["https://schema.org/item", "http://schema.org/item", "item"],
+                )
+                .unwrap_or_default();
 
-                        items.push(BreadcrumbItem {
-                            position,
-                            name,
-                            url,
-                        });
-                    }
-                }
+                items.push(BreadcrumbItem {
+                    position,
+                    name,
+                    url,
+                });
             }
         }
     }

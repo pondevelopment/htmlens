@@ -1,0 +1,29 @@
+[package]
+name = "htmlens-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "CLI tool for extracting semantic knowledge graphs from HTML pages"
+keywords = ["html", "json-ld", "crawler", "seo", "knowledge-graph"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "htmlens"
+path = "src/main.rs"
+
+[dependencies]
+# Use core library with full expansion features
+htmlens-core = { workspace = true, features = ["full-expansion"] }
+
+# Workspace dependencies
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+
+# CLI-specific dependencies
+reqwest = { version = "0.11", features = ["json"] }
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+json-ld = { version = "0.17.2", features = ["reqwest"] }

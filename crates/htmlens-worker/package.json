@@ -1,0 +1,24 @@
+{
+  "name": "htmlens-worker",
+  "version": "0.4.0",
+  "description": "Cloudflare Worker for htmlens - lightweight JSON-LD extraction API",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "cargo install -q worker-build && worker-build --release",
+    "check": "cargo check"
+  },
+  "devDependencies": {
+    "wrangler": "^4.43.0"
+  },
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "json-ld",
+    "html",
+    "extraction"
+  ],
+  "author": "Pon Datalab",
+  "license": "MIT"
+}

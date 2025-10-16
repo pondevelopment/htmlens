@@ -7,9 +7,12 @@ use scraper::{Html, Selector};
 use serde_json::Value as JsonValue;
 
 /// Fetch HTML content from a URL
+/// 
+/// Requires the `full-expansion` feature (needs reqwest)
+#[cfg(feature = "full-expansion")]
 pub async fn fetch_html(url: &str) -> Result<String> {
     let client = reqwest::Client::builder()
-        .user_agent(format!("Mozilla/5.0 (compatible; htmlens/{})", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("Mozilla/5.0 (compatible; htmlens-core/{})", env!("CARGO_PKG_VERSION")))
         .build()?;
 
     let response = client
@@ -80,11 +83,10 @@ pub fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
             .with_context(|| format!("failed to parse JSON-LD block: {}", block))?;
 
         // Use the @context from the first entry that has one
-        if common_context.is_none() {
-            if let Some(ctx) = parsed.get("@context") {
+        if common_context.is_none()
+            && let Some(ctx) = parsed.get("@context") {
                 common_context = Some(ctx.clone());
             }
-        }
 
         // Handle both objects and arrays
         match parsed {
@@ -134,7 +136,7 @@ pub fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
 }
 
 /// Sanitize HTML by removing script, style, and other unwanted elements
-fn sanitize_html(html: &str) -> String {
+pub fn sanitize_html(html: &str) -> String {
     static RE_TAG_BLOCKS: Lazy<Vec<Regex>> = Lazy::new(|| {
         [
             r"(?is)<script[^>]*?>[\s\S]*?</script>",

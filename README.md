@@ -1,4 +1,4 @@
-# HTML Lens
+# HTMLens
 
 See the semantic web through a clear lens.
 
@@ -16,6 +16,7 @@ offline analysis.
 - JSON serialization of graph nodes and relationships
 - Mermaid diagram generation for entity connections
 - Detection of `DataDownload` resources
+- **NEW**: Cloudflare Worker API with beautiful web interface
 
 ## Topics Covered
 
@@ -31,37 +32,91 @@ offline analysis.
 - **reqwest** - HTTP client for fetching web pages
 - **scraper** - HTML parsing and CSS selector support
 - **html2md** - Convert HTML to clean Markdown
-- **json-ld** - JSON-LD expansion and context resolution
+- **json-ld** - JSON-LD expansion and context resolution (full-expansion feature)
 - **serde & serde_json** - Serialization/deserialization
 - **tokio** - Async runtime for concurrent operations
+- **Cloudflare Workers** - Edge computing platform for the web API
 
 ## Project Structure
 
 ```
-htmlens/
-├── Cargo.toml           # Project metadata and dependencies
-├── src/
-│   ├── main.rs          # CLI interface and output formatting
-│   ├── parser.rs        # HTML fetching, parsing, and JSON-LD extraction
-│   └── ld_graph.rs      # JSON-LD expansion and knowledge graph building
-├── LICENSE              # MIT License
-└── README.md            # This file
+htmlens/                         # Cargo workspace v0.4.0
+├── Cargo.toml                   # Workspace definition
+├── crates/
+│   ├── htmlens-core/           # 🔧 Core library (reusable)
+│   │   ├── Cargo.toml          # Feature flags: default, full-expansion
+│   │   ├── src/
+│   │   │   ├── lib.rs          # Public API with conditional exports
+│   │   │   ├── types.rs        # Core types (always available)
+│   │   │   ├── parser.rs       # HTML/JSON-LD parsing (always available)
+│   │   │   └── graph.rs        # Graph building (full-expansion only)
+│   │   └── README.md
+│   ├── htmlens-cli/            # 📦 Command-line tool
+│   │   ├── Cargo.toml          # Uses full-expansion feature
+│   │   ├── src/
+│   │   │   └── main.rs         # CLI interface (~2200 lines)
+│   │   └── README.md
+│   └── htmlens-worker/         # ☁️ Cloudflare Worker
+│       ├── Cargo.toml          # Lightweight (no full-expansion)
+│       ├── src/
+│       │   ├── lib.rs          # Worker API (~440 lines)
+│       │   └── frontend.html   # Web UI (~215 lines)
+│       ├── wrangler.toml       # CF Worker config
+│       ├── package.json        # Node.js dependencies
+│       ├── .nvmrc              # Node v22
+│       └── README.md
+├── reports/                     # Example outputs
+├── LICENSE                      # MIT License
+├── README.md                    # This file
+└── AGENTS.md                    # AI agent development guide
 ```
+
+### Feature Flags
+
+The `htmlens-core` library uses feature flags to manage dependencies:
+
+- **`default`**: Lightweight mode with basic HTML/JSON-LD extraction
+  - Includes: parser, types, HTML sanitization, markdown conversion
+  - No JSON-LD expansion or heavy dependencies
+  
+- **`full-expansion`**: Complete functionality with JSON-LD expansion
+  - Includes: All default features + JSON-LD expansion + graph building
+  - Dependencies: json-ld, reqwest, tokio, uuid
+  - Used by: `htmlens-cli`
+  - Not used by: `htmlens-worker` (keeps WASM bundle small)
 
 ## Prerequisites
 
-- Rust 1.70 or newer (stable toolchain recommended).
-- Network access from the environment where the binary runs.
+- Rust 1.85 or newer (2024 edition)
+- Network access for fetching remote web pages
 
 ## Build
 
+**Build the entire workspace:**
 ```bash
-cargo build --release
+cargo build --release --workspace
+```
+
+**Build specific components:**
+```bash
+# CLI only
+cargo build --release -p htmlens-cli
+
+# Core library
+cargo build --release -p htmlens-core
+
+# Cloudflare Worker
+cargo build --release -p htmlens-worker
+```
+
+**Install CLI globally:**
+```bash
+cargo install --path crates/htmlens-cli
 ```
 
 ## How to Run
 
-### Basic Usage
+### Command-Line Interface
 
 ```bash
 htmlens --help
@@ -196,36 +251,105 @@ The tool intelligently filters properties based on `variesBy` using substring ma
 
 - **Format code**: `cargo fmt`
 - **Lint code**: `cargo clippy`
-- **Check compilation**: `cargo check`
-- **Build optimized binary**: `cargo build --release`
+- **Check compilation**: `cargo check --workspace`
+- **Build optimized binary**: `cargo build --release --workspace`
 
 ### Adding New Features
 
 When adding new features:
-1. **Parser module** (`src/parser.rs`): Add new HTML/JSON-LD parsing or fetching capabilities
-2. **LD Graph module** (`src/ld_graph.rs`): Extend JSON-LD expansion or graph building logic
-3. **Main module** (`src/main.rs`): Update CLI arguments, output formatting, or entity extraction
-4. Update documentation in this README
+1. **Core library** (`crates/htmlens-core`): Add new HTML/JSON-LD parsing or graph building capabilities
+2. **CLI tool** (`crates/htmlens-cli`): Update CLI arguments, output formatting, or entity extraction
+3. **Worker** (`crates/htmlens-worker`): Add new API endpoints or modify extraction logic
+4. Update documentation in respective README files
 5. Test with various real-world URLs and JSON-LD inputs
+
+### Cloudflare Worker Deployment
+
+The `htmlens-worker` crate provides a **lightweight web API** with a beautiful interface for JSON-LD extraction:
+
+**Features:**
+- 🎨 Beautiful gradient UI (purple/blue theme)
+- 📊 Business Summary with product information and technical insights
+- 🔍 JSON-LD tab with syntax highlighting and combined `@graph` structure
+- 📋 Structured Data tab with CLI-style product tables
+- 📄 Page Content tab with clean markdown conversion
+- 🚀 Fast edge computing with Cloudflare Workers
+- 🌐 CORS-enabled API for integration
+
+**Local Development:**
+```bash
+cd crates/htmlens-worker
+
+# Install dependencies (Node.js v22 required, see .nvmrc)
+npm install
+
+# Run locally
+npx wrangler dev
+```
+
+**Deploy to Cloudflare:**
+```bash
+npm run deploy
+```
+
+**Web Interface:**
+Visit `http://localhost:8787` (local) or your deployed worker URL to access the interactive web interface.
+
+**API Usage:**
+```bash
+# Analyze a URL
+curl "https://your-worker.workers.dev/?url=https://example.com/product"
+
+# Health check
+curl "https://your-worker.workers.dev/health"
+```
+
+**API Response:**
+```json
+{
+  "url": "https://example.com/product",
+  "title": "Product Page Title",
+  "description": "Page description",
+  "graph": {
+    "nodes": [...],
+    "edges": [...]
+  },
+  "jsonld": [...],           // Raw blocks array
+  "jsonldGraph": {           // Combined @graph structure
+    "@context": "https://schema.org",
+    "@graph": [...]
+  },
+  "markdown": "...",         // CLI-style formatted tables
+  "pageMarkdown": "...",     // HTML converted to markdown
+  "meta": {
+    "htmlLength": 173130,
+    "jsonldCount": 4,
+    "wasmStatus": "rust"
+  }
+}
+```
+
+See `crates/htmlens-worker/README.md` for detailed API documentation.
 
 ## Implementation Notes
 
-- **Modular architecture**: Code is organized into three main modules:
-  - `parser`: HTTP fetching, HTML sanitization, and JSON-LD extraction
-  - `ld_graph`: JSON-LD expansion and knowledge graph construction
-  - `main`: CLI interface, entity extraction, and output formatting
-- Uses `reqwest` for HTTP with custom user agent, `html2md` to generate Markdown, and `scraper` to
-  locate `application/ld+json` blocks.
-- JSON‑LD expansion relies on the `json-ld` crate's `ReqwestLoader` to resolve
-  remote contexts.
-- The graph builder normalizes node identifiers, collects literal properties,
-  and tracks edges (`offers`, `brand`, `hasVariant`, `isVariantOf`, etc.) between nodes.
-- `DataDownload` entities are detected by scanning the expanded document and
-  collecting `contentUrl` values regardless of compacted or expanded keys.
-- **Multiple JSON-LD blocks** in a single HTML page are automatically combined into a single `@graph` structure.
-- **Property inheritance**: Variants referencing other products via `isVariantOf` inherit properties not explicitly overridden.
-- **Common properties** are dynamically extracted from the first variant and filtered against the `variesBy` list using intelligent substring matching.
-- Supports both **FrameShape** and **FrameType** property names for bicycle frame specifications.
+- **Workspace architecture**: Organized as a Cargo workspace with three crates:
+  - `htmlens-core`: Reusable library with feature flags for lightweight vs. full functionality
+  - `htmlens-cli`: Command-line interface with full features (Markdown, tables, Mermaid, JSON-LD expansion)
+  - `htmlens-worker`: Cloudflare Worker with web UI and API (lightweight, no JSON-LD expansion)
+- **Feature-gated dependencies**: Heavy dependencies like `json-ld`, `reqwest`, `tokio`, and `uuid` are only included when the `full-expansion` feature is enabled
+- **WASM compatibility**: Worker uses `getrandom` with `wasm_js` feature for random number generation in WebAssembly
+- Uses `reqwest` for HTTP with custom Mozilla user agent for better compatibility
+- `html2md` generates clean Markdown, and `scraper` locates `application/ld+json` blocks
+- JSON‑LD expansion (in CLI only) relies on the `json-ld` crate's `ReqwestLoader` to resolve remote contexts
+- **Multiple JSON-LD blocks** in a single HTML page are automatically combined into a single `@graph` structure with shared `@context`
+- The graph builder normalizes node identifiers, collects literal properties, and tracks edges (`offers`, `brand`, `hasVariant`, `isVariantOf`, etc.) between nodes
+- `DataDownload` entities are detected by scanning the expanded document and collecting `contentUrl` values
+- **Property inheritance**: Variants referencing other products via `isVariantOf` inherit properties not explicitly overridden
+- **Common properties** are dynamically extracted from the first variant and filtered against the `variesBy` list using intelligent token-based matching
+- **Token-based property matching** prevents false positives (e.g., "color" won't match "colorway")
+- Supports both **FrameShape** and **FrameType** property names for bicycle frame specifications
+- **Worker frontend**: Beautiful gradient UI with syntax-highlighted JSON-LD, HTML tables for structured data, and business summaries
 
 ## License
 
@@ -246,3 +370,5 @@ By contributing, you agree that your contributions will be licensed under the MI
 ---
 
 Built for Marketeers and Developers to understand better what an Agent or Scraper sees.
+
+**Developed by Pon Datalab**

@@ -1,0 +1,36 @@
+[package]
+name = "htmlens-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Core library for extracting semantic knowledge graphs from HTML/JSON-LD"
+keywords = ["html", "json-ld", "schema-org", "knowledge-graph"]
+categories = ["parser-implementations", "web-programming"]
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+regex.workspace = true
+once_cell.workspace = true
+
+# HTML parsing and conversion
+scraper = "0.18"
+html2md = "0.2"
+
+# JSON-LD expansion (optional - heavy dependencies)
+json-ld = { version = "0.17.2", features = ["reqwest"], optional = true }
+iref = { version = "3.2", optional = true }
+json-syntax = { version = "0.12", optional = true }
+rdf-types = { version = "0.22", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"], optional = true }
+uuid = { workspace = true, optional = true }
+
+[features]
+default = []
+# Full JSON-LD expansion with remote context resolution
+full-expansion = ["json-ld", "iref", "json-syntax", "rdf-types", "reqwest", "tokio", "uuid"]
