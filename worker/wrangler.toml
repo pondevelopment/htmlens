@@ -1,0 +1,7 @@
+name = "htmlens-worker"
+main = "src/index.ts"
+compatibility_date = "2024-10-01"
+
+# Note: WASM module will be added here once built
+# [wasm_modules]
+# HTMLENS = "../pkg/htmlens_bg.wasm"

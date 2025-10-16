@@ -1,2 +1,11 @@
 /target
 /reports
+
+# Node.js
+node_modules/
+worker/node_modules/
+
+# Worker build artifacts
+worker/.wrangler/
+worker/dist/
+worker/public/

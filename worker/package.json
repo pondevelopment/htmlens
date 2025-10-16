@@ -1,0 +1,19 @@
+{
+  "name": "htmlens-worker",
+  "version": "0.2.0",
+  "description": "Cloudflare Worker for htmlens - semantic knowledge graph extraction",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["htmlens", "cloudflare-worker", "wasm", "knowledge-graph"],
+  "author": "Pon Datalab",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251011.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.43.0"
+  }
+}
