@@ -7,6 +7,8 @@ JSON‑LD, mapping Schema.org entities, and presenting the inferred knowledge
 graph alongside the source content. It can also accept JSON-LD directly for
 offline analysis.
 
+Available as both a **command-line tool** for developers and a **web interface** (Cloudflare Worker) for business users.
+
 **Features:**
 - Extract and visualize Schema.org structured data from web pages or direct JSON-LD input
 - Markdown representation of page content
@@ -44,6 +46,12 @@ htmlens/
 │   ├── main.rs          # CLI interface and output formatting
 │   ├── parser.rs        # HTML fetching, parsing, and JSON-LD extraction
 │   └── ld_graph.rs      # JSON-LD expansion and knowledge graph building
+├── worker/              # Cloudflare Worker (web frontend + API)
+│   ├── src/
+│   │   └── index.ts     # Worker with embedded frontend
+│   ├── package.json     # Node.js dependencies
+│   ├── wrangler.toml    # Worker configuration
+│   └── README.md        # Worker-specific documentation
 ├── LICENSE              # MIT License
 └── README.md            # This file
 ```
@@ -113,7 +121,41 @@ htmlens https://example.com/dataset --data-downloads --save reports
 cargo run --release -- <URL|JSON-LD> [OPTIONS]
 ```
 
-The program outputs to `stdout` in the following order:
+## Cloudflare Worker (Web Frontend + API)
+
+In addition to the CLI tool, htmlens provides a Cloudflare Worker with an embedded web interface for easy access and sharing.
+
+### Features
+
+- **Business-Focused Summary**: Product information, pricing, variants, and availability in plain language
+- **Markdown Output**: Tables with fixed-width columns matching CLI format
+- **JSON-LD Viewer**: Syntax-highlighted structured data
+- **Knowledge Graph**: JSON representation of entities and relationships
+- **Copy to Clipboard**: One-click copying of any output format
+- **No CORS Restrictions**: Server-side fetching bypasses browser security limitations
+
+### Setup & Run
+
+```bash
+cd worker
+npm install
+npm run dev
+```
+
+The Worker will be available at `http://localhost:8787`
+
+### Deploy to Cloudflare
+
+```bash
+cd worker
+npm run deploy
+```
+
+See `worker/README.md` for detailed Worker documentation.
+
+## CLI Output Format
+
+The CLI program outputs to `stdout` in the following order:
 1. **Markdown** representation of the source page (for URL input)
 2. **Structured summaries** including:
    - Organization details (name, contact, address, ratings)
