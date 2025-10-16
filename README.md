@@ -131,7 +131,7 @@ The program outputs to `stdout` in the following order:
 ### CLI Flags
 
 - `-g`, `--graph-only` &mdash; Output only the condensed graph summary (no markdown or product details).
-- `-G`, `--graph-summary` &mdash; Include product summaries and markdown (alias for default behavior).
+- `-G`, `--graph-summary` &mdash; Output product summaries only (no markdown).
 - `-m`, `--mermaid` &mdash; Include Mermaid diagram visualization of the knowledge graph with JSON export.
 - `-dd`, `--data-downloads` &mdash; Show detected `DataDownload` entries with
   their URLs, encoding formats, and licenses.

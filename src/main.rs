@@ -19,8 +19,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, PartialEq)]
 enum OutputMode {
-    Default,      // Markdown + summaries (default behavior)
-    GraphOnly,    // Only condensed graph summary
+    Default,       // Markdown + summaries (default behavior)
+    SummaryOnly,   // Product summaries only (no markdown)
+    GraphOnly,     // Only condensed graph summary
 }
 
 enum InputSource {
@@ -75,11 +76,10 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         }
 
         if matches!(arg.as_str(), "-G" | "--graph-summary") {
-            // This flag is now just an alias for the default behavior (backwards compatibility)
             if mode != OutputMode::Default {
                 return Err(anyhow!("conflicting graph options supplied"));
             }
-            // mode stays as Default - this is now a no-op for backwards compatibility
+            mode = OutputMode::SummaryOnly;
             i += 1;
             continue;
         }
@@ -184,7 +184,7 @@ fn print_help() {
     println!("  <JSON-LD>     Direct JSON-LD input (must start with '{{' or '[')\n");
     println!("Options:");
     println!("  -g, --graph-only        Output condensed graph summary only (no markdown)");
-    println!("  -G, --graph-summary     Include product summaries and condensed graph (alias for default)");
+    println!("  -G, --graph-summary     Output product summaries only (no markdown)");
     println!("  -m, --mermaid           Include Mermaid diagram visualization of the knowledge graph");
     println!("  -dd, --data-downloads   Include DataDownload references in output");
     println!("  -s, --save [PATH]       Save markdown output to file");
@@ -258,7 +258,7 @@ async fn run(options: CliOptions) -> Result<()> {
 
     // Determine what to include based on mode
     let include_markdown = matches!(options.mode, OutputMode::Default);
-    let include_summary_sections = matches!(options.mode, OutputMode::Default);
+    let include_summary_sections = matches!(options.mode, OutputMode::Default | OutputMode::SummaryOnly);
     let include_condensed_summary = matches!(options.mode, OutputMode::GraphOnly);
     let include_graph_exports = options.include_mermaid;
 
