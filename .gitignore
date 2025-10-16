@@ -9,3 +9,6 @@ worker/node_modules/
 worker/.wrangler/
 worker/dist/
 worker/public/
+
+# Git tools
+.git-rewrite/
