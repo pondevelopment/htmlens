@@ -1,49 +1,18 @@
 //! JSON-LD expansion and knowledge graph building
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use iref::IriBuf;
 use json_ld::object::Literal;
 use json_ld::syntax::{Parse, Value};
 use json_ld::{JsonLdProcessor, RemoteDocument, ReqwestLoader};
 use json_syntax::Value as SyntaxValue;
-use serde::Serialize;
 use serde_json::{Map, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize)]
-pub struct KnowledgeGraph {
-    pub nodes: Vec<GraphNode>,
-    pub edges: Vec<GraphEdge>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct GraphNode {
-    #[serde(rename = "@id")]
-    pub id: String,
-    #[serde(rename = "@type")]
-    pub types: Vec<String>,
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub properties: HashMap<String, JsonValue>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct GraphEdge {
-    pub from: String,
-    pub to: String,
-    pub predicate: String,
-}
-
-impl GraphNode {
-    pub fn new(id: String) -> Self {
-        Self {
-            id,
-            types: Vec::new(),
-            properties: HashMap::new(),
-        }
-    }
-}
+// Re-export types from the types module
+pub use crate::types::{GraphEdge, GraphNode, KnowledgeGraph};
 
 /// Expand a JSON-LD block into an expanded document
 pub async fn expand_json_ld(

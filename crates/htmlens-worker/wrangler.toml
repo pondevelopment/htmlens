@@ -1,0 +1,15 @@
+name = "htmlens-worker"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-10-16"
+workers_dev = true
+
+[build]
+command = "which worker-build >/dev/null 2>&1 || cargo install -q worker-build && worker-build --release"
+
+[vars]
+# Environment variables available to the Worker
+
+# Uncomment and configure for production deployment
+# [[routes]]
+# pattern = "htmlens-api.example.com/*"
+# zone_name = "example.com"

@@ -9,19 +9,20 @@ use json_ld::ReqwestLoader;
 use serde_json::Value as JsonValue;
 use url::Url;
 
-mod parser;
-mod ld_graph;
-
-use ld_graph::{KnowledgeGraph, GraphNode, GraphEdge, GraphBuilder};
+// Import from htmlens-core instead of local modules
+use htmlens_core::{
+    graph::{GraphBuilder, GraphEdge, GraphNode, KnowledgeGraph, expand_json_ld},
+    parser,
+};
 
 const APP_NAME: &str = "htmlens";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, PartialEq)]
 enum OutputMode {
-    Default,       // Markdown + summaries (default behavior)
-    SummaryOnly,   // Product summaries only (no markdown)
-    GraphOnly,     // Only condensed graph summary
+    Default,     // Markdown + summaries (default behavior)
+    SummaryOnly, // Product summaries only (no markdown)
+    GraphOnly,   // Only condensed graph summary
 }
 
 enum InputSource {
@@ -185,12 +186,15 @@ fn print_help() {
     println!("Options:");
     println!("  -g, --graph-only        Output condensed graph summary only (no markdown)");
     println!("  -G, --graph-summary     Output product summaries only (no markdown)");
-    println!("  -m, --mermaid           Include Mermaid diagram visualization of the knowledge graph");
+    println!(
+        "  -m, --mermaid           Include Mermaid diagram visualization of the knowledge graph"
+    );
     println!("  -dd, --data-downloads   Include DataDownload references in output");
     println!("  -s, --save [PATH]       Save markdown output to file");
     println!("  -v, --version           Show version information");
     println!("  -h, --help              Show this help message\n");
-    println!("Default behavior (no flags): Shows product summaries + markdown");
+    println!("Default behavior (no flags): Shows product summaries + markdown\n");
+    println!("Developed by Pon Datalab");
 }
 
 fn print_version() {
@@ -236,7 +240,7 @@ async fn run(options: CliOptions) -> Result<()> {
 
     // Combine multiple JSON-LD blocks into a single graph
     let combined_doc = parser::combine_json_ld_blocks(&json_ld_blocks)?;
-    if let Ok(expanded) = ld_graph::expand_json_ld(&base_url, &combined_doc, &mut loader).await {
+    if let Ok(expanded) = expand_json_ld(&base_url, &combined_doc, &mut loader).await {
         builder.ingest_document(&expanded);
     }
 
@@ -244,7 +248,8 @@ async fn run(options: CliOptions) -> Result<()> {
     let graph_json_value = serde_json::to_value(&graph)?;
     let mut insights = GraphInsights::from(&graph);
 
-    let include_data_downloads = options.include_data_downloads || matches!(options.mode, OutputMode::Default);
+    let include_data_downloads =
+        options.include_data_downloads || matches!(options.mode, OutputMode::Default);
 
     if include_data_downloads {
         insights.data_downloads = render_data_downloads(&graph_json_value);
@@ -258,7 +263,8 @@ async fn run(options: CliOptions) -> Result<()> {
 
     // Determine what to include based on mode
     let include_markdown = matches!(options.mode, OutputMode::Default);
-    let include_summary_sections = matches!(options.mode, OutputMode::Default | OutputMode::SummaryOnly);
+    let include_summary_sections =
+        matches!(options.mode, OutputMode::Default | OutputMode::SummaryOnly);
     let include_condensed_summary = matches!(options.mode, OutputMode::GraphOnly);
     let include_graph_exports = options.include_mermaid;
 
@@ -333,16 +339,19 @@ async fn run(options: CliOptions) -> Result<()> {
             if let Some(avail) = format_availability_counts(&pg.availability_counts) {
                 push_key_value(&mut output, "Availability", &avail);
             }
-            
+
             // Display common properties (non-varies properties shared by all variants)
             if !pg.common_properties.is_empty() {
                 let _ = writeln!(&mut output);
-                let _ = writeln!(&mut output, "**Common Properties** (shared by all variants):");
-                
+                let _ = writeln!(
+                    &mut output,
+                    "**Common Properties** (shared by all variants):"
+                );
+
                 // Sort keys for consistent display
                 let mut sorted_keys: Vec<_> = pg.common_properties.keys().collect();
                 sorted_keys.sort();
-                
+
                 for key in sorted_keys {
                     if let Some(value) = pg.common_properties.get(key) {
                         // Skip name as it's already shown in the title
@@ -352,12 +361,18 @@ async fn run(options: CliOptions) -> Result<()> {
                     }
                 }
             }
-            
+
             let _ = writeln!(&mut output);
 
             // Render variants for this product group
             if !pg.variants.is_empty() {
-                render_variant_table(&mut output, &pg.variants, &pg.varies_by, &pg.direct_properties, pg.total_variants);
+                render_variant_table(
+                    &mut output,
+                    &pg.variants,
+                    &pg.varies_by,
+                    &pg.direct_properties,
+                    pg.total_variants,
+                );
             }
         }
 
@@ -588,7 +603,10 @@ impl GraphInsights {
         let mut offer_count = 0usize;
 
         // Process ALL ProductGroups (not just the first one)
-        for product_group in nodes_map.values().filter(|node| has_schema_type(node, "ProductGroup")) {
+        for product_group in nodes_map
+            .values()
+            .filter(|node| has_schema_type(node, "ProductGroup"))
+        {
             let mut pg_summary = ProductGroupSummary {
                 name: property_text(product_group, &["https://schema.org/name", "name"]),
                 product_group_id: property_text(
@@ -685,34 +703,37 @@ impl GraphInsights {
 
             // Sort variants within this product group
             pg_summary.variants.sort_by(|a, b| a.sku.cmp(&b.sku));
-            
+
             // Extract common properties (properties not in variesBy) from the first variant
             if let Some(first_variant) = pg_summary.variants.first() {
                 // Get the first variant's product node to extract direct properties
                 if let Some(edges) = adjacency.get(product_group.id.as_str()) {
                     for edge in edges {
-                        if predicate_matches(&edge.predicate, "hasVariant") {
-                            if let Some(variant_node) = nodes_map.get(edge.to.as_str()) {
-                                // Check if this is the first variant by SKU
-                                let variant_sku = property_text(variant_node, &["https://schema.org/sku", "http://schema.org/sku", "sku"]);
-                                if variant_sku == first_variant.sku {
-                                    pg_summary.common_properties = extract_common_properties(
-                                        variant_node,
-                                        &adjacency,
-                                        &nodes_map,
-                                        &pg_summary.varies_by,
-                                    );
-                                    break;
-                                }
+                        if predicate_matches(&edge.predicate, "hasVariant")
+                            && let Some(variant_node) = nodes_map.get(edge.to.as_str())
+                        {
+                            // Check if this is the first variant by SKU
+                            let variant_sku = property_text(
+                                variant_node,
+                                &["https://schema.org/sku", "http://schema.org/sku", "sku"],
+                            );
+                            if variant_sku == first_variant.sku {
+                                pg_summary.common_properties = extract_common_properties(
+                                    variant_node,
+                                    &adjacency,
+                                    &nodes_map,
+                                    &pg_summary.varies_by,
+                                );
+                                break;
                             }
                         }
                     }
                 }
             }
-            
+
             // Store direct_properties from variants
             pg_summary.direct_properties = direct_properties.iter().cloned().collect();
-            
+
             insights.product_groups.push(pg_summary);
         }
 
@@ -816,7 +837,9 @@ impl GraphInsights {
         // Extract Organization entities
         for node in nodes_map.values() {
             if has_schema_type(node, "Organization") {
-                insights.organizations.push(extract_organization(node, &adjacency, &nodes_map));
+                insights
+                    .organizations
+                    .push(extract_organization(node, &adjacency, &nodes_map));
                 insights.graph_summary.push("Organization".to_string());
             }
         }
@@ -832,7 +855,9 @@ impl GraphInsights {
         // Extract BreadcrumbList
         for node in nodes_map.values() {
             if has_schema_type(node, "BreadcrumbList") {
-                insights.breadcrumbs.push(extract_breadcrumb(node, &adjacency, &nodes_map));
+                insights
+                    .breadcrumbs
+                    .push(extract_breadcrumb(node, &adjacency, &nodes_map));
                 insights.graph_summary.push("BreadcrumbList".to_string());
             }
         }
@@ -901,18 +926,14 @@ fn summarize_variant<'a>(
         ),
         mpn: property_text(
             product,
-            &[
-                "https://schema.org/mpn",
-                "http://schema.org/mpn",
-                "mpn",
-            ],
+            &["https://schema.org/mpn", "http://schema.org/mpn", "mpn"],
         ),
         color: property_text(
             product,
             &[
                 "https://schema.org/color",
                 "http://schema.org/color",
-                "https://schema.org/Color",  // Capitalized schema.org variant
+                "https://schema.org/Color", // Capitalized schema.org variant
                 "http://schema.org/Color",
                 "color",
                 "Color",
@@ -921,9 +942,9 @@ fn summarize_variant<'a>(
         size: property_text(
             product,
             &[
-                "https://schema.org/size", 
+                "https://schema.org/size",
                 "http://schema.org/size",
-                "https://schema.org/Size",  // Capitalized schema.org variant
+                "https://schema.org/Size", // Capitalized schema.org variant
                 "http://schema.org/Size",
                 "size",
                 "Size",
@@ -1008,17 +1029,37 @@ fn summarize_variant<'a>(
     // (excluding known ones and excluding objects/arrays)
     for (key, value) in &product.properties {
         let prop_name = shorten_iri(key);
-        
+
         // Skip known standard Schema.org properties we already handle explicitly
-        if matches!(prop_name.as_str(), 
-            "sku" | "gtin" | "gtin13" | "gtin14" | "mpn" | "color" | "Color" | 
-            "size" | "Size" | "weight" | "material" | "model" | "category" |
-            "width" | "height" | "depth" |
-            "name" | "description" | "image" | "url" | "@type" | "@id" | "@context"
+        if matches!(
+            prop_name.as_str(),
+            "sku"
+                | "gtin"
+                | "gtin13"
+                | "gtin14"
+                | "mpn"
+                | "color"
+                | "Color"
+                | "size"
+                | "Size"
+                | "weight"
+                | "material"
+                | "model"
+                | "category"
+                | "width"
+                | "height"
+                | "depth"
+                | "name"
+                | "description"
+                | "image"
+                | "url"
+                | "@type"
+                | "@id"
+                | "@context"
         ) {
             continue;
         }
-        
+
         // Only include simple string/number values
         if let Some(text) = json_value_to_string(value) {
             summary.additional.insert(prop_name.clone(), text);
@@ -1027,24 +1068,27 @@ fn summarize_variant<'a>(
     }
 
     let mut additional = collect_additional_properties(product, adjacency, nodes);
-    
+
     // Check for isVariantOf to inherit properties from parent variant
     if let Some(edges) = adjacency.get(product.id.as_str()) {
         for edge in edges {
-            if predicate_matches(&edge.predicate, "isVariantOf") {
-                if let Some(parent_node) = nodes.get(edge.to.as_str()) {
-                    let parent_additional = collect_additional_properties(parent_node, adjacency, nodes);
-                    // Inherit properties that aren't already set
-                    for (key, value) in parent_additional {
-                        additional.entry(key).or_insert(value);
-                    }
+            if predicate_matches(&edge.predicate, "isVariantOf")
+                && let Some(parent_node) = nodes.get(edge.to.as_str())
+            {
+                let parent_additional =
+                    collect_additional_properties(parent_node, adjacency, nodes);
+                // Inherit properties that aren't already set
+                for (key, value) in parent_additional {
+                    additional.entry(key).or_insert(value);
                 }
             }
         }
     }
-    
+
     // Support both FrameShape and FrameType
-    summary.frame_shape = additional.get("FrameShape").cloned()
+    summary.frame_shape = additional
+        .get("FrameShape")
+        .cloned()
         .or_else(|| additional.get("FrameType").cloned());
     summary.battery = additional.get("BatteryCapacity").cloned();
     for key in additional.keys() {
@@ -1103,19 +1147,17 @@ fn extract_common_properties<'a>(
     varies_by: &[String],
 ) -> HashMap<String, String> {
     let mut common = HashMap::new();
-    
+
     // Normalize variesBy to lowercase for case-insensitive comparison
-    let varies_by_lower: Vec<String> = varies_by.iter()
-        .map(|s| s.to_lowercase())
-        .collect();
-    
+    let varies_by_lower: Vec<String> = varies_by.iter().map(|s| s.to_lowercase()).collect();
+
     // Helper function to normalize property names by extracting tokens
     // e.g., "FrameSize" -> ["frame", "size"], "BatteryCapacity" -> ["battery", "capacity"]
     let normalize_tokens = |s: &str| -> Vec<String> {
         // Split on case boundaries and non-alphanumeric characters
         let mut tokens = Vec::new();
         let mut current = String::new();
-        
+
         for ch in s.chars() {
             if ch.is_uppercase() && !current.is_empty() {
                 tokens.push(current.to_lowercase());
@@ -1133,66 +1175,142 @@ fn extract_common_properties<'a>(
         }
         tokens
     };
-    
+
     // Helper function to check if a property varies
     let is_varying = |prop_name: &str| -> bool {
         let prop_lower = prop_name.to_lowercase();
         let prop_tokens = normalize_tokens(prop_name);
-        
+
         varies_by_lower.iter().any(|vb| {
             // Exact match
             if vb == &prop_lower {
                 return true;
             }
-            
+
             // Token-based matching: if all tokens from variesBy appear in the property name
             // e.g., "size" in variesBy matches "FrameSize" (tokens: ["frame", "size"])
             // but not "colorway" (tokens: ["colorway"])
             let vb_tokens = normalize_tokens(vb);
-            
+
             // Check if all variesBy tokens are present in property tokens
             // This handles cases like "Size" matching "FrameSize"
             // but avoids false positives like "Color" matching "Colorway"
             if vb_tokens.len() == 1 && prop_tokens.contains(&vb_tokens[0]) {
                 return true;
             }
-            
+
             // For multi-token variesBy (e.g., "FrameSize"), require exact token sequence
             if vb_tokens.len() > 1 && vb_tokens == prop_tokens {
                 return true;
             }
-            
+
             false
         })
     };
-    
+
     // Extract direct properties from the product node
     let direct_props = vec![
-        ("name", &["https://schema.org/name", "http://schema.org/name", "name"] as &[&str]),
-        ("description", &["https://schema.org/description", "http://schema.org/description", "description"]),
-        ("material", &["https://schema.org/material", "http://schema.org/material", "material"]),
-        ("color", &["https://schema.org/color", "http://schema.org/color", "color"]),
-        ("size", &["https://schema.org/size", "http://schema.org/size", "size"]),
-        ("brand", &["https://schema.org/brand", "http://schema.org/brand", "brand"]),
-        ("model", &["https://schema.org/model", "http://schema.org/model", "model"]),
-        ("category", &["https://schema.org/category", "http://schema.org/category", "category"]),
-        ("width", &["https://schema.org/width", "http://schema.org/width", "width"]),
-        ("height", &["https://schema.org/height", "http://schema.org/height", "height"]),
-        ("depth", &["https://schema.org/depth", "http://schema.org/depth", "depth"]),
-        ("weight", &["https://schema.org/weight", "http://schema.org/weight", "weight"]),
+        (
+            "name",
+            &["https://schema.org/name", "http://schema.org/name", "name"] as &[&str],
+        ),
+        (
+            "description",
+            &[
+                "https://schema.org/description",
+                "http://schema.org/description",
+                "description",
+            ],
+        ),
+        (
+            "material",
+            &[
+                "https://schema.org/material",
+                "http://schema.org/material",
+                "material",
+            ],
+        ),
+        (
+            "color",
+            &[
+                "https://schema.org/color",
+                "http://schema.org/color",
+                "color",
+            ],
+        ),
+        (
+            "size",
+            &["https://schema.org/size", "http://schema.org/size", "size"],
+        ),
+        (
+            "brand",
+            &[
+                "https://schema.org/brand",
+                "http://schema.org/brand",
+                "brand",
+            ],
+        ),
+        (
+            "model",
+            &[
+                "https://schema.org/model",
+                "http://schema.org/model",
+                "model",
+            ],
+        ),
+        (
+            "category",
+            &[
+                "https://schema.org/category",
+                "http://schema.org/category",
+                "category",
+            ],
+        ),
+        (
+            "width",
+            &[
+                "https://schema.org/width",
+                "http://schema.org/width",
+                "width",
+            ],
+        ),
+        (
+            "height",
+            &[
+                "https://schema.org/height",
+                "http://schema.org/height",
+                "height",
+            ],
+        ),
+        (
+            "depth",
+            &[
+                "https://schema.org/depth",
+                "http://schema.org/depth",
+                "depth",
+            ],
+        ),
+        (
+            "weight",
+            &[
+                "https://schema.org/weight",
+                "http://schema.org/weight",
+                "weight",
+            ],
+        ),
     ];
-    
+
     for (prop_name, prop_paths) in direct_props {
         // Skip if this property varies
         if is_varying(prop_name) {
             continue;
         }
-        
+
         if let Some(value) = property_text(product, prop_paths) {
             common.insert(prop_name.to_string(), value);
         }
     }
-    
+
     // Also extract additionalProperty items that aren't in variesBy
     let additional = collect_additional_properties(product, adjacency, nodes);
     for (key, value) in additional {
@@ -1200,7 +1318,7 @@ fn extract_common_properties<'a>(
             common.insert(key, value);
         }
     }
-    
+
     common
 }
 
@@ -1264,10 +1382,30 @@ fn extract_organization<'a>(
     nodes_map: &HashMap<&'a str, &'a GraphNode>,
 ) -> OrganizationSummary {
     let mut org = OrganizationSummary {
-        name: property_text(node, &["https://schema.org/name", "http://schema.org/name", "name"]),
-        logo: property_text(node, &["https://schema.org/logo", "http://schema.org/logo", "logo"]),
-        telephone: property_text(node, &["https://schema.org/telephone", "http://schema.org/telephone", "telephone"]),
-        email: property_text(node, &["https://schema.org/email", "http://schema.org/email", "email"]),
+        name: property_text(
+            node,
+            &["https://schema.org/name", "http://schema.org/name", "name"],
+        ),
+        logo: property_text(
+            node,
+            &["https://schema.org/logo", "http://schema.org/logo", "logo"],
+        ),
+        telephone: property_text(
+            node,
+            &[
+                "https://schema.org/telephone",
+                "http://schema.org/telephone",
+                "telephone",
+            ],
+        ),
+        email: property_text(
+            node,
+            &[
+                "https://schema.org/email",
+                "http://schema.org/email",
+                "email",
+            ],
+        ),
         ..Default::default()
     };
 
@@ -1277,19 +1415,61 @@ fn extract_organization<'a>(
             if predicate_matches(&edge.predicate, "address") {
                 if let Some(address_node) = nodes_map.get(edge.to.as_str()) {
                     org.address = Some(AddressSummary {
-                        street: property_text(address_node, &["https://schema.org/streetAddress", "http://schema.org/streetAddress", "streetAddress"]),
-                        locality: property_text(address_node, &["https://schema.org/addressLocality", "http://schema.org/addressLocality", "addressLocality"]),
-                        postal_code: property_text(address_node, &["https://schema.org/postalCode", "http://schema.org/postalCode", "postalCode"]),
-                        country: property_text(address_node, &["https://schema.org/addressCountry", "http://schema.org/addressCountry", "addressCountry"]),
+                        street: property_text(
+                            address_node,
+                            &[
+                                "https://schema.org/streetAddress",
+                                "http://schema.org/streetAddress",
+                                "streetAddress",
+                            ],
+                        ),
+                        locality: property_text(
+                            address_node,
+                            &[
+                                "https://schema.org/addressLocality",
+                                "http://schema.org/addressLocality",
+                                "addressLocality",
+                            ],
+                        ),
+                        postal_code: property_text(
+                            address_node,
+                            &[
+                                "https://schema.org/postalCode",
+                                "http://schema.org/postalCode",
+                                "postalCode",
+                            ],
+                        ),
+                        country: property_text(
+                            address_node,
+                            &[
+                                "https://schema.org/addressCountry",
+                                "http://schema.org/addressCountry",
+                                "addressCountry",
+                            ],
+                        ),
                     });
                 }
-            } else if predicate_matches(&edge.predicate, "aggregateRating") {
-                if let Some(rating_node) = nodes_map.get(edge.to.as_str()) {
-                    org.rating = Some(RatingSummary {
-                        rating_value: property_text(rating_node, &["https://schema.org/ratingValue", "http://schema.org/ratingValue", "ratingValue"]),
-                        review_count: property_text(rating_node, &["https://schema.org/reviewCount", "http://schema.org/reviewCount", "reviewCount"]),
-                    });
-                }
+            } else if predicate_matches(&edge.predicate, "aggregateRating")
+                && let Some(rating_node) = nodes_map.get(edge.to.as_str())
+            {
+                org.rating = Some(RatingSummary {
+                    rating_value: property_text(
+                        rating_node,
+                        &[
+                            "https://schema.org/ratingValue",
+                            "http://schema.org/ratingValue",
+                            "ratingValue",
+                        ],
+                    ),
+                    review_count: property_text(
+                        rating_node,
+                        &[
+                            "https://schema.org/reviewCount",
+                            "http://schema.org/reviewCount",
+                            "reviewCount",
+                        ],
+                    ),
+                });
             }
         }
     }
@@ -1298,10 +1478,20 @@ fn extract_organization<'a>(
 }
 
 fn extract_webpage(node: &GraphNode) -> WebPageSummary {
-    let speakable_text = property_text(node, &["https://schema.org/speakable", "http://schema.org/speakable", "speakable"]);
-    
+    let speakable_text = property_text(
+        node,
+        &[
+            "https://schema.org/speakable",
+            "http://schema.org/speakable",
+            "speakable",
+        ],
+    );
+
     WebPageSummary {
-        url: property_text(node, &["https://schema.org/url", "http://schema.org/url", "url"]),
+        url: property_text(
+            node,
+            &["https://schema.org/url", "http://schema.org/url", "url"],
+        ),
         speakable: speakable_text,
     }
 }
@@ -1315,35 +1505,38 @@ fn extract_breadcrumb<'a>(
 
     if let Some(edges) = adjacency.get(node.id.as_str()) {
         for edge in edges {
-            if predicate_matches(&edge.predicate, "itemListElement") {
-                if let Some(list_item_node) = nodes_map.get(edge.to.as_str()) {
-                    if has_schema_type(list_item_node, "ListItem") {
-                        let position = property_text(
-                            list_item_node,
-                            &["https://schema.org/position", "http://schema.org/position", "position"],
-                        )
-                        .and_then(|s| s.parse::<usize>().ok())
-                        .unwrap_or(0);
+            if predicate_matches(&edge.predicate, "itemListElement")
+                && let Some(list_item_node) = nodes_map.get(edge.to.as_str())
+                && has_schema_type(list_item_node, "ListItem")
+            {
+                let position = property_text(
+                    list_item_node,
+                    &[
+                        "https://schema.org/position",
+                        "http://schema.org/position",
+                        "position",
+                    ],
+                )
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(0);
 
-                        let name = property_text(
-                            list_item_node,
-                            &["https://schema.org/name", "http://schema.org/name", "name"],
-                        )
-                        .unwrap_or_default();
+                let name = property_text(
+                    list_item_node,
+                    &["https://schema.org/name", "http://schema.org/name", "name"],
+                )
+                .unwrap_or_default();
 
-                        let url = property_text(
-                            list_item_node,
-                            &["https://schema.org/item", "http://schema.org/item", "item"],
-                        )
-                        .unwrap_or_default();
+                let url = property_text(
+                    list_item_node,
+                    &["https://schema.org/item", "http://schema.org/item", "item"],
+                )
+                .unwrap_or_default();
 
-                        items.push(BreadcrumbItem {
-                            position,
-                            name,
-                            url,
-                        });
-                    }
-                }
+                items.push(BreadcrumbItem {
+                    position,
+                    name,
+                    url,
+                });
             }
         }
     }
@@ -1353,7 +1546,7 @@ fn extract_breadcrumb<'a>(
 
 fn extract_generic_entity(node: &GraphNode) -> EntitySummary {
     let mut properties = HashMap::new();
-    
+
     // Extract all simple string properties
     for (key, value) in &node.properties {
         let short_key = shorten_iri(key);
@@ -1363,7 +1556,9 @@ fn extract_generic_entity(node: &GraphNode) -> EntitySummary {
         }
     }
 
-    let entity_type = node.types.first()
+    let entity_type = node
+        .types
+        .first()
         .map(|t| shorten_iri(t))
         .unwrap_or_else(|| "Entity".to_string());
 
@@ -1585,7 +1780,13 @@ fn format_price_with_precision(value: f64, currency: Option<&str>, decimals: usi
     }
 }
 
-fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by: &[String], direct_properties: &[String], total_variants: usize) {
+fn render_variant_table(
+    buf: &mut String,
+    variants: &[VariantSummary],
+    varies_by: &[String],
+    direct_properties: &[String],
+    total_variants: usize,
+) {
     if variants.is_empty() {
         return;
     }
@@ -1605,7 +1806,7 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
 
     // Build dynamic headers based on variesBy
     let mut headers = vec!["SKU"];
-    
+
     // Add optional standard properties if any variant has them
     if has_gtin {
         headers.push("GTIN");
@@ -1634,9 +1835,9 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
     if has_depth {
         headers.push("Depth");
     }
-    
+
     let mut columns_to_show: Vec<String> = Vec::new();
-    
+
     // Add columns based on variesBy - show ALL properties
     for vary in varies_by {
         let (header_name, column_key) = match vary.as_str() {
@@ -1661,19 +1862,30 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
             // For any other property, use the property name as-is
             other => (other, other),
         };
-        
+
         headers.push(header_name);
         columns_to_show.push(column_key.to_string());
     }
-    
+
     // Add columns for direct properties that aren't already shown
     // (exclude standard Schema.org properties as they're handled separately)
     for prop in direct_properties {
         let prop_lower = prop.to_lowercase();
         // Skip standard properties we already handle explicitly
-        if matches!(prop_lower.as_str(), 
-            "sku" | "gtin" | "mpn" | "weight" | "color" | "size" | 
-            "material" | "model" | "category" | "width" | "height" | "depth"
+        if matches!(
+            prop_lower.as_str(),
+            "sku"
+                | "gtin"
+                | "mpn"
+                | "weight"
+                | "color"
+                | "size"
+                | "material"
+                | "model"
+                | "category"
+                | "width"
+                | "height"
+                | "depth"
         ) {
             continue;
         }
@@ -1681,18 +1893,21 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
         if columns_to_show.contains(prop) {
             continue;
         }
-        
+
         // Check if at least one variant has this property with a value
         let has_value = variants.iter().any(|v| {
-            v.additional.get(prop).map(|s| !s.is_empty()).unwrap_or(false)
+            v.additional
+                .get(prop)
+                .map(|s| !s.is_empty())
+                .unwrap_or(false)
         });
-        
+
         if has_value {
             headers.push(prop);
             columns_to_show.push(prop.clone());
         }
     }
-    
+
     // Always add Price and Availability at the end
     headers.push("Price");
     headers.push("Availability");
@@ -1700,7 +1915,7 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
     let mut rows: Vec<Vec<String>> = Vec::new();
     for variant in variants {
         let mut row = vec![variant.sku.clone().unwrap_or_else(|| "–".to_string())];
-        
+
         // Add standard Schema.org properties if we're showing them
         if has_gtin {
             row.push(variant.gtin.clone().unwrap_or_else(|| "–".to_string()));
@@ -1729,7 +1944,7 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
         if has_depth {
             row.push(variant.depth.clone().unwrap_or_else(|| "–".to_string()));
         }
-        
+
         // Add cells based on which columns we're showing
         for column in &columns_to_show {
             let cell = match column.as_str() {
@@ -1747,21 +1962,30 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
                     .or_else(|| variant.additional.get("BatteryCapacity").cloned())
                     .unwrap_or_else(|| "–".to_string()),
                 // For any other property, look it up in additional properties
-                other => variant.additional.get(other).cloned().unwrap_or_else(|| "–".to_string()),
+                other => variant
+                    .additional
+                    .get(other)
+                    .cloned()
+                    .unwrap_or_else(|| "–".to_string()),
             };
             row.push(cell);
         }
-        
+
         // Add price and availability
-        row.push(variant.price_display.clone().unwrap_or_else(|| "–".to_string()));
+        row.push(
+            variant
+                .price_display
+                .clone()
+                .unwrap_or_else(|| "–".to_string()),
+        );
         row.push(
             variant
                 .availability
                 .as_ref()
                 .map(|status| availability_label(status))
-                .unwrap_or_else(|| "–".to_string())
+                .unwrap_or_else(|| "–".to_string()),
         );
-        
+
         rows.push(row);
     }
 
@@ -1857,15 +2081,15 @@ fn render_breadcrumb(buf: &mut String, breadcrumb: &BreadcrumbSummary) {
     }
 
     push_section_header(buf, "🍞", "Breadcrumb Navigation");
-    
+
     let mut sorted_items = breadcrumb.items.clone();
     sorted_items.sort_by_key(|item| item.position);
-    
+
     let breadcrumb_trail: Vec<String> = sorted_items
         .iter()
         .map(|item| format!("{} ({})", item.name, item.url))
         .collect();
-    
+
     let _ = writeln!(buf, "{}", breadcrumb_trail.join(" → "));
     let _ = writeln!(buf);
 }
@@ -1875,7 +2099,7 @@ fn render_webpage(buf: &mut String, webpage: &WebPageSummary) {
     if webpage.url.is_none() && webpage.speakable.is_none() {
         return;
     }
-    
+
     push_section_header(buf, "🌐", "Web Page");
     if let Some(url) = webpage.url.as_ref() {
         push_key_value(buf, "URL", url);
@@ -1892,7 +2116,7 @@ fn render_entity(buf: &mut String, entity: &EntitySummary) {
     if !has_real_id && entity.properties.is_empty() {
         return;
     }
-    
+
     push_section_header(buf, "📋", &entity.entity_type);
     // Don't show internal blank node IDs to users
     if has_real_id {

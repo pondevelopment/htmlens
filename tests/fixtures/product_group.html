@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bike Collection - Multiple Variants</title>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "ProductGroup",
+        "name": "Mountain Bike Collection",
+        "description": "High-quality mountain bikes for all skill levels",
+        "variesBy": ["color", "size"],
+        "hasVariant": [
+            {
+                "@type": "Product",
+                "name": "Mountain Bike - Red",
+                "sku": "MTB-RED-M", 
+                "color": "Red",
+                "size": "Medium",
+                "offers": {
+                    "@type": "Offer",
+                    "price": "899.99",
+                    "priceCurrency": "USD",
+                    "availability": "https://schema.org/InStock"
+                }
+            },
+            {
+                "@type": "Product", 
+                "name": "Mountain Bike - Blue",
+                "sku": "MTB-BLUE-L",
+                "color": "Blue", 
+                "size": "Large",
+                "offers": {
+                    "@type": "Offer",
+                    "price": "899.99", 
+                    "priceCurrency": "USD",
+                    "availability": "https://schema.org/OutOfStock"
+                }
+            },
+            {
+                "@type": "Product",
+                "name": "Mountain Bike - Green", 
+                "sku": "MTB-GREEN-S",
+                "color": "Green",
+                "size": "Small", 
+                "offers": {
+                    "@type": "Offer",
+                    "price": "849.99",
+                    "priceCurrency": "USD", 
+                    "availability": "https://schema.org/InStock"
+                }
+            }
+        ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Mountain Gear Co",
+        "url": "https://mountaingear.example",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+1-555-0123",
+            "contactType": "customer service"
+        }
+    }
+    </script>
+</head>
+<body>
+    <h1>Mountain Bike Collection</h1>
+    <p>Discover our premium mountain bikes available in multiple colors and sizes.</p>
+    
+    <div class="variants">
+        <div class="variant red">
+            <h3>Red Mountain Bike - Medium</h3>
+            <p>Perfect for intermediate riders</p>
+        </div>
+        <div class="variant blue">
+            <h3>Blue Mountain Bike - Large</h3>
+            <p>Great for experienced riders</p>
+        </div>
+        <div class="variant green">
+            <h3>Green Mountain Bike - Small</h3>
+            <p>Ideal for beginners</p>
+        </div>
+    </div>
+</body>
+</html>

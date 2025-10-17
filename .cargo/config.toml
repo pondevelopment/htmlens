@@ -1,0 +1,16 @@
+# Test configuration for HTMLens workspace
+
+[workspace]
+members = [
+    "crates/htmlens-core",
+    "crates/htmlens-cli", 
+    "crates/htmlens-worker"
+]
+
+# Test-specific environment variables
+[env]
+RUST_LOG = "debug"
+CARGO_TARGET_DIR = "target"
+
+# Test data directory
+test_data = "tests/fixtures"

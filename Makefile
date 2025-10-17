@@ -1,15 +1,42 @@
-all: linux windows macos
+.PHONY: help build build-release test clean cli worker install
 
-linux:
-	cargo build --release
+help:
+	@echo "htmlens - Workspace Makefile"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  build           - Build all crates (debug)"
+	@echo "  build-release   - Build all crates (release)"
+	@echo "  cli             - Build CLI only (release)"
+	@echo "  worker          - Build worker only (release)"
+	@echo "  test            - Run tests"
+	@echo "  clean           - Clean build artifacts"
+	@echo "  install         - Install CLI globally"
+	@echo "  check           - Check code without building"
+	@echo "  run             - Run CLI with help"
 
-windows:
-	rustup target add x86_64-pc-windows-gnu
-	sudo apt install -y mingw-w64
-	cargo build --release --target x86_64-pc-windows-gnu
+build:
+	cargo build --workspace
 
-macos:
-	docker run --rm -v "$$(pwd)":/project -w /project messense/macos-cross-toolchains \
-	bash -c "rustup target add x86_64-apple-darwin aarch64-apple-darwin && \
-	cargo build --release --target x86_64-apple-darwin && \
-	cargo build --release --target aarch64-apple-darwin"
+build-release:
+	cargo build --release --workspace
+
+cli:
+	cargo build --release -p htmlens-cli
+
+worker:
+	cargo build --release -p htmlens-worker
+
+test:
+	cargo test --workspace
+
+clean:
+	cargo clean
+
+install:
+	cargo install --path crates/htmlens-cli
+
+check:
+	cargo check --workspace
+
+run:
+	cargo run -p htmlens-cli -- --help

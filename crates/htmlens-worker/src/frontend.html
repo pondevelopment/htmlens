@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMLens - Semantic Knowledge Graph Extractor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; color: white; margin-bottom: 40px; }
+        h1 { font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .tagline { font-size: 1.2em; opacity: 0.9; }
+        .card { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 20px; }
+        .input-section { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #555; }
+        input[type="url"] { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; }
+        input[type="url"]:focus { outline: none; border-color: #667eea; }
+        .button-group { display: flex; gap: 12px; margin-top: 20px; }
+        button { flex: 1; padding: 14px 24px; font-size: 16px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        .btn-secondary { background: #f5f5f5; color: #666; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .loading { display: none; text-align: center; padding: 20px; color: #667eea; }
+        .loading.active { display: block; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .results { display: none; }
+        .results.active { display: block; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .tab { padding: 12px 24px; background: transparent; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: 600; color: #666; }
+        .tab.active { color: #667eea; border-bottom-color: #667eea; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .json-output { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; overflow-x: auto; max-height: 600px; font-family: 'Courier New', monospace; font-size: 14px; white-space: pre-wrap; }
+        .json-output .json-key { color: #881391; }
+        .json-output .json-string { color: #1A1AA6; }
+        .json-output .json-number { color: #1C00CF; }
+        .json-output .json-boolean { color: #0D22FF; }
+        .json-output .json-null { color: #808080; }
+        .markdown-output { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; max-height: 600px; overflow-y: auto; overflow-x: auto; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+        .markdown-output table { border-collapse: collapse; margin: 10px 0; width: auto; background: white; }
+        .markdown-output th, .markdown-output td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+        .markdown-output th { background: #667eea; color: white; font-weight: 600; }
+        .markdown-output tr:nth-child(even) { background: #f9f9f9; }
+        .markdown-output hr { border: none; border-top: 2px solid #667eea; margin: 15px 0; }
+        .error { background: #fee; border: 2px solid #fcc; border-radius: 8px; padding: 16px; color: #c33; margin-top: 20px; display: none; }
+        footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
+        footer a { color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 HTMLens</h1>
+            <p class="tagline">Extract semantic knowledge graphs from any webpage</p>
+        </header>
+        <div class="card">
+            <div class="input-section">
+                <label for="urlInput">Enter a URL to analyze:</label>
+                <input type="url" id="urlInput" placeholder="https://example.com" value="https://schema.org" />
+            </div>
+            <div class="button-group">
+                <button class="btn-primary" id="analyzeBtn">🚀 Analyze</button>
+                <button class="btn-secondary" id="clearBtn">🗑️ Clear</button>
+            </div>
+            <div class="loading" id="loading"><div class="spinner"></div><p>Analyzing webpage...</p></div>
+            <div class="results" id="results">
+                <div class="tabs">
+                    <button class="tab active" data-tab="summary">Summary</button>
+                    <button class="tab" data-tab="jsonld">JSON-LD</button>
+                    <button class="tab" data-tab="structured">Structured Data</button>
+                    <button class="tab" data-tab="page">Page Content</button>
+                </div>
+                <div class="tab-content active" id="summary-content">
+                    <div class="json-output" id="summaryOutput"></div>
+                </div>
+                <div class="tab-content" id="jsonld-content">
+                    <div class="json-output" id="jsonldOutput"></div>
+                </div>
+                <div class="tab-content" id="structured-content">
+                    <div class="markdown-output" id="structuredOutput"></div>
+                </div>
+                <div class="tab-content" id="page-content">
+                    <div class="markdown-output" id="pageOutput"></div>
+                </div>
+            </div>
+            <div class="error" id="error"><div id="errorMessage"></div></div>
+        </div>
+        <footer>
+            <p>Powered by <a href="https://github.com/pondevelopment/htmlens">htmlens</a> • Rust + Cloudflare Workers</p>
+            <p>Developed by Pon Datalab</p>
+        </footer>
+    </div>
+    <script>
+        const API_BASE = "${origin}";
+        
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(targetTab + '-content').classList.add('active');
+            });
+        });
+        
+        document.getElementById('analyzeBtn').addEventListener('click', analyze);
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            document.getElementById('urlInput').value = '';
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('error').style.display = 'none';
+        });
+        
+        async function analyze() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) { showError('Please enter a URL'); return; }
+            
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('analyzeBtn').disabled = true;
+            
+            try {
+                const response = await fetch(API_BASE + '/?url=' + encodeURIComponent(url));
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.error || 'Failed to analyze');
+                
+                // Build Business Summary similar to TypeScript version
+                let summary = '📊 Business Summary\n\n';
+                summary += `Page: ${data.url}\n\n`;
+                
+                // Extract entity types
+                const entityTypes = [...new Set(data.graph.nodes.flatMap(n => n.types))];
+                summary += `Content Type: ${entityTypes.join(', ')}\n\n`;
+                
+                // Product Information
+                const products = data.jsonld.filter(item => 
+                    item['@type'] === 'Product' || item['@type'] === 'ProductGroup'
+                );
+                if (products.length > 0) {
+                    const product = products[0];
+                    summary += '📦 Product Information\n\n';
+                    if (product.name) summary += `${product.name}\n\n`;
+                    if (product.brand && product.brand.name) {
+                        summary += `Brand: ${product.brand.name}\n`;
+                    }
+                    if (product.hasVariant) {
+                        const variantCount = Array.isArray(product.hasVariant) ? product.hasVariant.length : 1;
+                        summary += `Variants Available: ${variantCount}\n`;
+                    }
+                    summary += '\n';
+                }
+                
+                // Organization
+                const orgs = data.jsonld.filter(item => item['@type'] === 'Organization');
+                if (orgs.length > 0) {
+                    const org = orgs[0];
+                    summary += '🏢 Organization\n\n';
+                    if (org.name) summary += `${org.name}\n`;
+                    if (org.url) summary += `${org.url}\n`;
+                    summary += '\n';
+                }
+                
+                // Technical Insights
+                summary += '📋 Technical Insights\n\n';
+                summary += `Structured Data Blocks: ${data.meta.jsonldCount}\n`;
+                summary += `Page Size: ${data.meta.htmlLength.toLocaleString()} characters\n`;
+                summary += `SEO Optimization: ✅ Yes (JSON-LD present)\n`;
+                
+                document.getElementById('summaryOutput').textContent = summary;
+                
+                    // Update JSON-LD tab with combined @graph structure and syntax highlighting
+                    document.getElementById('jsonldOutput').innerHTML = syntaxHighlight(data.jsonldGraph);
+                
+                // Convert markdown tables to HTML for better display
+                document.getElementById('structuredOutput').innerHTML = formatMarkdownTables(data.markdown);
+                document.getElementById('pageOutput').textContent = data.pageMarkdown;
+                
+                document.getElementById('results').classList.add('active');
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('error').style.display = 'block';
+        }
+        
+        function formatMarkdownTables(markdown) {
+            let html = '';
+            const lines = markdown.split('\n');
+            let inTable = false;
+            let tableHeaders = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Check if this is a table row (starts and ends with |)
+                if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+                    const cells = line.split('|').slice(1, -1).map(c => c.trim());
+                    
+                    // Skip separator rows (| --- | --- |)
+                    if (cells.every(c => /^-+$/.test(c))) {
+                        continue;
+                    }
+                    
+                    if (!inTable) {
+                        // Start new table
+                        html += '<table>';
+                        tableHeaders = cells;
+                        html += '<thead><tr>';
+                        cells.forEach(cell => html += `<th>${escapeHtml(cell)}</th>`);
+                        html += '</tr></thead><tbody>';
+                        inTable = true;
+                    } else {
+                        // Table row
+                        html += '<tr>';
+                        cells.forEach(cell => html += `<td>${escapeHtml(cell)}</td>`);
+                        html += '</tr>';
+                    }
+                } else {
+                    // Not a table row
+                    if (inTable) {
+                        html += '</tbody></table>';
+                        inTable = false;
+                    }
+                    
+                    // Handle separator lines (────)
+                    if (line.match(/^─+$/)) {
+                        html += '<hr>';
+                    } else {
+                        // Regular text line
+                        html += escapeHtml(line) + '\n';
+                    }
+                }
+            }
+            
+            // Close table if still open
+            if (inTable) {
+                html += '</tbody></table>';
+            }
+            
+            return html;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+    </script>
+</body>
+</html>

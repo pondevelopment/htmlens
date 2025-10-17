@@ -1,30 +1,27 @@
-[package]
-name = "htmlens"
-version = "0.3.2"
+[workspace]
+members = [
+    "crates/htmlens-core",
+    "crates/htmlens-cli",
+    "crates/htmlens-worker",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.4.0"
 edition = "2024"
 license = "MIT"
 authors = ["Pon Datalab"]
-description = "Extract semantic knowledge graphs and readable text from HTML pages - see what crawlers see and visualize JSON-LD/Schema.org data"
 repository = "https://github.com/pondevelopment/htmlens"
 homepage = "https://github.com/pondevelopment/htmlens"
-readme = "README.md"
-keywords = ["html", "json-ld", "crawler", "seo", "geo", "knowledge-graph"]
-categories = ["command-line-utilities", "web-programming", "parser-implementations"]
 rust-version = "1.85"
 
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0"
-html2md = "0.2"
-json-ld = { version = "0.17.2", features = ["reqwest"] }
-iref = "3.2"
-json-syntax = "0.12"
-rdf-types = "0.22"
-reqwest = { version = "0.11", features = ["json"] }
-scraper = "0.18"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
-uuid = { version = "1.7", features = ["v4"] }
 url = "2.5"
-once_cell = "1.18"
 regex = "1.10"
+once_cell = "1.18"
+uuid = { version = "1.7", features = ["v4"] }
+
+htmlens-core = { path = "crates/htmlens-core" }
