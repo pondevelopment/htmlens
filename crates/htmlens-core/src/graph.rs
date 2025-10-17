@@ -1,6 +1,6 @@
 //! JSON-LD expansion and knowledge graph building
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use iref::IriBuf;
 use json_ld::object::Literal;
 use json_ld::syntax::{Parse, Value};
@@ -12,7 +12,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 // Re-export types from the types module
-pub use crate::types::{KnowledgeGraph, GraphNode, GraphEdge};
+pub use crate::types::{GraphEdge, GraphNode, KnowledgeGraph};
 
 /// Expand a JSON-LD block into an expanded document
 pub async fn expand_json_ld(

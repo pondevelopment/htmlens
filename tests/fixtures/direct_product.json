@@ -1,0 +1,29 @@
+{
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Direct JSON-LD Product",
+    "description": "A product defined directly as JSON-LD for testing",
+    "sku": "DIRECT-001", 
+    "brand": {
+        "@type": "Brand",
+        "name": "Direct Brand"
+    },
+    "offers": {
+        "@type": "Offer",
+        "price": "49.99",
+        "priceCurrency": "EUR",
+        "availability": "https://schema.org/InStock"
+    },
+    "additionalProperty": [
+        {
+            "@type": "PropertyValue", 
+            "name": "Material",
+            "value": "Carbon Fiber"
+        },
+        {
+            "@type": "PropertyValue",
+            "name": "Weight", 
+            "value": "2.5 kg"
+        }
+    ]
+}

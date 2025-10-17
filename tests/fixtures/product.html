@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Product Page</title>
+    <meta name="description" content="A test page with product JSON-LD">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Test Product",
+        "description": "A wonderful test product for testing purposes",
+        "sku": "TEST-001",
+        "brand": {
+            "@type": "Brand",
+            "name": "Test Brand"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "29.99",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock"
+        }
+    }
+    </script>
+</head>
+<body>
+    <h1>Test Product</h1>
+    <p>This is a test product page.</p>
+    <div class="product-info">
+        <h2>Product Details</h2>
+        <ul>
+            <li>Price: $29.99</li>
+            <li>In Stock</li>
+        </ul>
+    </div>
+    <script>
+        // This script should be removed by sanitization
+        console.log("This should not appear in markdown");
+    </script>
+    <style>
+        /* This style should be removed by sanitization */
+        body { background: red; }
+    </style>
+</body>
+</html>
