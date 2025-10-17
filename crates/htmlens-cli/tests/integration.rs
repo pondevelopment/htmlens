@@ -29,17 +29,21 @@ fn get_cli_binary() -> String {
 #[test]
 fn test_cli_help() {
     let output = Command::new("cargo")
-        .args(&["run", "--", "--help"])
+        .args(&["run", "--package", "htmlens-cli", "--", "--help"])
         .current_dir("../../..") // Go to workspace root
         .output()
         .expect("Failed to run CLI");
 
     let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    
+    // Check stderr first since cargo run outputs to stderr
+    let help_text = if stdout.contains("htmlens —") { &stdout } else { &stderr };
 
-    assert!(stdout.contains("htmlens — A semantic lens for the web"));
-    assert!(stdout.contains("Usage:"));
-    assert!(stdout.contains("--help"));
-    assert!(stdout.contains("Developed by Pon Datalab"));
+    assert!(help_text.contains("htmlens — A semantic lens for the web"));
+    assert!(help_text.contains("Usage:"));
+    assert!(help_text.contains("--help"));
+    assert!(help_text.contains("Developed by Pon Datalab"));
 }
 
 #[test]
