@@ -19,8 +19,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, PartialEq)]
 enum OutputMode {
-    Default,      // Markdown + summaries (default behavior)
-    GraphOnly,    // Only condensed graph summary
+    Default,       // Markdown + summaries (default behavior)
+    SummaryOnly,   // Product summaries only (no markdown)
+    GraphOnly,     // Only condensed graph summary
 }
 
 enum InputSource {
@@ -75,11 +76,10 @@ fn parse_arguments(args: &[String]) -> Result<CliCommand> {
         }
 
         if matches!(arg.as_str(), "-G" | "--graph-summary") {
-            // This flag is now just an alias for the default behavior (backwards compatibility)
             if mode != OutputMode::Default {
                 return Err(anyhow!("conflicting graph options supplied"));
             }
-            // mode stays as Default - this is now a no-op for backwards compatibility
+            mode = OutputMode::SummaryOnly;
             i += 1;
             continue;
         }
@@ -184,7 +184,7 @@ fn print_help() {
     println!("  <JSON-LD>     Direct JSON-LD input (must start with '{{' or '[')\n");
     println!("Options:");
     println!("  -g, --graph-only        Output condensed graph summary only (no markdown)");
-    println!("  -G, --graph-summary     Include product summaries and condensed graph (alias for default)");
+    println!("  -G, --graph-summary     Output product summaries only (no markdown)");
     println!("  -m, --mermaid           Include Mermaid diagram visualization of the knowledge graph");
     println!("  -dd, --data-downloads   Include DataDownload references in output");
     println!("  -s, --save [PATH]       Save markdown output to file");
@@ -258,7 +258,7 @@ async fn run(options: CliOptions) -> Result<()> {
 
     // Determine what to include based on mode
     let include_markdown = matches!(options.mode, OutputMode::Default);
-    let include_summary_sections = matches!(options.mode, OutputMode::Default);
+    let include_summary_sections = matches!(options.mode, OutputMode::Default | OutputMode::SummaryOnly);
     let include_condensed_summary = matches!(options.mode, OutputMode::GraphOnly);
     let include_graph_exports = options.include_mermaid;
 
@@ -357,7 +357,7 @@ async fn run(options: CliOptions) -> Result<()> {
 
             // Render variants for this product group
             if !pg.variants.is_empty() {
-                render_variant_table(&mut output, &pg.variants, &pg.varies_by, pg.total_variants);
+                render_variant_table(&mut output, &pg.variants, &pg.varies_by, &pg.direct_properties, pg.total_variants);
             }
         }
 
@@ -503,6 +503,7 @@ struct ProductGroupSummary {
     product_group_id: Option<String>,
     brand: Option<String>,
     varies_by: Vec<String>,
+    direct_properties: Vec<String>, // Properties that appear directly on Product nodes
     common_properties: HashMap<String, String>, // Properties shared by all variants (not in variesBy)
     variants: Vec<VariantSummary>,
     total_variants: usize,
@@ -520,8 +521,17 @@ struct PriceStats {
 #[derive(Default)]
 struct VariantSummary {
     sku: Option<String>,
+    gtin: Option<String>,
+    mpn: Option<String>,
     color: Option<String>,
     size: Option<String>,
+    weight: Option<String>,
+    material: Option<String>,
+    model: Option<String>,
+    category: Option<String>,
+    width: Option<String>,
+    height: Option<String>,
+    depth: Option<String>,
     frame_shape: Option<String>,
     battery: Option<String>,
     price_display: Option<String>,
@@ -700,6 +710,9 @@ impl GraphInsights {
                 }
             }
             
+            // Store direct_properties from variants
+            pg_summary.direct_properties = direct_properties.iter().cloned().collect();
+            
             insights.product_groups.push(pg_summary);
         }
 
@@ -774,6 +787,7 @@ impl GraphInsights {
             }
 
             pg_summary.total_variants = 1;
+            pg_summary.direct_properties = direct_properties.iter().cloned().collect();
             pg_summary.variants.push(variant);
             insights.product_groups.push(pg_summary);
         }
@@ -870,17 +884,106 @@ fn summarize_variant<'a>(
             product,
             &["https://schema.org/sku", "http://schema.org/sku", "sku"],
         ),
+        gtin: property_text(
+            product,
+            &[
+                "https://schema.org/gtin",
+                "http://schema.org/gtin",
+                "https://schema.org/gtin13",
+                "http://schema.org/gtin13",
+                "https://schema.org/gtin14",
+                "http://schema.org/gtin14",
+                "gtin",
+                "gtin13",
+                "gtin14",
+                "ean",
+            ],
+        ),
+        mpn: property_text(
+            product,
+            &[
+                "https://schema.org/mpn",
+                "http://schema.org/mpn",
+                "mpn",
+            ],
+        ),
         color: property_text(
             product,
             &[
                 "https://schema.org/color",
                 "http://schema.org/color",
+                "https://schema.org/Color",  // Capitalized schema.org variant
+                "http://schema.org/Color",
                 "color",
+                "Color",
             ],
         ),
         size: property_text(
             product,
-            &["https://schema.org/size", "http://schema.org/size", "size"],
+            &[
+                "https://schema.org/size", 
+                "http://schema.org/size",
+                "https://schema.org/Size",  // Capitalized schema.org variant
+                "http://schema.org/Size",
+                "size",
+                "Size",
+            ],
+        ),
+        weight: property_text(
+            product,
+            &[
+                "https://schema.org/weight",
+                "http://schema.org/weight",
+                "weight",
+            ],
+        ),
+        material: property_text(
+            product,
+            &[
+                "https://schema.org/material",
+                "http://schema.org/material",
+                "material",
+            ],
+        ),
+        model: property_text(
+            product,
+            &[
+                "https://schema.org/model",
+                "http://schema.org/model",
+                "model",
+            ],
+        ),
+        category: property_text(
+            product,
+            &[
+                "https://schema.org/category",
+                "http://schema.org/category",
+                "category",
+            ],
+        ),
+        width: property_text(
+            product,
+            &[
+                "https://schema.org/width",
+                "http://schema.org/width",
+                "width",
+            ],
+        ),
+        height: property_text(
+            product,
+            &[
+                "https://schema.org/height",
+                "http://schema.org/height",
+                "height",
+            ],
+        ),
+        depth: property_text(
+            product,
+            &[
+                "https://schema.org/depth",
+                "http://schema.org/depth",
+                "depth",
+            ],
         ),
         ..Default::default()
     };
@@ -890,6 +993,37 @@ fn summarize_variant<'a>(
     }
     if summary.size.is_some() {
         direct_properties.insert("size".to_string());
+    }
+    if summary.gtin.is_some() {
+        direct_properties.insert("gtin".to_string());
+    }
+    if summary.mpn.is_some() {
+        direct_properties.insert("mpn".to_string());
+    }
+    if summary.weight.is_some() {
+        direct_properties.insert("weight".to_string());
+    }
+
+    // Collect all other direct string properties from the product node
+    // (excluding known ones and excluding objects/arrays)
+    for (key, value) in &product.properties {
+        let prop_name = shorten_iri(key);
+        
+        // Skip known standard Schema.org properties we already handle explicitly
+        if matches!(prop_name.as_str(), 
+            "sku" | "gtin" | "gtin13" | "gtin14" | "mpn" | "color" | "Color" | 
+            "size" | "Size" | "weight" | "material" | "model" | "category" |
+            "width" | "height" | "depth" |
+            "name" | "description" | "image" | "url" | "@type" | "@id" | "@context"
+        ) {
+            continue;
+        }
+        
+        // Only include simple string/number values
+        if let Some(text) = json_value_to_string(value) {
+            summary.additional.insert(prop_name.clone(), text);
+            direct_properties.insert(prop_name);
+        }
     }
 
     let mut additional = collect_additional_properties(product, adjacency, nodes);
@@ -1451,24 +1585,111 @@ fn format_price_with_precision(value: f64, currency: Option<&str>, decimals: usi
     }
 }
 
-fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by: &[String], total_variants: usize) {
+fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by: &[String], direct_properties: &[String], total_variants: usize) {
     if variants.is_empty() {
         return;
     }
 
     push_section_header(buf, "🧩", "Variants");
 
+    // Check if any variant has these standard Schema.org properties
+    let has_gtin = variants.iter().any(|v| v.gtin.is_some());
+    let has_mpn = variants.iter().any(|v| v.mpn.is_some());
+    let has_weight = variants.iter().any(|v| v.weight.is_some());
+    let has_material = variants.iter().any(|v| v.material.is_some());
+    let has_model = variants.iter().any(|v| v.model.is_some());
+    let has_category = variants.iter().any(|v| v.category.is_some());
+    let has_width = variants.iter().any(|v| v.width.is_some());
+    let has_height = variants.iter().any(|v| v.height.is_some());
+    let has_depth = variants.iter().any(|v| v.depth.is_some());
+
     // Build dynamic headers based on variesBy
     let mut headers = vec!["SKU"];
     
-    // Add columns based on variesBy
+    // Add optional standard properties if any variant has them
+    if has_gtin {
+        headers.push("GTIN");
+    }
+    if has_mpn {
+        headers.push("MPN");
+    }
+    if has_model {
+        headers.push("Model");
+    }
+    if has_category {
+        headers.push("Category");
+    }
+    if has_material {
+        headers.push("Material");
+    }
+    if has_weight {
+        headers.push("Weight");
+    }
+    if has_width {
+        headers.push("Width");
+    }
+    if has_height {
+        headers.push("Height");
+    }
+    if has_depth {
+        headers.push("Depth");
+    }
+    
+    let mut columns_to_show: Vec<String> = Vec::new();
+    
+    // Add columns based on variesBy - show ALL properties
     for vary in varies_by {
-        match vary.as_str() {
-            "Color" => headers.push("Color"),
-            "Size" | "FrameSize" => headers.push("Size"),
-            "FrameType" | "FrameShape" => headers.push("FrameShape"),
-            "BatteryCapacity" => headers.push("Battery"),
-            _ => {}, // Skip unknown properties
+        let (header_name, column_key) = match vary.as_str() {
+            "Color" => ("Color", "Color"),
+            "Size" => ("Size", "Size"),
+            "FrameSize" => {
+                // Avoid duplicate if we already have Size
+                if columns_to_show.contains(&"Size".to_string()) {
+                    continue;
+                }
+                ("Size", "Size")
+            }
+            "FrameType" => {
+                // Avoid duplicate if we already have FrameShape
+                if columns_to_show.contains(&"FrameShape".to_string()) {
+                    continue;
+                }
+                ("FrameShape", "FrameShape")
+            }
+            "FrameShape" => ("FrameShape", "FrameShape"),
+            "BatteryCapacity" => ("Battery", "BatteryCapacity"),
+            // For any other property, use the property name as-is
+            other => (other, other),
+        };
+        
+        headers.push(header_name);
+        columns_to_show.push(column_key.to_string());
+    }
+    
+    // Add columns for direct properties that aren't already shown
+    // (exclude standard Schema.org properties as they're handled separately)
+    for prop in direct_properties {
+        let prop_lower = prop.to_lowercase();
+        // Skip standard properties we already handle explicitly
+        if matches!(prop_lower.as_str(), 
+            "sku" | "gtin" | "mpn" | "weight" | "color" | "size" | 
+            "material" | "model" | "category" | "width" | "height" | "depth"
+        ) {
+            continue;
+        }
+        // Skip if already in variesBy columns
+        if columns_to_show.contains(prop) {
+            continue;
+        }
+        
+        // Check if at least one variant has this property with a value
+        let has_value = variants.iter().any(|v| {
+            v.additional.get(prop).map(|s| !s.is_empty()).unwrap_or(false)
+        });
+        
+        if has_value {
+            headers.push(prop);
+            columns_to_show.push(prop.clone());
         }
     }
     
@@ -1480,12 +1701,41 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
     for variant in variants {
         let mut row = vec![variant.sku.clone().unwrap_or_else(|| "–".to_string())];
         
-        // Add cells based on variesBy
-        for vary in varies_by {
-            let cell = match vary.as_str() {
+        // Add standard Schema.org properties if we're showing them
+        if has_gtin {
+            row.push(variant.gtin.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_mpn {
+            row.push(variant.mpn.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_model {
+            row.push(variant.model.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_category {
+            row.push(variant.category.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_material {
+            row.push(variant.material.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_weight {
+            row.push(variant.weight.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_width {
+            row.push(variant.width.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_height {
+            row.push(variant.height.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        if has_depth {
+            row.push(variant.depth.clone().unwrap_or_else(|| "–".to_string()));
+        }
+        
+        // Add cells based on which columns we're showing
+        for column in &columns_to_show {
+            let cell = match column.as_str() {
+                "Size" => variant.size.clone().unwrap_or_else(|| "–".to_string()),
                 "Color" => variant.color.clone().unwrap_or_else(|| "–".to_string()),
-                "Size" | "FrameSize" => variant.size.clone().unwrap_or_else(|| "–".to_string()),
-                "FrameType" | "FrameShape" => variant
+                "FrameShape" => variant
                     .frame_shape
                     .clone()
                     .or_else(|| variant.additional.get("FrameType").cloned())
@@ -1496,7 +1746,8 @@ fn render_variant_table(buf: &mut String, variants: &[VariantSummary], varies_by
                     .clone()
                     .or_else(|| variant.additional.get("BatteryCapacity").cloned())
                     .unwrap_or_else(|| "–".to_string()),
-                _ => continue, // Skip unknown properties
+                // For any other property, look it up in additional properties
+                other => variant.additional.get(other).cloned().unwrap_or_else(|| "–".to_string()),
             };
             row.push(cell);
         }
