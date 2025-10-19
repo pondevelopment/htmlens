@@ -831,7 +831,7 @@ dependencies = [
 
 [[package]]
 name = "htmlens-cli"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "htmlens-core",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "htmlens-core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "html2md",
@@ -866,7 +866,7 @@ dependencies = [
 
 [[package]]
 name = "htmlens-worker"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",

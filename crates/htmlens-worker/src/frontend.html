@@ -105,6 +105,7 @@
             </div>
             <div class="button-group">
                 <button class="btn-primary" id="analyzeBtn">🚀 Analyze</button>
+                <button class="btn-secondary" id="shareBtn">🔗 Share</button>
                 <button class="btn-secondary" id="clearBtn">🗑️ Clear</button>
             </div>
             <div class="loading" id="loading"><div class="spinner"></div><p>Analyzing webpage...</p></div>
@@ -158,6 +159,34 @@
             document.getElementById('results').classList.remove('active');
             document.getElementById('error').style.display = 'none';
         });
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) { 
+                showError('Please enter a URL to share'); 
+                return; 
+            }
+            
+            // Create shareable URL with the analyzed URL as query parameter
+            const shareUrl = window.location.origin + window.location.pathname + '?url=' + encodeURIComponent(url);
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                // Show success feedback
+                const btn = document.getElementById('shareBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Copied!';
+                btn.style.background = '#28a745';
+                btn.style.color = 'white';
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                showError('Failed to copy to clipboard: ' + err.message);
+            });
+        });
         
         // Handle example button clicks
         document.querySelectorAll('.example-btn').forEach(btn => {
@@ -166,6 +195,16 @@
                 document.getElementById('urlInput').value = url;
                 analyze();
             });
+        });
+        
+        // Auto-analyze if URL parameter is present on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToAnalyze = urlParams.get('url');
+            if (urlToAnalyze) {
+                document.getElementById('urlInput').value = urlToAnalyze;
+                analyze();
+            }
         });
         
         async function analyze() {
@@ -178,7 +217,7 @@
             document.getElementById('analyzeBtn').disabled = true;
             
             try {
-                const response = await fetch(API_BASE + '/?url=' + encodeURIComponent(url));
+                const response = await fetch(API_BASE + '/api?url=' + encodeURIComponent(url));
                 const data = await response.json();
                 
                 if (!response.ok) throw new Error(data.error || 'Failed to analyze');
@@ -871,7 +910,23 @@
                     ...findItemsByType(data.jsonld, 'Vehicle'),
                     ...findItemsByType(data.jsonld, 'Car')
                 ];
+                
+                // Check if products have offers - for ProductGroups, check variants instead
                 const productsWithOffers = allProducts.filter(p => {
+                    // If it's a ProductGroup with variants, check if variants have offers
+                    const isProductGroup = p['@type'] === 'ProductGroup' || 
+                                          (Array.isArray(p['@type']) && p['@type'].includes('ProductGroup'));
+                    
+                    if (isProductGroup && p.hasVariant) {
+                        const variants = Array.isArray(p.hasVariant) ? p.hasVariant : [p.hasVariant];
+                        // ProductGroup is considered to have offers if ANY variant has offers
+                        return variants.some(v => {
+                            const variantOffers = v.offers || v.offer;
+                            return variantOffers && (Array.isArray(variantOffers) ? variantOffers.length > 0 : true);
+                        });
+                    }
+                    
+                    // For regular products, check directly
                     const offers = p.offers || p.offer;
                     return offers && (Array.isArray(offers) ? offers.length > 0 : true);
                 });
@@ -888,9 +943,23 @@
                 }
                 
                 // Check if products lack identifiers (common on manufacturer sites)
-                const productsWithIdentifiers = allProducts.filter(p => 
-                    p.sku || p.gtin || p.mpn || p.gtin13 || p.gtin12 || p.gtin14 || p.gtin8
-                );
+                // For ProductGroups, check variants; for regular products, check directly
+                const productsWithIdentifiers = allProducts.filter(p => {
+                    // If it's a ProductGroup with variants, check if variants have identifiers
+                    const isProductGroup = p['@type'] === 'ProductGroup' || 
+                                          (Array.isArray(p['@type']) && p['@type'].includes('ProductGroup'));
+                    
+                    if (isProductGroup && p.hasVariant) {
+                        const variants = Array.isArray(p.hasVariant) ? p.hasVariant : [p.hasVariant];
+                        // ProductGroup is considered to have identifiers if ANY variant has identifiers
+                        return variants.some(v => 
+                            v.sku || v.gtin || v.mpn || v.gtin13 || v.gtin12 || v.gtin14 || v.gtin8
+                        );
+                    }
+                    
+                    // For regular products, check directly
+                    return p.sku || p.gtin || p.mpn || p.gtin13 || p.gtin12 || p.gtin14 || p.gtin8;
+                });
                 
                 if (allProducts.length > 0 && productsWithIdentifiers.length === 0) {
                     insights.high.push({
