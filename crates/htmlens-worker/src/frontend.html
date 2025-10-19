@@ -760,12 +760,12 @@
                             if (isVehicle) {
                                 // Vehicles almost always have multiple configurations
                                 insights.recommended.push({
-                                    title: `Does "${product.name || 'this vehicle'}" Have Multiple Configurations?`,
-                                    why: 'Most vehicles come in multiple trims, colors, and option packages. Using ProductGroup with variants allows customers to compare options and helps search engines understand all available configurations.',
-                                    fix: 'Use ProductGroup with "hasVariant" array linking to each trim/configuration as separate Product items. Include variesBy property like ["color", "trim", "interiorColor"] to specify what differs.',
-                                    impact: 'Better configuration discovery, clearer pricing per trim, improved customer experience',
+                                    title: `Does "${product.name || 'this product'}" Have Multiple Configurations?`,
+                                    why: 'Most products come in multiple configurations, colors, and option packages. Using ProductGroup with variants allows customers to compare options and helps search engines understand all available configurations.',
+                                    fix: 'Use ProductGroup with "hasVariant" array linking to each configuration as separate Product items. Include variesBy property like ["color", "trim", "option"] to specify what differs.',
+                                    impact: 'Better configuration discovery, clearer pricing per option, improved customer experience',
                                     reference: 'https://schema.org/ProductGroup',
-                                    referenceText: 'Schema.org ProductGroup for Vehicles'
+                                    referenceText: 'Schema.org ProductGroup Documentation'
                                 });
                             } else {
                                 // Regular products without obvious variant hints
@@ -879,7 +879,7 @@
                 if (allProducts.length > 0 && productsWithOffers.length === 0) {
                     insights.critical.push({
                         title: '⚠️ Products Found But Not E-Commerce Ready',
-                        why: 'You have Product/Vehicle schema on your page, but no pricing/offer information. This suggests the page is informational rather than e-commerce. Products without offers cannot appear in Google Shopping or show pricing in search results.',
+                        why: 'You have product schema on your page, but no pricing/offer information. This suggests the page is informational rather than e-commerce. Products without offers cannot appear in Google Shopping or show pricing in search results.',
                         fix: 'If this is an e-commerce site: Add "offers" property with price, currency, and availability to each product. If this is NOT for selling: This is fine for informational/brochure sites, but you\'re missing e-commerce opportunities.',
                         impact: 'Cannot appear in Google Shopping, missing revenue opportunities',
                         reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
@@ -964,12 +964,12 @@
                 
                 if (seemsLikeVehicle) {
                     insights.recommended.push({
-                        title: 'Consider Using "Vehicle" or "Car" Schema Instead',
-                        why: 'Your products appear to be vehicles, but you\'re using generic "Product" schema. Using the more specific "Vehicle" or "Car" type provides better semantic understanding and may unlock vehicle-specific rich results.',
-                        fix: 'Change @type from "Product" to "Car" or "Vehicle" and include vehicle-specific properties like "vehicleModelDate", "fuelType", "driveWheelConfiguration", etc.',
-                        impact: 'Better semantic understanding, potential for vehicle-specific rich results',
+                        title: 'Consider Using More Specific Product Schema',
+                        why: 'Your products appear to be vehicles. Using the more specific Vehicle/Car schema type (instead of generic Product) provides better semantic understanding and may unlock additional rich results.',
+                        fix: 'Change @type from "Product" to "Car" or "Vehicle" and include specific properties like "vehicleModelDate", "fuelType", "driveWheelConfiguration".',
+                        impact: 'Better semantic understanding, potential for specialized rich results',
                         reference: 'https://schema.org/Car',
-                        referenceText: 'Schema.org Car/Vehicle Types'
+                        referenceText: 'Schema.org Vehicle Types'
                     });
                 }
             }
