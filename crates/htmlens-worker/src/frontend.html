@@ -865,8 +865,12 @@
                     }
                 });
                 
-                // E-COMMERCE: Overall product setup check
-                const allProducts = findItemsByType(data.jsonld, 'Product');
+                // E-COMMERCE: Overall product setup check (include Product, Vehicle, Car)
+                const allProducts = [
+                    ...findItemsByType(data.jsonld, 'Product'),
+                    ...findItemsByType(data.jsonld, 'Vehicle'),
+                    ...findItemsByType(data.jsonld, 'Car')
+                ];
                 const productsWithOffers = allProducts.filter(p => {
                     const offers = p.offers || p.offer;
                     return offers && (Array.isArray(offers) ? offers.length > 0 : true);
@@ -875,8 +879,8 @@
                 if (allProducts.length > 0 && productsWithOffers.length === 0) {
                     insights.critical.push({
                         title: '⚠️ Products Found But Not E-Commerce Ready',
-                        why: 'You have Product schema on your page, but no pricing/offer information. This suggests the page is informational rather than e-commerce. Products without offers cannot appear in Google Shopping or show pricing in search results.',
-                        fix: 'If this is an e-commerce site: Add "offers" property with price, currency, and availability. If this is NOT for selling: Consider using a different schema type like "Vehicle" for cars, or "Article" for informational content.',
+                        why: 'You have Product/Vehicle schema on your page, but no pricing/offer information. This suggests the page is informational rather than e-commerce. Products without offers cannot appear in Google Shopping or show pricing in search results.',
+                        fix: 'If this is an e-commerce site: Add "offers" property with price, currency, and availability to each product. If this is NOT for selling: This is fine for informational/brochure sites, but you\'re missing e-commerce opportunities.',
                         impact: 'Cannot appear in Google Shopping, missing revenue opportunities',
                         reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
                         referenceText: 'Google Product Requirements'
