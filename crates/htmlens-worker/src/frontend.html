@@ -16,6 +16,10 @@
         label { display: block; font-weight: 600; margin-bottom: 8px; color: #555; }
         input[type="url"] { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; }
         input[type="url"]:focus { outline: none; border-color: #667eea; }
+        .examples-section { margin-bottom: 20px; padding-top: 10px; }
+        .example-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+        .example-btn { flex: 0 1 auto; padding: 8px 16px; font-size: 14px; font-weight: 500; background: #f0f4ff; color: #667eea; border: 1px solid #d0d9ff; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .example-btn:hover { background: #667eea; color: white; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); }
         .button-group { display: flex; gap: 12px; margin-top: 20px; }
         button { flex: 1; padding: 14px 24px; font-size: 16px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
@@ -46,6 +50,36 @@
         .markdown-output tr:nth-child(even) { background: #f9f9f9; }
         .markdown-output hr { border: none; border-top: 2px solid #667eea; margin: 15px 0; }
         .error { background: #fee; border: 2px solid #fcc; border-radius: 8px; padding: 16px; color: #c33; margin-top: 20px; display: none; }
+        
+        /* Insights styles */
+        .insights-container { max-height: 600px; overflow-y: auto; }
+        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; margin-bottom: 20px; }
+        .status-excellent { background: #d4edda; color: #155724; }
+        .status-good { background: #d1ecf1; color: #0c5460; }
+        .status-needs-attention { background: #fff3cd; color: #856404; }
+        .status-critical { background: #f8d7da; color: #721c24; }
+        .insight-section { margin-bottom: 24px; }
+        .insight-header { font-size: 18px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .insight-card { background: #f8f9fa; border-left: 4px solid #ccc; padding: 16px; margin-bottom: 12px; border-radius: 4px; }
+        .insight-card.critical { border-left-color: #dc3545; background: #fff5f5; }
+        .insight-card.high { border-left-color: #ffc107; background: #fffbf0; }
+        .insight-card.recommended { border-left-color: #28a745; background: #f0fff4; }
+        .insight-card.optional { border-left-color: #6c757d; background: #f8f9fa; }
+        .insight-title { font-weight: 600; margin-bottom: 6px; color: #333; }
+        .insight-why { color: #666; font-size: 14px; margin-bottom: 8px; }
+        .insight-fix { background: white; border: 1px solid #e0e0e0; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; margin-top: 8px; }
+        .insight-impact { color: #667eea; font-size: 13px; font-style: italic; }
+        .insight-reference { font-size: 12px; margin-top: 8px; }
+        .insight-reference a { color: #667eea; text-decoration: none; }
+        .insight-reference a:hover { text-decoration: underline; }
+        .strengths-list { list-style: none; padding: 0; }
+        .strengths-list li { padding: 8px 12px; background: #d4edda; border-radius: 4px; margin-bottom: 8px; color: #155724; }
+        .rich-results { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+        .rich-result { padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; }
+        .rich-result.eligible { background: #d4edda; color: #155724; }
+        .rich-result.partial { background: #fff3cd; color: #856404; }
+        .rich-result.not-eligible { background: #f8d7da; color: #721c24; }
+        
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
     </style>
@@ -61,19 +95,32 @@
                 <label for="urlInput">Enter a URL to analyze:</label>
                 <input type="url" id="urlInput" placeholder="https://example.com" value="https://schema.org" />
             </div>
+            <div class="examples-section">
+                <label>Try these examples:</label>
+                <div class="example-buttons">
+                    <button class="example-btn" data-url="https://kalkhoff-bikes.com/nl_nl/image-5-advance-blx">🚴 Kalkhoff Bike</button>
+                    <button class="example-btn" data-url="https://schema.org">📚 Schema.org</button>
+                    <button class="example-btn" data-url="https://www.gazelle.nl">🏪 Gazelle</button>
+                </div>
+            </div>
             <div class="button-group">
                 <button class="btn-primary" id="analyzeBtn">🚀 Analyze</button>
+                <button class="btn-secondary" id="shareBtn">🔗 Share</button>
                 <button class="btn-secondary" id="clearBtn">🗑️ Clear</button>
             </div>
             <div class="loading" id="loading"><div class="spinner"></div><p>Analyzing webpage...</p></div>
             <div class="results" id="results">
                 <div class="tabs">
-                    <button class="tab active" data-tab="summary">Summary</button>
+                    <button class="tab active" data-tab="insights">🎯 Insights</button>
+                    <button class="tab" data-tab="summary">Summary</button>
                     <button class="tab" data-tab="jsonld">JSON-LD</button>
                     <button class="tab" data-tab="structured">Structured Data</button>
                     <button class="tab" data-tab="page">Page Content</button>
                 </div>
-                <div class="tab-content active" id="summary-content">
+                <div class="tab-content active" id="insights-content">
+                    <div id="insightsOutput"></div>
+                </div>
+                <div class="tab-content" id="summary-content">
                     <div class="json-output" id="summaryOutput"></div>
                 </div>
                 <div class="tab-content" id="jsonld-content">
@@ -112,6 +159,53 @@
             document.getElementById('results').classList.remove('active');
             document.getElementById('error').style.display = 'none';
         });
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) { 
+                showError('Please enter a URL to share'); 
+                return; 
+            }
+            
+            // Create shareable URL with the analyzed URL as query parameter
+            const shareUrl = window.location.origin + window.location.pathname + '?url=' + encodeURIComponent(url);
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                // Show success feedback
+                const btn = document.getElementById('shareBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Copied!';
+                btn.style.background = '#28a745';
+                btn.style.color = 'white';
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                showError('Failed to copy to clipboard: ' + err.message);
+            });
+        });
+        
+        // Handle example button clicks
+        document.querySelectorAll('.example-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const url = btn.dataset.url;
+                document.getElementById('urlInput').value = url;
+                analyze();
+            });
+        });
+        
+        // Auto-analyze if URL parameter is present on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToAnalyze = urlParams.get('url');
+            if (urlToAnalyze) {
+                document.getElementById('urlInput').value = urlToAnalyze;
+                analyze();
+            }
+        });
         
         async function analyze() {
             const url = document.getElementById('urlInput').value.trim();
@@ -123,7 +217,7 @@
             document.getElementById('analyzeBtn').disabled = true;
             
             try {
-                const response = await fetch(API_BASE + '/?url=' + encodeURIComponent(url));
+                const response = await fetch(API_BASE + '/api?url=' + encodeURIComponent(url));
                 const data = await response.json();
                 
                 if (!response.ok) throw new Error(data.error || 'Failed to analyze');
@@ -179,6 +273,9 @@
                 document.getElementById('structuredOutput').innerHTML = formatMarkdownTables(data.markdown);
                 document.getElementById('pageOutput').textContent = data.pageMarkdown;
                 
+                // Render insights
+                renderInsights(data);
+                
                 document.getElementById('results').classList.add('active');
             } catch (error) {
                 showError(error.message);
@@ -186,6 +283,782 @@
                 document.getElementById('loading').classList.remove('active');
                 document.getElementById('analyzeBtn').disabled = false;
             }
+        }
+        
+        function renderInsights(data) {
+            const insights = analyzeInsights(data);
+            let html = '<div class="insights-container">';
+            
+            // Overall status
+            html += `<div class="status-badge ${insights.overallStatus}">${insights.statusText}</div>`;
+            
+            // Rich Results eligibility
+            if (insights.richResults.length > 0) {
+                html += '<div class="insight-section">';
+                html += '<div class="insight-header">🎯 Google Rich Results Eligibility</div>';
+                html += '<div class="rich-results">';
+                insights.richResults.forEach(result => {
+                    html += `<div class="rich-result ${result.status}">${result.icon} ${result.name}</div>`;
+                });
+                html += '</div></div>';
+            }
+            
+            // Strengths - ALWAYS SHOW FIRST to highlight what's working
+            if (insights.strengths.length > 0) {
+                html += '<div class="insight-section">';
+                html += '<div class="insight-header">✅ What\'s Working Well</div>';
+                html += '<ul class="strengths-list">';
+                insights.strengths.forEach(strength => {
+                    html += `<li>✓ ${strength}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            // Critical issues
+            if (insights.critical.length > 0) {
+                html += '<div class="insight-section">';
+                html += '<div class="insight-header">🔴 Critical Issues</div>';
+                insights.critical.forEach(issue => {
+                    html += `<div class="insight-card critical">`;
+                    html += `<div class="insight-title">${issue.title}</div>`;
+                    html += `<div class="insight-why"><strong>Why:</strong> ${issue.why}</div>`;
+                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${issue.fix}</div>`;
+                    if (issue.impact) html += `<div class="insight-impact">Impact: ${issue.impact}</div>`;
+                    if (issue.reference) html += `<div class="insight-reference">📚 Reference: <a href="${issue.reference}" target="_blank">${issue.referenceText}</a></div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // High priority
+            if (insights.high.length > 0) {
+                html += '<div class="insight-section">';
+                html += '<div class="insight-header">🟡 High Priority</div>';
+                insights.high.forEach(issue => {
+                    html += `<div class="insight-card high">`;
+                    html += `<div class="insight-title">${issue.title}</div>`;
+                    html += `<div class="insight-why"><strong>Why:</strong> ${issue.why}</div>`;
+                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${issue.fix}</div>`;
+                    if (issue.impact) html += `<div class="insight-impact">Impact: ${issue.impact}</div>`;
+                    if (issue.reference) html += `<div class="insight-reference">📚 Reference: <a href="${issue.reference}" target="_blank">${issue.referenceText}</a></div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            // Recommended
+            if (insights.recommended.length > 0) {
+                html += '<div class="insight-section">';
+                html += '<div class="insight-header">🟢 Recommended Improvements</div>';
+                insights.recommended.forEach(issue => {
+                    html += `<div class="insight-card recommended">`;
+                    html += `<div class="insight-title">${issue.title}</div>`;
+                    html += `<div class="insight-why"><strong>Why:</strong> ${issue.why}</div>`;
+                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${issue.fix}</div>`;
+                    if (issue.impact) html += `<div class="insight-impact">Impact: ${issue.impact}</div>`;
+                    if (issue.reference) html += `<div class="insight-reference">📚 Reference: <a href="${issue.reference}" target="_blank">${issue.referenceText}</a></div>`;
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            document.getElementById('insightsOutput').innerHTML = html;
+        }
+        
+        function analyzeInsights(data) {
+            const insights = {
+                critical: [],
+                high: [],
+                recommended: [],
+                optional: [],
+                strengths: [],
+                richResults: [],
+                overallStatus: 'status-good',
+                statusText: 'Good'
+            };
+            
+            // DEBUG: Log data structure
+            console.log('Analyzing data:', {
+                hasGraph: !!data.graph,
+                graphNodes: data.graph?.nodes?.length || 0,
+                jsonldCount: data.jsonld?.length || 0,
+                jsonldSample: data.jsonld?.[0]
+            });
+            
+            // Extract entity types with null checks - check BOTH graph and jsonld
+            const entityTypesFromGraph = data.graph && data.graph.nodes 
+                ? [...new Set(data.graph.nodes.flatMap(n => n.types || []))]
+                : [];
+            
+            const entityTypesFromJsonLd = data.jsonld 
+                ? [...new Set(data.jsonld.flatMap(item => {
+                    const type = item['@type'];
+                    return Array.isArray(type) ? type : (type ? [type] : []);
+                }))]
+                : [];
+            
+            const entityTypes = [...new Set([...entityTypesFromGraph, ...entityTypesFromJsonLd])];
+            
+            console.log('Entity types found:', entityTypes);
+            
+            const hasProduct = entityTypes.some(t => t && t.includes('Product'));
+            const hasVehicle = entityTypes.some(t => t && (t.includes('Vehicle') || t.includes('Car')));
+            const hasProductOrVehicle = hasProduct || hasVehicle; // Treat vehicles as products for e-commerce checks
+            const hasOrganization = entityTypes.some(t => t && t.includes('Organization'));
+            const hasBreadcrumb = entityTypes.some(t => t && t.includes('BreadcrumbList'));
+            const hasOffer = entityTypes.some(t => t && t.includes('Offer'));
+            const hasReview = entityTypes.some(t => t && (t.includes('Review') || t.includes('AggregateRating')));
+            
+            console.log('Type detection:', { hasProduct, hasVehicle, hasProductOrVehicle, hasOrganization, hasBreadcrumb, hasOffer, hasReview });
+            
+            // Check if any JSON-LD exists
+            if (!data.jsonld || data.jsonld.length === 0) {
+                insights.critical.push({
+                    title: 'No Structured Data Found',
+                    why: 'Search engines cannot understand your content without structured data, severely limiting visibility in search results.',
+                    fix: 'Add JSON-LD structured data to your page using Schema.org vocabulary. Start with basic Organization or WebPage type.',
+                    impact: 'Cannot appear in Google Rich Results',
+                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data',
+                    referenceText: 'Google Structured Data Guidelines'
+                });
+                insights.overallStatus = 'status-critical';
+                insights.statusText = 'Critical Issues Found';
+                return insights;
+            }
+            
+            // Helper function to find all items of a type (handles nested @graph)
+            function findItemsByType(jsonld, type) {
+                const items = [];
+                
+                function searchItem(item) {
+                    if (!item) return;
+                    
+                    // Check if this item matches the type
+                    const itemType = item['@type'];
+                    if (itemType) {
+                        const types = Array.isArray(itemType) ? itemType : [itemType];
+                        if (types.some(t => String(t).includes(type))) {
+                            items.push(item);
+                        }
+                    }
+                    
+                    // Search in @graph array
+                    if (item['@graph'] && Array.isArray(item['@graph'])) {
+                        item['@graph'].forEach(searchItem);
+                    }
+                    
+                    // Search in nested objects
+                    Object.values(item).forEach(value => {
+                        if (value && typeof value === 'object' && !Array.isArray(value) && value !== item) {
+                            searchItem(value);
+                        }
+                    });
+                }
+                
+                jsonld.forEach(searchItem);
+                return items;
+            }
+            
+            // Product-specific checks (includes Vehicle/Car as product-like items)
+            if (hasProductOrVehicle) {
+                insights.richResults.push({ name: 'Product', status: 'eligible', icon: '✅' });
+                
+                // Find both Product and Vehicle types
+                const products = [
+                    ...findItemsByType(data.jsonld, 'Product'),
+                    ...findItemsByType(data.jsonld, 'Vehicle'),
+                    ...findItemsByType(data.jsonld, 'Car')
+                ];
+                
+                console.log('Products found:', products.length, products);
+                
+                if (products.length === 0) {
+                    // Fallback: products might be in @graph structure
+                    console.warn('No products found via findItemsByType, checking graph structure...');
+                }
+                
+                products.forEach(product => {
+                    // Check required fields for Product Rich Results
+                    if (!product.name) {
+                        insights.critical.push({
+                            title: 'Product Missing "name" Property',
+                            why: 'Google requires a product name to show Product Rich Results. Without it, your product won\'t appear in enhanced search listings.',
+                            fix: 'Add a "name" property to your Product schema with the product title.',
+                            impact: 'Product Rich Results will not appear',
+                            reference: 'https://developers.google.com/search/docs/appearance/structured-data/product',
+                            referenceText: 'Google Product Rich Results'
+                        });
+                    } else {
+                        insights.strengths.push(`Product name present: "${product.name}"`);
+                    }
+                    
+                    if (!product.image && !product.images) {
+                        insights.high.push({
+                            title: 'Product Missing "image" Property',
+                            why: 'Product images significantly improve click-through rates in search results. Google strongly recommends including images for Product Rich Results.',
+                            fix: 'Add an "image" property with a high-quality product image URL (minimum 800px width recommended).',
+                            impact: 'Lower visibility and CTR in search results',
+                            reference: 'https://developers.google.com/search/docs/appearance/structured-data/product',
+                            referenceText: 'Google Product Image Guidelines'
+                        });
+                    } else {
+                        insights.strengths.push('Product image(s) present');
+                    }
+                    
+                    // Check for price/offer - E-COMMERCE EXPANDED
+                    const offers = product.offers || product.offer;
+                    const offerArray = Array.isArray(offers) ? offers : (offers ? [offers] : []);
+                    
+                    if (!hasOffer && offerArray.length === 0) {
+                        insights.high.push({
+                            title: 'Product Missing Pricing Information',
+                            why: 'Price is a required field for Product Rich Results. Without it, Google cannot display your product in enhanced search listings with pricing.',
+                            fix: 'Add an "offers" property with Offer type including "price", "priceCurrency", and "availability".',
+                            impact: 'Product Rich Results will not show pricing',
+                            reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#offer',
+                            referenceText: 'Google Product Offer Requirements'
+                        });
+                    } else {
+                        insights.strengths.push('Pricing information present');
+                        
+                        // E-COMMERCE: Deep offer analysis
+                        offerArray.forEach(offer => {
+                            // Check price currency
+                            if (!offer.priceCurrency) {
+                                insights.high.push({
+                                    title: 'Offer Missing "priceCurrency"',
+                                    why: 'Google requires currency information to display prices correctly in search results. Missing currency can cause prices to not display.',
+                                    fix: 'Add "priceCurrency" property with ISO 4217 currency code (e.g., "USD", "EUR", "GBP").',
+                                    impact: 'Price may not display in Rich Results',
+                                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#offer',
+                                    referenceText: 'Google Offer Requirements'
+                                });
+                            }
+                            
+                            // Check availability
+                            if (!offer.availability) {
+                                insights.high.push({
+                                    title: 'Offer Missing "availability" Status',
+                                    why: 'Availability information tells customers if the product is in stock, which is crucial for e-commerce conversions and can appear in search results.',
+                                    fix: 'Add "availability" property with Schema.org ItemAvailability value (e.g., "https://schema.org/InStock", "https://schema.org/OutOfStock", "https://schema.org/PreOrder").',
+                                    impact: 'Users cannot see stock status in search results',
+                                    reference: 'https://schema.org/Offer',
+                                    referenceText: 'Schema.org Offer Availability'
+                                });
+                            } else {
+                                const availabilityStr = String(offer.availability).toLowerCase();
+                                if (availabilityStr.includes('instock')) {
+                                    insights.strengths.push('Product marked as In Stock');
+                                } else if (availabilityStr.includes('outofstock')) {
+                                    insights.recommended.push({
+                                        title: 'Product Marked Out of Stock',
+                                        why: 'Out of stock products have lower visibility and conversion rates. Consider removing from search results or showing estimated restock date.',
+                                        fix: 'Update availability to "InStock" when available, or consider adding "availabilityStarts" property for pre-orders.',
+                                        impact: 'Lower conversion rates for out-of-stock items',
+                                        reference: 'https://schema.org/ItemAvailability',
+                                        referenceText: 'Schema.org Availability Options'
+                                    });
+                                }
+                            }
+                            
+                            // E-COMMERCE: Check for shipping information
+                            if (!offer.shippingDetails && !offer.shippingRate) {
+                                insights.recommended.push({
+                                    title: 'Consider Adding Shipping Information',
+                                    why: 'Shipping costs are a major factor in purchase decisions. Displaying shipping information upfront can improve conversion rates and qualify for Google Merchant Center.',
+                                    fix: 'Add "shippingDetails" property with OfferShippingDetails type including shipping destination, rate, and delivery time.',
+                                    impact: 'Better customer experience, Google Merchant Center eligibility',
+                                    reference: 'https://schema.org/OfferShippingDetails',
+                                    referenceText: 'Schema.org Shipping Details'
+                                });
+                            } else {
+                                insights.strengths.push('Shipping information included');
+                            }
+                            
+                            // E-COMMERCE: Check for return policy
+                            if (!offer.hasMerchantReturnPolicy && !product.hasMerchantReturnPolicy) {
+                                insights.recommended.push({
+                                    title: 'Add Return Policy Information',
+                                    why: 'Clear return policies increase customer confidence and conversion rates. Google can display return policy in product rich results.',
+                                    fix: 'Add "hasMerchantReturnPolicy" property with MerchantReturnPolicy type including return window and fees.',
+                                    impact: 'Increased customer trust and higher conversion rates',
+                                    reference: 'https://schema.org/MerchantReturnPolicy',
+                                    referenceText: 'Schema.org Return Policy'
+                                });
+                            } else {
+                                insights.strengths.push('Return policy information included');
+                            }
+                            
+                            // E-COMMERCE: Check for price validity dates
+                            if (offer.priceValidUntil) {
+                                insights.strengths.push('Price validity date specified (good for sales/promotions)');
+                            } else if (offer.price) {
+                                insights.recommended.push({
+                                    title: 'Consider Adding Price Validity Date',
+                                    why: 'For promotional pricing or time-limited offers, a validity date helps Google show accurate pricing and creates urgency.',
+                                    fix: 'Add "priceValidUntil" property with ISO 8601 date (e.g., "2025-12-31").',
+                                    impact: 'Better handling of promotional pricing',
+                                    reference: 'https://schema.org/Offer',
+                                    referenceText: 'Schema.org Offer Properties'
+                                });
+                            }
+                            
+                            // E-COMMERCE: Check for seller/merchant info
+                            if (!offer.seller && !offer.offeredBy) {
+                                insights.recommended.push({
+                                    title: 'Consider Adding Seller Information',
+                                    why: 'For marketplace sites, seller information helps customers identify who they\'re buying from and can improve trust.',
+                                    fix: 'Add "seller" or "offeredBy" property with Organization type.',
+                                    impact: 'Improved transparency for marketplace products',
+                                    reference: 'https://schema.org/seller',
+                                    referenceText: 'Schema.org Seller Property'
+                                });
+                            }
+                        });
+                    }
+                    
+                    // E-COMMERCE: Check for product variants
+                    if (product['@type'] === 'ProductGroup' || product.hasVariant || product.variesBy) {
+                        const isProductGroup = product['@type'] === 'ProductGroup' || (Array.isArray(product['@type']) && product['@type'].includes('ProductGroup'));
+                        
+                        if (product.hasVariant) {
+                            const variants = Array.isArray(product.hasVariant) ? product.hasVariant : [product.hasVariant];
+                            const variantCount = variants.length;
+                            insights.strengths.push(`Product has ${variantCount} variant${variantCount > 1 ? 's' : ''} (colors, sizes, etc.)`);
+                            
+                            // PRIORITY 1: Deep variant analysis
+                            let variantsWithoutIdentifiers = 0;
+                            let variantsWithoutOffers = 0;
+                            let variantsWithoutImages = 0;
+                            const variantIdentifierIssues = [];
+                            const variantOfferIssues = [];
+                            const variantImageIssues = [];
+                            
+                            variants.forEach((variant, index) => {
+                                const variantName = variant.name || `Variant ${index + 1}`;
+                                
+                                // Check 1: Each variant MUST have unique identifier
+                                const hasIdentifier = variant.sku || variant.gtin || variant.mpn || 
+                                                     variant.gtin13 || variant.gtin12 || variant.gtin14 || variant.gtin8;
+                                if (!hasIdentifier) {
+                                    variantsWithoutIdentifiers++;
+                                    variantIdentifierIssues.push(variantName);
+                                }
+                                
+                                // Check 2: Each variant MUST have offer/pricing
+                                const variantOffers = variant.offers || variant.offer;
+                                const hasOffer = variantOffers && (Array.isArray(variantOffers) ? variantOffers.length > 0 : true);
+                                if (!hasOffer) {
+                                    variantsWithoutOffers++;
+                                    variantOfferIssues.push(variantName);
+                                }
+                                
+                                // Check 3: Each variant should have image
+                                if (!variant.image && !variant.images) {
+                                    variantsWithoutImages++;
+                                    variantImageIssues.push(variantName);
+                                }
+                            });
+                            
+                            // Report variant identifier issues
+                            if (variantsWithoutIdentifiers > 0) {
+                                insights.critical.push({
+                                    title: `${variantsWithoutIdentifiers} Variant${variantsWithoutIdentifiers > 1 ? 's' : ''} Missing Unique Identifier`,
+                                    why: 'Each product variant MUST have a unique identifier (SKU, GTIN, or MPN) to track inventory, prevent duplicate orders, and enable Google Shopping.',
+                                    fix: `Add unique "sku", "gtin", or "mpn" to these variants: ${variantIdentifierIssues.slice(0, 3).join(', ')}${variantIdentifierIssues.length > 3 ? ` and ${variantIdentifierIssues.length - 3} more` : ''}`,
+                                    impact: 'Cannot track which variant was purchased, Google Shopping blocked',
+                                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
+                                    referenceText: 'Google Product Identifier Requirements'
+                                });
+                            } else {
+                                insights.strengths.push('All variants have unique identifiers');
+                            }
+                            
+                            // Report variant offer issues
+                            if (variantsWithoutOffers > 0) {
+                                insights.critical.push({
+                                    title: `${variantsWithoutOffers} Variant${variantsWithoutOffers > 1 ? 's' : ''} Missing Pricing Information`,
+                                    why: 'Each variant must have its own "offers" property with price, currency, and availability. Without it, customers cannot purchase that specific variant.',
+                                    fix: `Add "offers" with Offer type to these variants: ${variantOfferIssues.slice(0, 3).join(', ')}${variantOfferIssues.length > 3 ? ` and ${variantOfferIssues.length - 3} more` : ''}`,
+                                    impact: 'Variants cannot be purchased, no pricing shown in search results',
+                                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#offer',
+                                    referenceText: 'Google Product Offer Requirements'
+                                });
+                            } else {
+                                insights.strengths.push('All variants have pricing information');
+                            }
+                            
+                            // Report variant image issues
+                            if (variantsWithoutImages > 0) {
+                                insights.high.push({
+                                    title: `${variantsWithoutImages} Variant${variantsWithoutImages > 1 ? 's' : ''} Missing Images`,
+                                    why: 'Each variant should have its own image showing the specific color, style, or configuration. This dramatically improves conversion rates and user experience.',
+                                    fix: `Add "image" property to these variants: ${variantImageIssues.slice(0, 3).join(', ')}${variantImageIssues.length > 3 ? ` and ${variantImageIssues.length - 3} more` : ''}`,
+                                    impact: 'Lower conversion rates, poor user experience, harder to distinguish variants',
+                                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
+                                    referenceText: 'Google Product Image Guidelines'
+                                });
+                            } else {
+                                insights.strengths.push('All variants have images');
+                            }
+                            
+                            // Check if ProductGroup itself has an offer (it shouldn't)
+                            if (isProductGroup) {
+                                const groupOffers = product.offers || product.offer;
+                                if (groupOffers) {
+                                    insights.high.push({
+                                        title: 'ProductGroup Has Direct Offer (Should Be On Variants)',
+                                        why: 'ProductGroups should NOT have their own offers. Only the individual variant Products should have offers. This creates confusion about which variant is being purchased.',
+                                        fix: 'Remove "offers" from the ProductGroup and ensure each variant has its own "offers" property.',
+                                        impact: 'Unclear which variant customer is purchasing, potential order errors',
+                                        reference: 'https://schema.org/ProductGroup',
+                                        referenceText: 'Schema.org ProductGroup Specification'
+                                    });
+                                } else {
+                                    insights.strengths.push('ProductGroup correctly delegates offers to variants');
+                                }
+                            }
+                        }
+                        
+                        if (product.variesBy) {
+                            const variesByProps = Array.isArray(product.variesBy) ? product.variesBy : [product.variesBy];
+                            insights.strengths.push(`Variant properties specified: ${variesByProps.join(', ')}`);
+                            
+                            // Validate that variesBy matches reality
+                            if (product.hasVariant) {
+                                const variants = Array.isArray(product.hasVariant) ? product.hasVariant : [product.hasVariant];
+                                const missingProps = variesByProps.filter(prop => {
+                                    // Check if at least one variant has this property
+                                    return !variants.some(v => v[prop]);
+                                });
+                                
+                                if (missingProps.length > 0) {
+                                    insights.high.push({
+                                        title: `"variesBy" Claims Properties That Variants Don't Have`,
+                                        why: `The variesBy property lists "${missingProps.join(', ')}" but none of the variants actually have these properties. This misleads search engines about how variants differ.`,
+                                        fix: `Either add the missing properties (${missingProps.join(', ')}) to variants, or remove them from variesBy array.`,
+                                        impact: 'Inaccurate variant filtering, confused search engines',
+                                        reference: 'https://schema.org/variesBy',
+                                        referenceText: 'Schema.org variesBy Property'
+                                    });
+                                }
+                            }
+                        } else if (product.hasVariant) {
+                            insights.recommended.push({
+                                title: 'Add "variesBy" Property to ProductGroup',
+                                why: 'The variesBy property helps search engines understand how your product variants differ (e.g., color, size), improving product discovery.',
+                                fix: 'Add "variesBy" property with array of property names like ["color", "size"].',
+                                impact: 'Better variant filtering in search results',
+                                reference: 'https://schema.org/variesBy',
+                                referenceText: 'Schema.org variesBy Property'
+                            });
+                        }
+                    } else {
+                        // NO VARIANTS DETECTED - Suggest if they should exist
+                        // Check if product name/description suggests multiple options
+                        const name = (product.name || '').toLowerCase();
+                        const desc = (product.description || '').toLowerCase();
+                        const text = name + ' ' + desc;
+                        
+                        // Indicators that variants might exist
+                        const colorIndicators = ['color', 'colour', 'black', 'white', 'blue', 'red', 'green', 'yellow', 'available in', 'choice of'];
+                        const sizeIndicators = ['size', 'small', 'medium', 'large', 'xl', 'xxl', 's/m/l'];
+                        const configIndicators = ['configuration', 'model', 'version', 'edition', 'trim', 'package', 'option'];
+                        
+                        // Special indicators for vehicles
+                        const vehicleConfigIndicators = ['interior', 'exterior', 'engine', 'wheels', 'seats', 'paint', 'drivetrain', 'battery'];
+                        
+                        const hasColorHints = colorIndicators.some(indicator => text.includes(indicator));
+                        const hasSizeHints = sizeIndicators.some(indicator => text.includes(indicator));
+                        const hasConfigHints = configIndicators.some(indicator => text.includes(indicator));
+                        const hasVehicleConfigHints = vehicleConfigIndicators.some(indicator => text.includes(indicator));
+                        
+                        const hasAnyVariantHints = hasColorHints || hasSizeHints || hasConfigHints || hasVehicleConfigHints;
+                        
+                        if (hasAnyVariantHints) {
+                            const hints = [];
+                            if (hasColorHints) hints.push('colors');
+                            if (hasSizeHints) hints.push('sizes');
+                            if (hasConfigHints) hints.push('configurations');
+                            if (hasVehicleConfigHints) hints.push('options');
+                            
+                            insights.recommended.push({
+                                title: `Consider Using Product Variants for "${product.name || 'this product'}"`,
+                                why: `This product mentions ${hints.join(', ')}, suggesting multiple options are available. Using ProductGroup with variants helps customers find the exact option they want and improves search visibility for each variant.`,
+                                fix: 'If this product comes in multiple colors/sizes/configurations, use ProductGroup schema with "hasVariant" property linking to individual Product variants. Each variant should have unique SKU, price, and image.',
+                                impact: 'Better product discovery, clearer customer choice, improved conversion rates',
+                                reference: 'https://schema.org/ProductGroup',
+                                referenceText: 'Schema.org ProductGroup with Variants'
+                            });
+                        } else {
+                            // No obvious hints, but for certain product types (vehicles), variants are almost always relevant
+                            const isVehicle = hasVehicle && (product['@type'] === 'Vehicle' || product['@type'] === 'Car' || 
+                                            (Array.isArray(product['@type']) && (product['@type'].includes('Vehicle') || product['@type'].includes('Car'))));
+                            
+                            if (isVehicle) {
+                                // Vehicles almost always have multiple configurations
+                                insights.recommended.push({
+                                    title: `Does "${product.name || 'this product'}" Have Multiple Configurations?`,
+                                    why: 'Most products come in multiple configurations, colors, and option packages. Using ProductGroup with variants allows customers to compare options and helps search engines understand all available configurations.',
+                                    fix: 'Use ProductGroup with "hasVariant" array linking to each configuration as separate Product items. Include variesBy property like ["color", "trim", "option"] to specify what differs.',
+                                    impact: 'Better configuration discovery, clearer pricing per option, improved customer experience',
+                                    reference: 'https://schema.org/ProductGroup',
+                                    referenceText: 'Schema.org ProductGroup Documentation'
+                                });
+                            } else {
+                                // Regular products without obvious variant hints
+                                insights.strengths.push('Single product variant (no color/size options)');
+                            }
+                        }
+                    }
+                    
+                    // E-COMMERCE: Check for SKU/GTIN/MPN
+                    if (!product.sku && !product.gtin && !product.mpn && !product.gtin13 && !product.gtin12 && !product.gtin14 && !product.gtin8) {
+                        insights.high.push({
+                            title: 'Product Missing Identifier (SKU/GTIN/MPN)',
+                            why: 'Product identifiers (SKU, GTIN, MPN) are required for Google Merchant Center and help search engines match your products correctly. Missing identifiers can prevent products from appearing in Google Shopping.',
+                            fix: 'Add at least one identifier: "sku" (your internal ID), "gtin" (barcode), or "mpn" (manufacturer part number).',
+                            impact: 'Google Shopping eligibility, better product matching',
+                            reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
+                            referenceText: 'Google Product Identifier Requirements'
+                        });
+                    } else {
+                        const identifiers = [];
+                        if (product.sku) identifiers.push('SKU');
+                        if (product.gtin || product.gtin13 || product.gtin12 || product.gtin14 || product.gtin8) identifiers.push('GTIN');
+                        if (product.mpn) identifiers.push('MPN');
+                        insights.strengths.push(`Product identifiers present: ${identifiers.join(', ')}`);
+                    }
+                    
+                    // E-COMMERCE: Check for condition (new/used/refurbished)
+                    if (product.itemCondition) {
+                        const condition = String(product.itemCondition).toLowerCase();
+                        if (condition.includes('new')) {
+                            insights.strengths.push('Product condition: New');
+                        } else {
+                            insights.strengths.push(`Product condition specified: ${product.itemCondition}`);
+                        }
+                    } else {
+                        insights.recommended.push({
+                            title: 'Add Product Condition',
+                            why: 'Product condition (New, Used, Refurbished) is important for customer expectations and Google Shopping listings.',
+                            fix: 'Add "itemCondition" property with value like "https://schema.org/NewCondition".',
+                            impact: 'Clearer customer expectations, Google Shopping compatibility',
+                            reference: 'https://schema.org/itemCondition',
+                            referenceText: 'Schema.org Item Condition'
+                        });
+                    }
+                    
+                    // Check for description
+                    if (!product.description) {
+                        insights.recommended.push({
+                            title: 'Product Missing "description" Property',
+                            why: 'Descriptions help search engines understand your product better and can appear in search snippets.',
+                            fix: 'Add a "description" property with a clear, concise product description (50-200 characters recommended).',
+                            impact: 'Better search result snippets and improved relevance',
+                            reference: 'https://schema.org/Product',
+                            referenceText: 'Schema.org Product Specification'
+                        });
+                    } else {
+                        insights.strengths.push('Product description present');
+                    }
+                    
+                    // Check for brand
+                    if (!product.brand) {
+                        insights.recommended.push({
+                            title: 'Product Missing "brand" Property',
+                            why: 'Brand information helps users identify products and can appear in rich results, improving trust and click-through rates.',
+                            fix: 'Add a "brand" property with Organization or Brand type including the manufacturer name.',
+                            impact: 'Enhanced user trust and better product identification',
+                            reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
+                            referenceText: 'Google Product Brand Guidelines'
+                        });
+                    } else {
+                        insights.strengths.push(`Brand present: ${product.brand.name || 'specified'}`);
+                    }
+                    
+                    // E-COMMERCE: Check for material/color/size attributes
+                    const hasAttributes = product.material || product.color || product.size || product.width || product.height || product.depth || product.weight;
+                    if (hasAttributes) {
+                        const attributes = [];
+                        if (product.material) attributes.push('material');
+                        if (product.color) attributes.push('color');
+                        if (product.size) attributes.push('size');
+                        if (product.weight) attributes.push('weight');
+                        insights.strengths.push(`Product attributes specified: ${attributes.join(', ')}`);
+                    } else {
+                        insights.recommended.push({
+                            title: 'Consider Adding Product Attributes',
+                            why: 'Detailed product attributes (material, color, size, weight) help customers make informed decisions and improve product filtering in search.',
+                            fix: 'Add relevant properties like "material", "color", "size", "weight" to your Product schema.',
+                            impact: 'Better product filtering and customer decisions',
+                            reference: 'https://schema.org/Product',
+                            referenceText: 'Schema.org Product Properties'
+                        });
+                    }
+                    
+                    // E-COMMERCE: Check for warranty information
+                    if (product.warranty) {
+                        insights.strengths.push('Warranty information included');
+                    }
+                });
+                
+                // E-COMMERCE: Overall product setup check (include Product, Vehicle, Car)
+                const allProducts = [
+                    ...findItemsByType(data.jsonld, 'Product'),
+                    ...findItemsByType(data.jsonld, 'Vehicle'),
+                    ...findItemsByType(data.jsonld, 'Car')
+                ];
+                
+                // Check if products have offers - for ProductGroups, check variants instead
+                const productsWithOffers = allProducts.filter(p => {
+                    // If it's a ProductGroup with variants, check if variants have offers
+                    const isProductGroup = p['@type'] === 'ProductGroup' || 
+                                          (Array.isArray(p['@type']) && p['@type'].includes('ProductGroup'));
+                    
+                    if (isProductGroup && p.hasVariant) {
+                        const variants = Array.isArray(p.hasVariant) ? p.hasVariant : [p.hasVariant];
+                        // ProductGroup is considered to have offers if ANY variant has offers
+                        return variants.some(v => {
+                            const variantOffers = v.offers || v.offer;
+                            return variantOffers && (Array.isArray(variantOffers) ? variantOffers.length > 0 : true);
+                        });
+                    }
+                    
+                    // For regular products, check directly
+                    const offers = p.offers || p.offer;
+                    return offers && (Array.isArray(offers) ? offers.length > 0 : true);
+                });
+                
+                if (allProducts.length > 0 && productsWithOffers.length === 0) {
+                    insights.critical.push({
+                        title: '⚠️ Products Found But Not E-Commerce Ready',
+                        why: 'You have product schema on your page, but no pricing/offer information. This suggests the page is informational rather than e-commerce. Products without offers cannot appear in Google Shopping or show pricing in search results.',
+                        fix: 'If this is an e-commerce site: Add "offers" property with price, currency, and availability to each product. If this is NOT for selling: This is fine for informational/brochure sites, but you\'re missing e-commerce opportunities.',
+                        impact: 'Cannot appear in Google Shopping, missing revenue opportunities',
+                        reference: 'https://developers.google.com/search/docs/appearance/structured-data/product#product',
+                        referenceText: 'Google Product Requirements'
+                    });
+                }
+                
+                // Check if products lack identifiers (common on manufacturer sites)
+                // For ProductGroups, check variants; for regular products, check directly
+                const productsWithIdentifiers = allProducts.filter(p => {
+                    // If it's a ProductGroup with variants, check if variants have identifiers
+                    const isProductGroup = p['@type'] === 'ProductGroup' || 
+                                          (Array.isArray(p['@type']) && p['@type'].includes('ProductGroup'));
+                    
+                    if (isProductGroup && p.hasVariant) {
+                        const variants = Array.isArray(p.hasVariant) ? p.hasVariant : [p.hasVariant];
+                        // ProductGroup is considered to have identifiers if ANY variant has identifiers
+                        return variants.some(v => 
+                            v.sku || v.gtin || v.mpn || v.gtin13 || v.gtin12 || v.gtin14 || v.gtin8
+                        );
+                    }
+                    
+                    // For regular products, check directly
+                    return p.sku || p.gtin || p.mpn || p.gtin13 || p.gtin12 || p.gtin14 || p.gtin8;
+                });
+                
+                if (allProducts.length > 0 && productsWithIdentifiers.length === 0) {
+                    insights.high.push({
+                        title: 'No Product Identifiers Found on ANY Product',
+                        why: 'None of your products have SKU, GTIN, or MPN identifiers. This completely blocks Google Shopping eligibility and makes product matching impossible.',
+                        fix: 'Add unique identifiers to each product variant. Use "sku" for internal IDs, "gtin" for barcodes (EAN/UPC), or "mpn" for manufacturer part numbers.',
+                        impact: 'Zero Google Shopping visibility',
+                        reference: 'https://support.google.com/merchants/answer/6324461',
+                        referenceText: 'Google Merchant Center Product ID Requirements'
+                    });
+                }
+            }
+            
+            // Review/Rating checks
+            if (hasReview) {
+                insights.strengths.push('Review/Rating data present (enhances credibility)');
+            } else if (hasProductOrVehicle) {
+                insights.recommended.push({
+                    title: 'Consider Adding Product Reviews',
+                    why: 'Product reviews with ratings display star ratings in search results, significantly increasing click-through rates (studies show 20-30% improvement).',
+                    fix: 'Add "aggregateRating" or "review" properties with Review or AggregateRating types to your Product schema.',
+                    impact: 'Star ratings in search results, higher CTR',
+                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/review-snippet',
+                    referenceText: 'Google Review Rich Results'
+                });
+            }
+            
+            // Organization checks
+            if (hasOrganization) {
+                insights.strengths.push('Organization data present');
+            } else {
+                insights.recommended.push({
+                    title: 'Add Organization Structured Data',
+                    why: 'Organization schema helps Google display your business information in knowledge panels and enhances brand visibility.',
+                    fix: 'Add Organization schema with "name", "url", "logo", and optionally "sameAs" for social media profiles.',
+                    impact: 'Knowledge Graph eligibility, enhanced brand presence',
+                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/logo',
+                    referenceText: 'Google Organization Guidelines'
+                });
+            }
+            
+            // Breadcrumb checks
+            if (hasBreadcrumb) {
+                insights.richResults.push({ name: 'Breadcrumbs', status: 'eligible', icon: '✅' });
+                insights.strengths.push('Breadcrumb navigation structured data present');
+            } else {
+                insights.recommended.push({
+                    title: 'Add Breadcrumb Structured Data',
+                    why: 'Breadcrumbs appear in search results and help users understand your site structure, improving navigation and SEO.',
+                    fix: 'Add BreadcrumbList schema showing the page hierarchy from homepage to current page.',
+                    impact: 'Enhanced search result appearance with breadcrumb trail',
+                    reference: 'https://developers.google.com/search/docs/appearance/structured-data/breadcrumb',
+                    referenceText: 'Google Breadcrumb Guidelines'
+                });
+            }
+            
+            // Check for more specific schema types (Vehicle, Car, etc.)
+            if (hasVehicle) {
+                insights.strengths.push('Using Vehicle/Car schema (more specific than generic Product)');
+            } else if (hasProduct) {
+                // Check if product name/description suggests it should be a Vehicle
+                const allProducts = findItemsByType(data.jsonld, 'Product');
+                const seemsLikeVehicle = allProducts.some(p => {
+                    const name = (p.name || '').toLowerCase();
+                    const desc = (p.description || '').toLowerCase();
+                    const text = name + ' ' + desc;
+                    return text.includes('car') || text.includes('vehicle') || text.includes('auto') || 
+                           text.includes('suv') || text.includes('sedan') || text.includes('truck') ||
+                           text.includes('electric vehicle') || text.includes('hybrid');
+                });
+                
+                if (seemsLikeVehicle) {
+                    insights.recommended.push({
+                        title: 'Consider Using More Specific Product Schema',
+                        why: 'Your products appear to be vehicles. Using the more specific Vehicle/Car schema type (instead of generic Product) provides better semantic understanding and may unlock additional rich results.',
+                        fix: 'Change @type from "Product" to "Car" or "Vehicle" and include specific properties like "vehicleModelDate", "fuelType", "driveWheelConfiguration".',
+                        impact: 'Better semantic understanding, potential for specialized rich results',
+                        reference: 'https://schema.org/Car',
+                        referenceText: 'Schema.org Vehicle Types'
+                    });
+                }
+            }
+            
+            // Determine overall status
+            if (insights.critical.length > 0) {
+                insights.overallStatus = 'status-critical';
+                insights.statusText = `Critical (${insights.critical.length} issue${insights.critical.length > 1 ? 's' : ''})`;
+            } else if (insights.high.length > 0) {
+                insights.overallStatus = 'status-needs-attention';
+                insights.statusText = `Needs Attention (${insights.high.length} high priority)`;
+            } else if (insights.recommended.length > 0) {
+                insights.overallStatus = 'status-good';
+                insights.statusText = `Good (${insights.recommended.length} improvement${insights.recommended.length > 1 ? 's' : ''} available)`;
+            } else {
+                insights.overallStatus = 'status-excellent';
+                insights.statusText = 'Excellent ✓';
+            }
+            
+            return insights;
         }
         
         function showError(message) {

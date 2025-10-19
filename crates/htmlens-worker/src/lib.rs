@@ -398,8 +398,8 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
         return Response::empty().map(|r| r.with_headers(headers));
     }
 
-    // Handle root path
-    if url.path() == "/" {
+    // Handle API endpoint
+    if url.path() == "/api" {
         // Check for URL query parameter
         if let Some(query) = url.query()
             && let Some(target_url_encoded) = query.strip_prefix("url=")
@@ -583,7 +583,15 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                 .map(|r| r.with_headers(headers));
         }
 
-        // Serve frontend HTML
+        // No URL parameter - return error
+        headers.set("Content-Type", "application/json")?;
+        let error_json = serde_json::json!({"error": "Missing 'url' query parameter"});
+        return Response::ok(error_json.to_string())
+            .map(|r| r.with_headers(headers).with_status(400));
+    }
+
+    // Serve frontend HTML for root path (including with URL params for sharing)
+    if url.path() == "/" {
         let origin_str = url.origin().unicode_serialization();
         let html = FRONTEND_HTML.replace("${origin}", &origin_str);
         headers.set("Content-Type", "text/html;charset=UTF-8")?;
