@@ -37,7 +37,7 @@ pub mod types;
 #[cfg(feature = "full-expansion")]
 pub mod graph;
 
-#[cfg(feature = "ai-readiness")]
+#[cfg(any(feature = "ai-readiness", feature = "ai-readiness-parser"))]
 pub mod ai_readiness;
 
 // Re-export commonly used types

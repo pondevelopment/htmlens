@@ -40,3 +40,5 @@ default = []
 full-expansion = ["json-ld", "iref", "json-syntax", "rdf-types", "reqwest", "tokio", "uuid"]
 # AI readiness checking (requires HTTP client and OpenAPI parser)
 ai-readiness = ["reqwest", "tokio", "openapiv3", "serde_yaml"]
+# AI readiness parsing only (WASM-compatible, no HTTP)
+ai-readiness-parser = ["openapiv3", "serde_yaml"]
