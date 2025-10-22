@@ -517,7 +517,9 @@ async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
                 for line in &lines {
                     let line = line.trim();
                     if line.to_lowercase().starts_with("sitemap:") {
-                        if let Some(sitemap_url) = line.split(':').nth(1) {
+                        // Split only on first colon to preserve URL scheme (https:)
+                        if let Some(colon_pos) = line.find(':') {
+                            let sitemap_url = &line[colon_pos + 1..];
                             sitemaps.push(sitemap_url.trim().to_string());
                         }
                     }
