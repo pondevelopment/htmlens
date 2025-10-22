@@ -84,14 +84,16 @@
         .ai-readiness-container { padding: 20px; }
         .ai-readiness-container h2 { color: #667eea; margin-bottom: 10px; }
         .ai-readiness-container p { color: #666; line-height: 1.6; }
-        .well-known-checks, .ai-plugin-status, .openapi-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
-        .well-known-checks h4, .ai-plugin-status h4, .openapi-status h4 { margin-top: 0; color: #333; font-size: 18px; margin-bottom: 15px; }
+        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4 { margin-top: 0; color: #333; font-size: 18px; margin-bottom: 15px; }
         .file-checks { margin-top: 10px; }
         .file-check { padding: 12px; margin: 8px 0; background: white; border-radius: 6px; font-size: 14px; border-left: 3px solid #28a745; }
         .file-check.critical-missing { background: #fff3cd; border-left: 4px solid #ffc107; font-weight: 500; }
         .invalid { color: #dc3545; font-weight: bold; font-size: 12px; }
-        .plugin-issues, .api-issues { color: #dc3545; margin-top: 10px; font-size: 13px; padding: 10px; background: #f8d7da; border-radius: 6px; }
-        .ai-plugin-status div, .openapi-status div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .plugin-issues, .mcp-issues, .api-issues { color: #dc3545; margin-top: 10px; font-size: 13px; padding: 10px; background: #f8d7da; border-radius: 6px; }
+        .ai-plugin-status div, .mcp-status div, .openapi-status div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .mcp-capabilities ul { list-style: none; padding-left: 20px; margin: 8px 0; }
+        .mcp-capabilities li { padding: 4px 0; }
         
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
@@ -318,11 +320,48 @@
             html += '<div class="file-checks">';
             
             const checks = [
-                { key: 'aiPluginJson', label: '🤖 ai-plugin.json (ChatGPT)', critical: true },
-                { key: 'securityTxt', label: '🔒 security.txt', critical: false },
-                { key: 'openidConfiguration', label: '🔑 openid-configuration (OAuth)', critical: false },
-                { key: 'appleAppSiteAssociation', label: '📱 apple-app-site-association', critical: false },
-                { key: 'assetlinks', label: '🤖 assetlinks.json (Android)', critical: false }
+                { 
+                    key: 'aiPluginJson', 
+                    label: '🤖 ai-plugin.json (ChatGPT)', 
+                    critical: true,
+                    docs: 'https://platform.openai.com/docs/plugins/getting-started/plugin-manifest',
+                    description: 'ChatGPT plugin manifest for AI integration'
+                },
+                { 
+                    key: 'mcpJson', 
+                    label: '🔮 mcp.json (Claude/MCP)', 
+                    critical: true,
+                    docs: 'https://modelcontextprotocol.io/',
+                    description: 'Model Context Protocol manifest for modern AI agent integration'
+                },
+                { 
+                    key: 'securityTxt', 
+                    label: '🔒 security.txt', 
+                    critical: false,
+                    docs: 'https://securitytxt.org/',
+                    description: 'Security researcher contact information'
+                },
+                { 
+                    key: 'openidConfiguration', 
+                    label: '🔑 openid-configuration (OAuth)', 
+                    critical: false,
+                    docs: 'https://openid.net/specs/openid-connect-discovery-1_0.html',
+                    description: 'OAuth/OpenID Connect discovery endpoint'
+                },
+                { 
+                    key: 'appleAppSiteAssociation', 
+                    label: '📱 apple-app-site-association', 
+                    critical: false,
+                    docs: 'https://developer.apple.com/documentation/xcode/supporting-associated-domains',
+                    description: 'iOS Universal Links configuration'
+                },
+                { 
+                    key: 'assetlinks', 
+                    label: '🤖 assetlinks.json (Android)', 
+                    critical: false,
+                    docs: 'https://developer.android.com/training/app-links/verify-android-applinks',
+                    description: 'Android App Links configuration'
+                }
             ];
             
             checks.forEach(check => {
@@ -331,8 +370,10 @@
                 const statusText = file.found ? `Found (${file.status})` : `Not found (${file.status})`;
                 const criticalClass = check.critical && !file.found ? 'critical-missing' : '';
                 html += `<div class="file-check ${criticalClass}">`;
-                html += `${icon} <strong>${check.label}</strong>: ${statusText}`;
+                html += `<div>${icon} <strong>${check.label}</strong>: ${statusText}`;
                 if (file.valid === false) html += ' <span class="invalid">(Invalid JSON)</span>';
+                html += '</div>';
+                html += `<div class="file-check-description">${check.description} - <a href="${check.docs}" target="_blank">Learn more →</a></div>`;
                 html += '</div>';
             });
             
@@ -342,7 +383,7 @@
             if (aiReadiness.aiPlugin) {
                 const plugin = aiReadiness.aiPlugin;
                 html += '<div class="ai-plugin-status">';
-                html += '<h4>🎯 AI Plugin Manifest</h4>';
+                html += '<h4>🎯 AI Plugin Manifest (OpenAI) <a href="https://platform.openai.com/docs/plugins" target="_blank" class="docs-link">📚 Docs</a></h4>';
                 html += `<div><strong>Name:</strong> ${plugin.name}</div>`;
                 html += `<div><strong>Description:</strong> ${plugin.description}</div>`;
                 html += `<div><strong>Authentication:</strong> ${plugin.hasAuth ? 'Required' : 'None'}</div>`;
@@ -350,6 +391,36 @@
                 if (plugin.issues.length > 0) {
                     html += '<div class="plugin-issues">Issues: ' + plugin.issues.join(', ') + '</div>';
                 }
+                html += '<div class="section-footer">Learn how to create ChatGPT plugins at <a href="https://platform.openai.com/docs/plugins/getting-started" target="_blank">OpenAI Platform →</a></div>';
+                html += '</div>';
+            }
+            
+            // MCP status
+            if (aiReadiness.mcp) {
+                const mcp = aiReadiness.mcp;
+                html += '<div class="mcp-status">';
+                html += '<h4>🔮 Model Context Protocol (Anthropic) <a href="https://modelcontextprotocol.io/" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                html += `<div><strong>Name:</strong> ${mcp.name}</div>`;
+                html += `<div><strong>Version:</strong> ${mcp.version}</div>`;
+                html += `<div><strong>Protocol:</strong> ${mcp.protocolVersion}</div>`;
+                html += `<div><strong>Transport:</strong> ${mcp.transportType} (${mcp.endpoint})</div>`;
+                html += '<div class="mcp-capabilities">';
+                html += '<strong>Capabilities:</strong>';
+                html += '<ul>';
+                if (mcp.hasToolsCapability) html += `<li>✅ Tools (${mcp.toolCount} available)</li>`;
+                if (mcp.hasResourcesCapability) html += `<li>✅ Resources (${mcp.resourceCount} available)</li>`;
+                if (mcp.hasPromptsCapability) html += `<li>✅ Prompts (${mcp.promptCount} available)</li>`;
+                if (mcp.hasEventsCapability) html += `<li>✅ Events</li>`;
+                if (!mcp.hasToolsCapability && !mcp.hasResourcesCapability && !mcp.hasPromptsCapability && !mcp.hasEventsCapability) {
+                    html += '<li>⚠️ No capabilities declared</li>';
+                }
+                html += '</ul>';
+                html += '</div>';
+                if (mcp.healthEndpoint) html += `<div><strong>Health Check:</strong> ${mcp.healthEndpoint}</div>`;
+                if (mcp.issues.length > 0) {
+                    html += '<div class="mcp-issues">Issues: ' + mcp.issues.join(', ') + '</div>';
+                }
+                html += '<div class="section-footer">Learn about MCP at <a href="https://modelcontextprotocol.io/" target="_blank">MCP Documentation →</a> or <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic Announcement</a></div>';
                 html += '</div>';
             }
             
@@ -357,15 +428,27 @@
             if (aiReadiness.openapi) {
                 const api = aiReadiness.openapi;
                 html += '<div class="openapi-status">';
-                html += '<h4>📋 OpenAPI Specification</h4>';
+                html += '<h4>📋 OpenAPI Specification <a href="https://swagger.io/specification/" target="_blank" class="docs-link">📚 Docs</a></h4>';
                 html += `<div><strong>Version:</strong> ${api.version}</div>`;
                 html += `<div><strong>Operations:</strong> ${api.operationCount}</div>`;
                 html += `<div><strong>Security:</strong> ${api.hasAuth ? 'Configured' : 'None'}</div>`;
                 if (api.issues.length > 0) {
                     html += '<div class="api-issues">Issues: ' + api.issues.join(', ') + '</div>';
                 }
+                html += '<div class="section-footer">Learn about OpenAPI at <a href="https://www.openapis.org/" target="_blank">OpenAPI Initiative →</a> or use <a href="https://editor.swagger.io/" target="_blank">Swagger Editor</a></div>';
                 html += '</div>';
             }
+            
+            // General resources section
+            html += '<div class="ai-resources">';
+            html += '<h4>📚 Additional Resources</h4>';
+            html += '<ul>';
+            html += '<li><a href="https://www.rfc-editor.org/rfc/rfc8615.html" target="_blank">RFC 8615: Well-Known URIs</a> - Official specification for .well-known directory</li>';
+            html += '<li><a href="https://ai.google.dev/gemini-api/docs/plugins" target="_blank">Google Gemini Plugins</a> - AI plugin integration for Google\'s Gemini</li>';
+            html += '<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/" target="_blank">Microsoft Semantic Kernel</a> - AI orchestration framework</li>';
+            html += '<li><a href="https://developers.cloudflare.com/ai/" target="_blank">Cloudflare AI</a> - AI tools and Workers AI platform</li>';
+            html += '</ul>';
+            html += '</div>';
             
             html += '</div>';
             document.getElementById('aiReadinessOutput').innerHTML = html;

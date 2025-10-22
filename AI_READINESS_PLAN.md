@@ -22,15 +22,16 @@ Currently, htmlens extracts and analyzes Schema.org JSON-LD structured data. Thi
 **Scope**: Check for standard AI-related files in `/.well-known/` directory
 
 **Implementation**:
-- [ ] Add HTTP client function to check `.well-known/` URLs
-- [ ] Check for `/.well-known/ai-plugin.json` (ChatGPT plugins)
-- [ ] Check for `/.well-known/openid-configuration` (OAuth/OIDC)
-- [ ] Check for `/.well-known/security.txt` (Security policy)
-- [ ] Check for `/.well-known/apple-app-site-association` (iOS app links)
-- [ ] Check for `/.well-known/assetlinks.json` (Android app links)
-- [ ] Report HTTP status codes (200 = present, 404 = absent)
-- [ ] Validate JSON format for JSON files
-- [ ] Validate text format for security.txt
+- [x] Add HTTP client function to check `.well-known/` URLs
+- [x] Check for `/.well-known/ai-plugin.json` (ChatGPT plugins)
+- [ ] Check for `/.well-known/mcp.json` (Model Context Protocol - Anthropic)
+- [x] Check for `/.well-known/openid-configuration` (OAuth/OIDC)
+- [x] Check for `/.well-known/security.txt` (Security policy)
+- [x] Check for `/.well-known/apple-app-site-association` (iOS app links)
+- [x] Check for `/.well-known/assetlinks.json` (Android app links)
+- [x] Report HTTP status codes (200 = present, 404 = absent)
+- [x] Validate JSON format for JSON files
+- [x] Validate text format for security.txt
 
 **Output**:
 ```markdown
@@ -49,9 +50,9 @@ Currently, htmlens extracts and analyzes Schema.org JSON-LD structured data. Thi
 ---
 
 ### 1.2 AI Plugin Manifest Validation
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete
 
-**Scope**: Parse and validate `/.well-known/ai-plugin.json` structure
+**Scope**: Parse and validate `/.well-known/ai-plugin.json` structure (OpenAI ChatGPT)
 
 **Implementation**:
 - [ ] Create Rust struct for AI Plugin Manifest schema (v1)
@@ -95,8 +96,71 @@ Currently, htmlens extracts and analyzes Schema.org JSON-LD structured data. Thi
 
 ---
 
-### 1.3 OpenAPI/Swagger Specification Validation
+### 1.2.5 Model Context Protocol (MCP) Manifest Validation
 **Status**: ⏳ Not Started
+
+**Scope**: Parse and validate `/.well-known/mcp.json` structure (Anthropic Claude & emerging standard)
+
+**Background**: 
+Model Context Protocol (MCP) is an emerging standard announced by Anthropic in 2024 for AI agent integration. It's becoming the modern alternative to OpenAI plugins, with support for tools, resources, prompts, and structured capabilities.
+
+**Implementation**:
+- [ ] Create Rust struct for MCP Manifest schema
+- [ ] Parse manifest JSON and validate required fields:
+  - [ ] `schemaVersion` (currently "1.0")
+  - [ ] `protocolVersion` (e.g., "2025-06-18")
+  - [ ] `name` (service name)
+  - [ ] `description` (service description)
+  - [ ] `version` (service version)
+  - [ ] `capabilities` (tools, resources, prompts, events)
+  - [ ] `transport` (type, endpoint, authorization)
+- [ ] Validate transport configuration:
+  - [ ] Type is "http" or "sse" (Server-Sent Events)
+  - [ ] Endpoint URL is valid and reachable
+  - [ ] Authorization type (none, bearer, api_key)
+- [ ] Validate tools array:
+  - [ ] Tool names are valid identifiers
+  - [ ] Input schemas are valid JSON Schema
+  - [ ] Required fields are specified
+- [ ] Check for health endpoint if specified
+- [ ] Validate supported protocol versions
+- [ ] Generate detailed report with recommendations
+
+**Output**:
+```markdown
+## Model Context Protocol (MCP)
+
+### Status: ✅ Found & Valid
+- **Name**: Gazelle
+- **Version**: 0.2.1
+- **Protocol**: 2025-06-18
+- **Transport**: HTTP (https://www.gazelle.nl/mcp)
+- **Auth**: None
+
+### Capabilities:
+- ✅ Tools (3): ask, search, fetch
+- ✅ Resources (list supported)
+- ✅ Prompts (list supported)
+- ⚠️ Events (not supported)
+
+### Tool Validation:
+- ✅ All tools have valid input schemas
+- ✅ All required fields specified
+- ✅ Health endpoint available (/mcp/health)
+
+### Recommendations:
+- ℹ️ Consider adding event support for real-time updates
+- ✅ Well-structured manifest with clear tool descriptions
+```
+
+**Priority**: 🔴 **Critical** - Modern AI agent standard (emerging as replacement for OpenAI plugins)
+
+**Estimated Effort**: 4-5 hours
+
+---
+
+### 1.3 OpenAPI/Swagger Specification Validation
+**Status**: ✅ Complete
 
 **Scope**: Fetch, parse, and validate OpenAPI specifications
 

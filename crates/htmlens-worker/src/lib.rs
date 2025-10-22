@@ -45,6 +45,7 @@ struct AiReadinessData {
     well_known: WellKnownChecks,
     #[serde(rename = "aiPlugin")]
     ai_plugin: Option<AiPluginStatus>,
+    mcp: Option<McpStatus>,
     openapi: Option<OpenApiStatus>,
 }
 
@@ -52,6 +53,8 @@ struct AiReadinessData {
 struct WellKnownChecks {
     #[serde(rename = "aiPluginJson")]
     ai_plugin_json: FileStatus,
+    #[serde(rename = "mcpJson")]
+    mcp_json: FileStatus,
     #[serde(rename = "openidConfiguration")]
     openid_configuration: FileStatus,
     #[serde(rename = "securityTxt")]
@@ -77,6 +80,35 @@ struct AiPluginStatus {
     has_auth: bool,
     #[serde(rename = "apiUrl")]
     api_url: Option<String>,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct McpStatus {
+    valid: bool,
+    name: String,
+    version: String,
+    #[serde(rename = "protocolVersion")]
+    protocol_version: String,
+    #[serde(rename = "transportType")]
+    transport_type: String,
+    endpoint: String,
+    #[serde(rename = "toolCount")]
+    tool_count: usize,
+    #[serde(rename = "resourceCount")]
+    resource_count: usize,
+    #[serde(rename = "promptCount")]
+    prompt_count: usize,
+    #[serde(rename = "hasToolsCapability")]
+    has_tools_capability: bool,
+    #[serde(rename = "hasResourcesCapability")]
+    has_resources_capability: bool,
+    #[serde(rename = "hasPromptsCapability")]
+    has_prompts_capability: bool,
+    #[serde(rename = "hasEventsCapability")]
+    has_events_capability: bool,
+    #[serde(rename = "healthEndpoint")]
+    health_endpoint: Option<String>,
     issues: Vec<String>,
 }
 
@@ -134,6 +166,13 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
         None
     };
     
+    // Check MCP if found
+    let mcp = if well_known.mcp_json.found && well_known.mcp_json.valid == Some(true) {
+        check_mcp(base_url).await
+    } else {
+        None
+    };
+    
     // Check OpenAPI if AI plugin references it
     let openapi = if let Some(ref plugin) = ai_plugin {
         if let Some(ref api_url) = plugin.api_url {
@@ -148,6 +187,7 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     AiReadinessData {
         well_known,
         ai_plugin,
+        mcp,
         openapi,
     }
 }
@@ -155,6 +195,7 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
 async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
     let files = vec![
         ("ai-plugin.json", "aiPluginJson"),
+        ("mcp.json", "mcpJson"),
         ("openid-configuration", "openidConfiguration"),
         ("security.txt", "securityTxt"),
         ("apple-app-site-association", "appleAppSiteAssociation"),
@@ -163,6 +204,7 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
     
     let mut results = WellKnownChecks {
         ai_plugin_json: FileStatus { found: false, status: 0, valid: None },
+        mcp_json: FileStatus { found: false, status: 0, valid: None },
         openid_configuration: FileStatus { found: false, status: 0, valid: None },
         security_txt: FileStatus { found: false, status: 0, valid: None },
         apple_app_site_association: FileStatus { found: false, status: 0, valid: None },
@@ -186,6 +228,7 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
             
             match filename {
                 "ai-plugin.json" => results.ai_plugin_json = file_status,
+                "mcp.json" => results.mcp_json = file_status,
                 "openid-configuration" => results.openid_configuration = file_status,
                 "security.txt" => results.security_txt = file_status,
                 "apple-app-site-association" => results.apple_app_site_association = file_status,
@@ -236,6 +279,102 @@ async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
                     description,
                     has_auth,
                     api_url,
+                    issues,
+                });
+            }
+        }
+    }
+    None
+}
+
+async fn check_mcp(base_url: &str) -> Option<McpStatus> {
+    let url = format!("{}/.well-known/mcp.json", base_url.trim_end_matches('/'));
+    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await {
+        if let Ok(text) = response.text().await {
+            if let Ok(mcp) = serde_json::from_str::<serde_json::Value>(&text) {
+                let mut issues = Vec::new();
+                
+                let name = mcp.get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                    
+                let version = mcp.get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                    
+                let protocol_version = mcp.get("protocolVersion")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                
+                let transport = mcp.get("transport");
+                let transport_type = transport
+                    .and_then(|t| t.get("type"))
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                    
+                let endpoint = transport
+                    .and_then(|t| t.get("endpoint"))
+                    .and_then(|e| e.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                
+                if endpoint.is_empty() {
+                    issues.push("Missing transport endpoint".to_string());
+                }
+                
+                let capabilities = mcp.get("capabilities");
+                let has_tools_capability = capabilities
+                    .and_then(|c| c.get("tools"))
+                    .is_some();
+                let has_resources_capability = capabilities
+                    .and_then(|c| c.get("resources"))
+                    .is_some();
+                let has_prompts_capability = capabilities
+                    .and_then(|c| c.get("prompts"))
+                    .is_some();
+                let has_events_capability = capabilities
+                    .and_then(|c| c.get("events"))
+                    .is_some();
+                
+                let tools = mcp.get("tools")
+                    .and_then(|t| t.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                    
+                let resources = mcp.get("resources")
+                    .and_then(|r| r.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                    
+                let prompts = mcp.get("prompts")
+                    .and_then(|p| p.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                
+                let health_endpoint = mcp.get("health")
+                    .and_then(|h| h.get("endpoint"))
+                    .and_then(|e| e.as_str())
+                    .map(|s| s.to_string());
+                
+                return Some(McpStatus {
+                    valid: issues.is_empty(),
+                    name,
+                    version,
+                    protocol_version,
+                    transport_type,
+                    endpoint,
+                    tool_count: tools,
+                    resource_count: resources,
+                    prompt_count: prompts,
+                    has_tools_capability,
+                    has_resources_capability,
+                    has_prompts_capability,
+                    has_events_capability,
+                    health_endpoint,
                     issues,
                 });
             }
@@ -857,12 +996,14 @@ mod integration_tests {
             ai_readiness: AiReadinessData {
                 well_known: WellKnownChecks {
                     ai_plugin_json: FileStatus { found: false, status: 404, valid: None },
+                    mcp_json: FileStatus { found: false, status: 404, valid: None },
                     openid_configuration: FileStatus { found: false, status: 404, valid: None },
                     security_txt: FileStatus { found: false, status: 404, valid: None },
                     apple_app_site_association: FileStatus { found: false, status: 404, valid: None },
                     assetlinks: FileStatus { found: false, status: 404, valid: None },
                 },
                 ai_plugin: None,
+                mcp: None,
                 openapi: None,
             },
         };

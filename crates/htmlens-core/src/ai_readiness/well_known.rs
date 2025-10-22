@@ -10,8 +10,11 @@ use std::time::Duration;
 /// Results from checking .well-known directory
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WellKnownChecks {
-    /// AI Plugin manifest check
+    /// AI Plugin manifest check (OpenAI ChatGPT)
     pub ai_plugin: FileCheck,
+    
+    /// Model Context Protocol manifest check (Anthropic Claude)
+    pub mcp: FileCheck,
     
     /// OpenID Connect configuration check
     pub openid_config: FileCheck,
@@ -78,6 +81,7 @@ pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
     
     let mut checks = WellKnownChecks {
         ai_plugin: FileCheck::new("/.well-known/ai-plugin.json".to_string()),
+        mcp: FileCheck::new("/.well-known/mcp.json".to_string()),
         openid_config: FileCheck::new("/.well-known/openid-configuration".to_string()),
         security_txt: FileCheck::new("/.well-known/security.txt".to_string()),
         apple_app_site_association: FileCheck::new("/.well-known/apple-app-site-association".to_string()),
@@ -86,6 +90,7 @@ pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
     
     // Check each file
     checks.ai_plugin = check_file(base_url, &checks.ai_plugin.path, FileType::Json).await;
+    checks.mcp = check_file(base_url, &checks.mcp.path, FileType::Json).await;
     checks.openid_config = check_file(base_url, &checks.openid_config.path, FileType::Json).await;
     checks.security_txt = check_file(base_url, &checks.security_txt.path, FileType::Text).await;
     checks.apple_app_site_association = check_file(base_url, &checks.apple_app_site_association.path, FileType::Json).await;

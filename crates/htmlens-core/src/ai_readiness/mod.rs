@@ -5,6 +5,7 @@
 
 pub mod well_known;
 pub mod plugin_manifest;
+pub mod mcp_manifest;
 pub mod openapi;
 
 use serde::{Deserialize, Serialize};
