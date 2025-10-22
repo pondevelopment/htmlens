@@ -37,6 +37,9 @@ pub mod types;
 #[cfg(feature = "full-expansion")]
 pub mod graph;
 
+#[cfg(feature = "ai-readiness")]
+pub mod ai_readiness;
+
 // Re-export commonly used types
 pub use types::{GraphEdge, GraphNode, KnowledgeGraph};
 

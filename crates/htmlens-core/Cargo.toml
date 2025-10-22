@@ -30,7 +30,13 @@ reqwest = { version = "0.11", features = ["json"], optional = true }
 tokio = { version = "1.47", features = ["macros", "rt-multi-thread"], optional = true }
 uuid = { workspace = true, optional = true }
 
+# AI readiness checking (optional)
+openapiv3 = { version = "2.0", optional = true }
+serde_yaml = { version = "0.9", optional = true }
+
 [features]
 default = []
 # Full JSON-LD expansion with remote context resolution
 full-expansion = ["json-ld", "iref", "json-syntax", "rdf-types", "reqwest", "tokio", "uuid"]
+# AI readiness checking (requires HTTP client and OpenAPI parser)
+ai-readiness = ["reqwest", "tokio", "openapiv3", "serde_yaml"]

@@ -80,6 +80,23 @@
         .rich-result.partial { background: #fff3cd; color: #856404; }
         .rich-result.not-eligible { background: #f8d7da; color: #721c24; }
         
+        /* AI Readiness Styles */
+        .ai-readiness-section { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .ai-score { text-align: center; margin: 20px 0; }
+        .score-circle { font-size: 48px; font-weight: bold; color: #667eea; display: inline-block; width: 120px; height: 120px; border-radius: 50%; background: white; line-height: 120px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .score-circle.good { color: #28a745; }
+        .score-circle.medium { color: #ffc107; }
+        .score-circle.low { color: #dc3545; }
+        .score-label { margin-top: 10px; font-weight: 600; color: #555; }
+        .well-known-checks, .ai-plugin-status, .openapi-status, .ai-recommendations { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .file-checks { margin-top: 10px; }
+        .file-check { padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 4px; font-size: 14px; }
+        .file-check.critical-missing { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .invalid { color: #dc3545; font-weight: bold; }
+        .plugin-issues, .api-issues { color: #dc3545; margin-top: 10px; font-size: 13px; }
+        .ai-recommendations ul { list-style: none; padding: 0; }
+        .ai-recommendations li { padding: 8px; margin: 5px 0; background: #e7f3ff; border-left: 4px solid #007bff; border-radius: 4px; }
+        
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
     </style>
@@ -285,6 +302,87 @@
             }
         }
         
+        function renderAiReadiness(aiReadiness) {
+            let html = '<div class="insight-section ai-readiness-section">';
+            html += '<div class="insight-header">🤖 AI Agent Readiness</div>';
+            
+            // Overall score
+            const scoreClass = aiReadiness.overallScore >= 70 ? 'good' : aiReadiness.overallScore >= 40 ? 'medium' : 'low';
+            html += `<div class="ai-score ${scoreClass}">`;
+            html += `<div class="score-circle">${aiReadiness.overallScore}%</div>`;
+            html += `<div class="score-label">AI Readiness Score</div>`;
+            html += '</div>';
+            
+            // .well-known files
+            html += '<div class="well-known-checks">';
+            html += '<h4>📁 .well-known Directory</h4>';
+            html += '<div class="file-checks">';
+            
+            const checks = [
+                { key: 'aiPluginJson', label: '🤖 ai-plugin.json (ChatGPT)', critical: true },
+                { key: 'securityTxt', label: '🔒 security.txt', critical: false },
+                { key: 'openidConfiguration', label: '🔑 openid-configuration (OAuth)', critical: false },
+                { key: 'appleAppSiteAssociation', label: '📱 apple-app-site-association', critical: false },
+                { key: 'assetlinks', label: '🤖 assetlinks.json (Android)', critical: false }
+            ];
+            
+            checks.forEach(check => {
+                const file = aiReadiness.wellKnown[check.key];
+                const icon = file.found ? '✅' : '❌';
+                const statusText = file.found ? `Found (${file.status})` : `Not found (${file.status})`;
+                const criticalClass = check.critical && !file.found ? 'critical-missing' : '';
+                html += `<div class="file-check ${criticalClass}">`;
+                html += `${icon} <strong>${check.label}</strong>: ${statusText}`;
+                if (file.valid === false) html += ' <span class="invalid">(Invalid JSON)</span>';
+                html += '</div>';
+            });
+            
+            html += '</div></div>';
+            
+            // AI Plugin status
+            if (aiReadiness.aiPlugin) {
+                const plugin = aiReadiness.aiPlugin;
+                html += '<div class="ai-plugin-status">';
+                html += '<h4>🎯 AI Plugin Manifest</h4>';
+                html += `<div><strong>Name:</strong> ${plugin.name}</div>`;
+                html += `<div><strong>Description:</strong> ${plugin.description}</div>`;
+                html += `<div><strong>Authentication:</strong> ${plugin.hasAuth ? 'Required' : 'None'}</div>`;
+                if (plugin.apiUrl) html += `<div><strong>API:</strong> ${plugin.apiUrl}</div>`;
+                if (plugin.issues.length > 0) {
+                    html += '<div class="plugin-issues">Issues: ' + plugin.issues.join(', ') + '</div>';
+                }
+                html += '</div>';
+            }
+            
+            // OpenAPI status
+            if (aiReadiness.openapi) {
+                const api = aiReadiness.openapi;
+                html += '<div class="openapi-status">';
+                html += '<h4>📋 OpenAPI Specification</h4>';
+                html += `<div><strong>Version:</strong> ${api.version}</div>`;
+                html += `<div><strong>Operations:</strong> ${api.operationCount}</div>`;
+                html += `<div><strong>Security:</strong> ${api.hasAuth ? 'Configured' : 'None'}</div>`;
+                if (api.issues.length > 0) {
+                    html += '<div class="api-issues">Issues: ' + api.issues.join(', ') + '</div>';
+                }
+                html += '</div>';
+            }
+            
+            // Recommendations
+            if (aiReadiness.recommendations.length > 0) {
+                html += '<div class="ai-recommendations">';
+                html += '<h4>💡 Recommendations</h4>';
+                html += '<ul>';
+                aiReadiness.recommendations.forEach(rec => {
+                    html += `<li>${rec}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            html += '</div>';
+            return html;
+        }
+        
         function renderInsights(data) {
             const insights = analyzeInsights(data);
             let html = '<div class="insights-container">';
@@ -312,6 +410,11 @@
                     html += `<li>✓ ${strength}</li>`;
                 });
                 html += '</ul></div>';
+            }
+            
+            // AI Readiness Section
+            if (data.aiReadiness) {
+                html += renderAiReadiness(data.aiReadiness);
             }
             
             // Critical issues

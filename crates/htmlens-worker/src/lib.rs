@@ -19,6 +19,8 @@ struct ApiResponse {
     #[serde(rename = "pageMarkdown")]
     page_markdown: String, // CF AI converted HTML page content
     meta: MetaData,
+    #[serde(rename = "aiReadiness")]
+    ai_readiness: AiReadinessData,
 }
 
 #[derive(Serialize)]
@@ -35,6 +37,61 @@ struct MetaData {
     jsonld_count: usize,
     #[serde(rename = "wasmStatus")]
     wasm_status: String,
+}
+
+#[derive(Serialize)]
+struct AiReadinessData {
+    #[serde(rename = "wellKnown")]
+    well_known: WellKnownChecks,
+    #[serde(rename = "aiPlugin")]
+    ai_plugin: Option<AiPluginStatus>,
+    openapi: Option<OpenApiStatus>,
+    #[serde(rename = "overallScore")]
+    overall_score: u8, // 0-100
+    recommendations: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct WellKnownChecks {
+    #[serde(rename = "aiPluginJson")]
+    ai_plugin_json: FileStatus,
+    #[serde(rename = "openidConfiguration")]
+    openid_configuration: FileStatus,
+    #[serde(rename = "securityTxt")]
+    security_txt: FileStatus,
+    #[serde(rename = "appleAppSiteAssociation")]
+    apple_app_site_association: FileStatus,
+    assetlinks: FileStatus,
+}
+
+#[derive(Serialize)]
+struct FileStatus {
+    found: bool,
+    status: u16, // HTTP status code
+    valid: Option<bool>, // JSON validity if applicable
+}
+
+#[derive(Serialize)]
+struct AiPluginStatus {
+    valid: bool,
+    name: String,
+    description: String,
+    #[serde(rename = "hasAuth")]
+    has_auth: bool,
+    #[serde(rename = "apiUrl")]
+    api_url: Option<String>,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct OpenApiStatus {
+    valid: bool,
+    version: String,
+    #[serde(rename = "operationCount")]
+    operation_count: usize,
+    #[serde(rename = "hasAuth")]
+    has_auth: bool,
+    issues: Vec<String>,
 }
 
 // Frontend HTML will be included as a separate file
@@ -67,6 +124,190 @@ fn extract_description(html: &str) -> String {
         }
     }
     String::new()
+}
+
+async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
+    let mut recommendations = Vec::new();
+    let mut score = 0u8;
+    
+    // Check .well-known files
+    let well_known = check_well_known_files(base_url).await;
+    
+    // Calculate score based on what's found
+    if well_known.ai_plugin_json.found { score += 25; } else { recommendations.push("Add /.well-known/ai-plugin.json for ChatGPT integration".to_string()); }
+    if well_known.security_txt.found { score += 10; }
+    if well_known.openid_configuration.found { score += 10; }
+    
+    // Check AI Plugin if found
+    let ai_plugin = if well_known.ai_plugin_json.found && well_known.ai_plugin_json.valid == Some(true) {
+        check_ai_plugin(base_url).await
+    } else {
+        None
+    };
+    
+    if ai_plugin.is_some() {
+        score += 25;
+    }
+    
+    // Check OpenAPI if AI plugin references it
+    let openapi = if let Some(ref plugin) = ai_plugin {
+        if let Some(ref api_url) = plugin.api_url {
+            check_openapi(api_url).await
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    
+    if openapi.is_some() {
+        score += 30;
+    }
+    
+    // Basic score for having JSON-LD (already checked elsewhere)
+    score += 10;
+    
+    if recommendations.is_empty() {
+        recommendations.push("Great! Your site has good AI readiness coverage.".to_string());
+    }
+    
+    AiReadinessData {
+        well_known,
+        ai_plugin,
+        openapi,
+        overall_score: score,
+        recommendations,
+    }
+}
+
+async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
+    let files = vec![
+        ("ai-plugin.json", "aiPluginJson"),
+        ("openid-configuration", "openidConfiguration"),
+        ("security.txt", "securityTxt"),
+        ("apple-app-site-association", "appleAppSiteAssociation"),
+        ("assetlinks.json", "assetlinks"),
+    ];
+    
+    let mut results = WellKnownChecks {
+        ai_plugin_json: FileStatus { found: false, status: 0, valid: None },
+        openid_configuration: FileStatus { found: false, status: 0, valid: None },
+        security_txt: FileStatus { found: false, status: 0, valid: None },
+        apple_app_site_association: FileStatus { found: false, status: 0, valid: None },
+        assetlinks: FileStatus { found: false, status: 0, valid: None },
+    };
+    
+    for (filename, _) in files {
+        let url = format!("{}/.well-known/{}", base_url.trim_end_matches('/'), filename);
+        if let Ok(mut response) = Fetch::Url(url.parse().unwrap()).send().await {
+            let status = response.status_code();
+            let found = status == 200;
+            let valid = if found && (filename.ends_with(".json") || filename == "assetlinks.json") {
+                response.text().await.ok()
+                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                    .map(|_| true)
+            } else {
+                None
+            };
+            
+            let file_status = FileStatus { found, status, valid };
+            
+            match filename {
+                "ai-plugin.json" => results.ai_plugin_json = file_status,
+                "openid-configuration" => results.openid_configuration = file_status,
+                "security.txt" => results.security_txt = file_status,
+                "apple-app-site-association" => results.apple_app_site_association = file_status,
+                "assetlinks.json" => results.assetlinks = file_status,
+                _ => {}
+            }
+        }
+    }
+    
+    results
+}
+
+async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
+    let url = format!("{}/.well-known/ai-plugin.json", base_url.trim_end_matches('/'));
+    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await {
+        if let Ok(text) = response.text().await {
+            if let Ok(plugin) = serde_json::from_str::<serde_json::Value>(&text) {
+                let mut issues = Vec::new();
+                
+                let name = plugin.get("name_for_human")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                    
+                let description = plugin.get("description_for_human")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                    
+                let has_auth = plugin.get("auth")
+                    .and_then(|a| a.get("type"))
+                    .and_then(|t| t.as_str())
+                    .map(|t| t != "none")
+                    .unwrap_or(false);
+                    
+                let api_url = plugin.get("api")
+                    .and_then(|a| a.get("url"))
+                    .and_then(|u| u.as_str())
+                    .map(|s| s.to_string());
+                
+                if api_url.is_none() {
+                    issues.push("Missing API URL".to_string());
+                }
+                
+                return Some(AiPluginStatus {
+                    valid: issues.is_empty(),
+                    name,
+                    description,
+                    has_auth,
+                    api_url,
+                    issues,
+                });
+            }
+        }
+    }
+    None
+}
+
+async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
+    if let Ok(mut response) = Fetch::Url(api_url.parse().ok()?).send().await {
+        if let Ok(text) = response.text().await {
+            // Try to parse as JSON or YAML
+            if let Ok(spec) = serde_json::from_str::<serde_json::Value>(&text) {
+                let mut issues = Vec::new();
+                
+                let version = spec.get("openapi")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                    
+                let paths = spec.get("paths")
+                    .and_then(|p| p.as_object())
+                    .map(|p| p.len())
+                    .unwrap_or(0);
+                    
+                let has_auth = spec.get("components")
+                    .and_then(|c| c.get("securitySchemes"))
+                    .is_some();
+                
+                if paths == 0 {
+                    issues.push("No API paths defined".to_string());
+                }
+                
+                return Some(OpenApiStatus {
+                    valid: issues.is_empty(),
+                    version,
+                    operation_count: paths,
+                    has_auth,
+                    issues,
+                });
+            }
+        }
+    }
+    None
 }
 
 fn format_cli_style_markdown(
@@ -559,6 +800,9 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
             let markdown =
                 format_cli_style_markdown(&target_url, &title, &description, &jsonld_blocks);
 
+            // Check AI readiness
+            let ai_readiness = check_ai_readiness(&target_url).await;
+
             let response_data = ApiResponse {
                 url: target_url,
                 title,
@@ -576,6 +820,7 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                     jsonld_count: jsonld_blocks.len(),
                     wasm_status: "rust".to_string(),
                 },
+                ai_readiness,
             };
 
             headers.set("Content-Type", "application/json")?;
@@ -636,6 +881,19 @@ mod integration_tests {
                 html_length: 100,
                 jsonld_count: 0,
                 wasm_status: "rust".to_string(),
+            },
+            ai_readiness: AiReadinessData {
+                well_known: WellKnownChecks {
+                    ai_plugin_json: FileStatus { found: false, status: 404, valid: None },
+                    openid_configuration: FileStatus { found: false, status: 404, valid: None },
+                    security_txt: FileStatus { found: false, status: 404, valid: None },
+                    apple_app_site_association: FileStatus { found: false, status: 404, valid: None },
+                    assetlinks: FileStatus { found: false, status: 404, valid: None },
+                },
+                ai_plugin: None,
+                openapi: None,
+                overall_score: 10,
+                recommendations: vec!["Test recommendation".to_string()],
             },
         };
 
