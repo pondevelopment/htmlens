@@ -46,9 +46,6 @@ struct AiReadinessData {
     #[serde(rename = "aiPlugin")]
     ai_plugin: Option<AiPluginStatus>,
     openapi: Option<OpenApiStatus>,
-    #[serde(rename = "overallScore")]
-    overall_score: u8, // 0-100
-    recommendations: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -127,16 +124,8 @@ fn extract_description(html: &str) -> String {
 }
 
 async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
-    let mut recommendations = Vec::new();
-    let mut score = 0u8;
-    
     // Check .well-known files
     let well_known = check_well_known_files(base_url).await;
-    
-    // Calculate score based on what's found
-    if well_known.ai_plugin_json.found { score += 25; } else { recommendations.push("Add /.well-known/ai-plugin.json for ChatGPT integration".to_string()); }
-    if well_known.security_txt.found { score += 10; }
-    if well_known.openid_configuration.found { score += 10; }
     
     // Check AI Plugin if found
     let ai_plugin = if well_known.ai_plugin_json.found && well_known.ai_plugin_json.valid == Some(true) {
@@ -144,10 +133,6 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     } else {
         None
     };
-    
-    if ai_plugin.is_some() {
-        score += 25;
-    }
     
     // Check OpenAPI if AI plugin references it
     let openapi = if let Some(ref plugin) = ai_plugin {
@@ -160,23 +145,10 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
         None
     };
     
-    if openapi.is_some() {
-        score += 30;
-    }
-    
-    // Basic score for having JSON-LD (already checked elsewhere)
-    score += 10;
-    
-    if recommendations.is_empty() {
-        recommendations.push("Great! Your site has good AI readiness coverage.".to_string());
-    }
-    
     AiReadinessData {
         well_known,
         ai_plugin,
         openapi,
-        overall_score: score,
-        recommendations,
     }
 }
 
@@ -892,8 +864,6 @@ mod integration_tests {
                 },
                 ai_plugin: None,
                 openapi: None,
-                overall_score: 10,
-                recommendations: vec!["Test recommendation".to_string()],
             },
         };
 
