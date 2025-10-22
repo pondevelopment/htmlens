@@ -211,25 +211,25 @@ Model Context Protocol (MCP) is an emerging standard announced by Anthropic in 2
 ## Phase 2: Content Discovery & Crawling 🕷️
 
 ### 2.1 Robots.txt Parser
-**Status**: ⏳ Not Started
+**Status**: ✅ Complete
 
 **Scope**: Fetch and parse robots.txt crawling rules
 
 **Implementation**:
-- [ ] Fetch `/robots.txt`
-- [ ] Parse robots.txt format (User-agent, Disallow, Allow, Sitemap)
-- [ ] Extract rules for different user-agents:
-  - [ ] Wildcard (`*`)
-  - [ ] Googlebot
-  - [ ] GPTBot / ChatGPT-User (AI crawlers)
-  - [ ] Other AI bots (ClaudeBot, Bingbot, etc.)
-- [ ] Identify disallowed paths
-- [ ] Extract Sitemap URLs
-- [ ] Check for overly restrictive rules (e.g., `Disallow: /` for all agents)
-- [ ] Flag potential issues:
-  - [ ] Blocking all bots accidentally
-  - [ ] Missing sitemap reference
-  - [ ] Syntax errors
+- [x] Fetch `/robots.txt`
+- [x] Parse robots.txt format (User-agent, Disallow, Allow, Sitemap)
+- [x] Extract rules for different user-agents:
+  - [x] Wildcard (`*`)
+  - [x] Googlebot
+  - [x] GPTBot / ChatGPT-User (AI crawlers)
+  - [x] Other AI bots (ClaudeBot, Bingbot, etc.)
+- [x] Identify disallowed paths
+- [x] Extract Sitemap URLs
+- [x] Check for overly restrictive rules (e.g., `Disallow: /` for all agents)
+- [x] Flag potential issues:
+  - [x] Blocking all bots accidentally
+  - [x] Missing sitemap reference
+  - [x] Syntax errors
 
 **Output**:
 ```markdown
@@ -739,22 +739,24 @@ robotparser = "0.13"     # robots.txt parsing (or custom impl)
 ## Progress Tracking
 
 **Last Updated**: October 22, 2025  
-**Current Phase**: Phase 1 Complete ✅  
-**Next Steps**: Begin Phase 2 - Content Discovery & Crawling
+**Current Phase**: Phase 2 In Progress 🕷️  
+**Next Steps**: Continue Phase 2.2 - XML Sitemap Validator
 
 ### Completed
 - ✅ Read and analyzed PDF requirements
 - ✅ Created comprehensive implementation plan
 - ✅ Defined architecture and dependencies
 - ✅ Estimated effort and timeline
-- ✅ **Phase 1.1**: `.well-known/` Directory Checks - Implemented
+- ✅ **Phase 1.1**: `.well-known/` Directory Checks - Implemented (incl. MCP)
 - ✅ **Phase 1.2**: AI Plugin Manifest Validation - Implemented
+- ✅ **Phase 1.2.5**: Model Context Protocol (MCP) Validation - Implemented
 - ✅ **Phase 1.3**: OpenAPI Specification Validation - Implemented
+- ✅ **Phase 2.1**: Robots.txt Parser - Implemented
 - ✅ Added `ai-readiness` feature flag to `htmlens-core`
-- ✅ All Phase 1 code compiles successfully
+- ✅ All Phase 1 & 2.1 code compiles successfully
 
 ### In Progress
-- ⏳ Ready to begin Phase 2
+- ⏳ Ready to begin Phase 2.2 - XML Sitemap Validator
 
 ### Blocked
 - None currently

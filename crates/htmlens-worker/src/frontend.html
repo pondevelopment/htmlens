@@ -84,16 +84,27 @@
         .ai-readiness-container { padding: 20px; }
         .ai-readiness-container h2 { color: #667eea; margin-bottom: 10px; }
         .ai-readiness-container p { color: #666; line-height: 1.6; }
-        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
-        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4 { margin-top: 0; color: #333; font-size: 18px; margin-bottom: 15px; }
+        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status, .robots-txt-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4, .robots-txt-status h4 { margin-top: 0; color: #333; font-size: 18px; margin-bottom: 15px; }
         .file-checks { margin-top: 10px; }
         .file-check { padding: 12px; margin: 8px 0; background: white; border-radius: 6px; font-size: 14px; border-left: 3px solid #28a745; }
         .file-check.critical-missing { background: #fff3cd; border-left: 4px solid #ffc107; font-weight: 500; }
         .invalid { color: #dc3545; font-weight: bold; font-size: 12px; }
-        .plugin-issues, .mcp-issues, .api-issues { color: #dc3545; margin-top: 10px; font-size: 13px; padding: 10px; background: #f8d7da; border-radius: 6px; }
-        .ai-plugin-status div, .mcp-status div, .openapi-status div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .plugin-issues, .mcp-issues, .api-issues, .robots-issues { color: #dc3545; margin-top: 10px; font-size: 13px; padding: 10px; background: #f8d7da; border-radius: 6px; }
+        .ai-plugin-status div, .mcp-status div, .openapi-status div, .robots-txt-status div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
         .mcp-capabilities ul { list-style: none; padding-left: 20px; margin: 8px 0; }
         .mcp-capabilities li { padding: 4px 0; }
+        .ai-crawlers-table { width: 100%; border-collapse: collapse; margin: 10px 0; background: white; }
+        .ai-crawlers-table th { background: #667eea; color: white; padding: 10px; text-align: left; }
+        .ai-crawlers-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; }
+        .ai-crawlers-table tr.access-blocked { background: #f8d7da; }
+        .ai-crawlers-table tr.access-allowed { background: #d4edda; }
+        .ai-crawlers-table tr.access-partial { background: #fff3cd; }
+        .ai-crawlers-table .rules-cell { font-size: 12px; color: #666; max-width: 300px; word-wrap: break-word; }
+        .sitemap-list ul { list-style: none; padding-left: 20px; margin: 8px 0; }
+        .sitemap-list li { padding: 4px 0; }
+        .robots-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; font-weight: 500; }
+        .robots-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
         
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
@@ -436,6 +447,67 @@
                     html += '<div class="api-issues">Issues: ' + api.issues.join(', ') + '</div>';
                 }
                 html += '<div class="section-footer">Learn about OpenAPI at <a href="https://www.openapis.org/" target="_blank">OpenAPI Initiative →</a> or use <a href="https://editor.swagger.io/" target="_blank">Swagger Editor</a></div>';
+                html += '</div>';
+            }
+            
+            // Robots.txt status
+            if (aiReadiness.robotsTxt) {
+                const robots = aiReadiness.robotsTxt;
+                html += '<div class="robots-txt-status">';
+                html += '<h4>🤖 robots.txt Analysis <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                
+                if (robots.found) {
+                    html += `<div><strong>Status:</strong> ✅ Found</div>`;
+                    html += `<div><strong>Sitemaps:</strong> ${robots.sitemapCount} found</div>`;
+                    
+                    if (robots.sitemaps.length > 0) {
+                        html += '<div class="sitemap-list"><strong>Sitemap URLs:</strong><ul>';
+                        robots.sitemaps.forEach(sitemap => {
+                            html += `<li><a href="${sitemap}" target="_blank">${sitemap}</a></li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    if (robots.blocksAllBots) {
+                        html += '<div class="robots-warning">⚠️ Warning: All bots are blocked (Disallow: /)</div>';
+                    }
+                    
+                    // AI Crawler table
+                    html += '<div class="ai-crawlers-section">';
+                    html += '<strong>AI Crawler Access:</strong>';
+                    html += '<table class="ai-crawlers-table">';
+                    html += '<thead><tr><th>Crawler</th><th>Access</th><th>Rules</th></tr></thead>';
+                    html += '<tbody>';
+                    
+                    robots.aiCrawlers.forEach(crawler => {
+                        const accessIcon = crawler.access === 'allowed' ? '✅' : 
+                                         crawler.access === 'blocked' ? '❌' : 
+                                         crawler.access === 'partial' ? '⚠️' : '➖';
+                        const accessClass = `access-${crawler.access}`;
+                        html += `<tr class="${accessClass}">`;
+                        html += `<td>${accessIcon} <strong>${crawler.name}</strong></td>`;
+                        html += `<td>${crawler.access}</td>`;
+                        html += `<td class="rules-cell">${crawler.rules || 'No specific rules'}</td>`;
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    html += '</div>';
+                    
+                    if (robots.issues.length > 0) {
+                        html += '<div class="robots-issues">';
+                        html += '<strong>Issues:</strong><ul>';
+                        robots.issues.forEach(issue => {
+                            html += `<li>${issue}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                } else {
+                    html += '<div>❌ robots.txt not found</div>';
+                    html += '<div class="robots-recommendation">Recommendation: Add robots.txt to help search engines and AI crawlers understand your site.</div>';
+                }
+                
+                html += '<div class="section-footer">Learn about robots.txt at <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank">Google Search Central →</a> or <a href="https://www.robotstxt.org/" target="_blank">robotstxt.org</a></div>';
                 html += '</div>';
             }
             

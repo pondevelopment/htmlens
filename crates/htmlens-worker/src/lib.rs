@@ -47,6 +47,8 @@ struct AiReadinessData {
     ai_plugin: Option<AiPluginStatus>,
     mcp: Option<McpStatus>,
     openapi: Option<OpenApiStatus>,
+    #[serde(rename = "robotsTxt")]
+    robots_txt: Option<RobotsTxtStatus>,
 }
 
 #[derive(Serialize)]
@@ -123,6 +125,26 @@ struct OpenApiStatus {
     issues: Vec<String>,
 }
 
+#[derive(Serialize)]
+struct RobotsTxtStatus {
+    found: bool,
+    #[serde(rename = "sitemapCount")]
+    sitemap_count: usize,
+    sitemaps: Vec<String>,
+    #[serde(rename = "aiCrawlers")]
+    ai_crawlers: Vec<AiCrawlerInfo>,
+    #[serde(rename = "blocksAllBots")]
+    blocks_all_bots: bool,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct AiCrawlerInfo {
+    name: String,
+    access: String, // "allowed", "partial", "blocked", "default"
+    rules: Option<String>,
+}
+
 // Frontend HTML will be included as a separate file
 const FRONTEND_HTML: &str = include_str!("frontend.html");
 
@@ -184,11 +206,15 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
         None
     };
     
+    // Check robots.txt
+    let robots_txt = check_robots_txt(base_url).await;
+    
     AiReadinessData {
         well_known,
         ai_plugin,
         mcp,
         openapi,
+        robots_txt,
     }
 }
 
@@ -419,6 +445,184 @@ async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
         }
     }
     None
+}
+
+async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
+    let url = format!("{}/robots.txt", base_url.trim_end_matches('/'));
+    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await {
+        if response.status_code() == 200 {
+            if let Ok(text) = response.text().await {
+                // Parse robots.txt content
+                let lines: Vec<&str> = text.lines().collect();
+                let mut sitemaps = Vec::new();
+                let mut ai_crawlers = Vec::new();
+                let mut blocks_all_bots = false;
+                let mut issues = Vec::new();
+                
+                // Extract sitemaps
+                for line in &lines {
+                    let line = line.trim();
+                    if line.to_lowercase().starts_with("sitemap:") {
+                        if let Some(sitemap_url) = line.split(':').nth(1) {
+                            sitemaps.push(sitemap_url.trim().to_string());
+                        }
+                    }
+                }
+                
+                // Check for wildcard block
+                let mut in_wildcard = false;
+                for line in &lines {
+                    let line = line.trim().to_lowercase();
+                    if line.starts_with("user-agent:") {
+                        in_wildcard = line.contains("*");
+                    } else if in_wildcard && line == "disallow: /" {
+                        blocks_all_bots = true;
+                        issues.push("Warning: All bots blocked with 'Disallow: /'".to_string());
+                    }
+                }
+                
+                // Check AI crawlers
+                let ai_crawler_names = vec![
+                    "GPTBot", "ChatGPT-User", "ClaudeBot", "Claude-Web",
+                    "Google-Extended", "Bingbot", "Applebot", "PerplexityBot",
+                ];
+                
+                for crawler in ai_crawler_names {
+                    let access = check_crawler_access(&text, crawler);
+                    let rules = get_crawler_rules(&text, crawler);
+                    
+                    ai_crawlers.push(AiCrawlerInfo {
+                        name: crawler.to_string(),
+                        access: access.clone(),
+                        rules,
+                    });
+                    
+                    if access == "blocked" {
+                        issues.push(format!("{} is blocked from accessing the site", crawler));
+                    }
+                }
+                
+                if sitemaps.is_empty() {
+                    issues.push("No sitemap URLs found in robots.txt".to_string());
+                }
+                
+                return Some(RobotsTxtStatus {
+                    found: true,
+                    sitemap_count: sitemaps.len(),
+                    sitemaps,
+                    ai_crawlers,
+                    blocks_all_bots,
+                    issues,
+                });
+            }
+        }
+    }
+    
+    Some(RobotsTxtStatus {
+        found: false,
+        sitemap_count: 0,
+        sitemaps: Vec::new(),
+        ai_crawlers: Vec::new(),
+        blocks_all_bots: false,
+        issues: vec!["robots.txt not found".to_string()],
+    })
+}
+
+fn check_crawler_access(robots_txt: &str, crawler: &str) -> String {
+    let lines: Vec<&str> = robots_txt.lines().map(|l| l.trim()).collect();
+    let mut current_agent = String::new();
+    let mut specific_rules = false;
+    let mut is_blocked = false;
+    let mut has_disallow = false;
+    
+    for line in &lines {
+        if line.to_lowercase().starts_with("user-agent:") {
+            if let Some(agent) = line.split(':').nth(1) {
+                current_agent = agent.trim().to_lowercase();
+                if current_agent == crawler.to_lowercase() {
+                    specific_rules = true;
+                }
+            }
+        } else if !current_agent.is_empty() {
+            if current_agent == crawler.to_lowercase() || current_agent == "*" {
+                if line.to_lowercase().starts_with("disallow:") {
+                    if let Some(path) = line.split(':').nth(1) {
+                        let path = path.trim();
+                        has_disallow = true;
+                        if path == "/" {
+                            is_blocked = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if is_blocked {
+        "blocked".to_string()
+    } else if has_disallow && specific_rules {
+        "partial".to_string()
+    } else if specific_rules {
+        "allowed".to_string()
+    } else {
+        "default".to_string()
+    }
+}
+
+fn get_crawler_rules(robots_txt: &str, crawler: &str) -> Option<String> {
+    let lines: Vec<&str> = robots_txt.lines().map(|l| l.trim()).collect();
+    let mut rules = Vec::new();
+    let mut in_target_agent = false;
+    
+    for line in &lines {
+        if line.to_lowercase().starts_with("user-agent:") {
+            if in_target_agent {
+                break; // Stop when we hit next agent
+            }
+            if let Some(agent) = line.split(':').nth(1) {
+                let agent_lower = agent.trim().to_lowercase();
+                if agent_lower == crawler.to_lowercase() {
+                    in_target_agent = true;
+                    rules.push(line.to_string());
+                }
+            }
+        } else if in_target_agent {
+            if line.to_lowercase().starts_with("disallow:") || 
+               line.to_lowercase().starts_with("allow:") ||
+               line.to_lowercase().starts_with("crawl-delay:") {
+                rules.push(line.to_string());
+            }
+        }
+    }
+    
+    if rules.is_empty() {
+        // Check for wildcard
+        let mut in_wildcard = false;
+        for line in &lines {
+            if line.to_lowercase().starts_with("user-agent:") {
+                if in_wildcard {
+                    break;
+                }
+                if let Some(agent) = line.split(':').nth(1) {
+                    if agent.trim() == "*" {
+                        in_wildcard = true;
+                        rules.push(line.to_string());
+                    }
+                }
+            } else if in_wildcard {
+                if line.to_lowercase().starts_with("disallow:") || 
+                   line.to_lowercase().starts_with("allow:") {
+                    rules.push(line.to_string());
+                }
+            }
+        }
+    }
+    
+    if rules.is_empty() {
+        None
+    } else {
+        Some(rules.join("; "))
+    }
 }
 
 fn format_cli_style_markdown(
@@ -1005,6 +1209,7 @@ mod integration_tests {
                 ai_plugin: None,
                 mcp: None,
                 openapi: None,
+                robots_txt: None,
             },
         };
 
