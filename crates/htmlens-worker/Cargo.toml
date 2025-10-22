@@ -10,8 +10,8 @@ description = "Cloudflare Worker for htmlens - lightweight JSON-LD extraction AP
 crate-type = ["cdylib"]
 
 [dependencies]
-# Use core library WITHOUT full-expansion (no heavy dependencies)
-htmlens-core = { workspace = true }
+# Use core library with ai-readiness feature for Phase 1 & 2 checks
+htmlens-core = { workspace = true, features = ["ai-readiness"] }
 
 anyhow.workspace = true
 serde.workspace = true

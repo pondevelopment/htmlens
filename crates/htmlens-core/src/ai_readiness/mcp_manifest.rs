@@ -7,7 +7,6 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// MCP manifest structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -309,15 +308,15 @@ pub fn validate_manifest(json_str: &str) -> Result<McpManifestValidation> {
     }
     
     // Validate capabilities match actual content
-    if manifest.tool_count > 0 && !manifest.has_tools_capability {
+    if !manifest.tools.is_empty() && manifest.capabilities.tools.is_none() {
         validation.issues.push("Tools defined but tools capability not declared".to_string());
     }
     
-    if manifest.resource_count > 0 && !manifest.has_resources_capability {
+    if !manifest.resources.is_empty() && manifest.capabilities.resources.is_none() {
         validation.issues.push("Resources defined but resources capability not declared".to_string());
     }
     
-    if manifest.prompt_count > 0 && !manifest.has_prompts_capability {
+    if !manifest.prompts.is_empty() && manifest.capabilities.prompts.is_none() {
         validation.issues.push("Prompts defined but prompts capability not declared".to_string());
     }
     

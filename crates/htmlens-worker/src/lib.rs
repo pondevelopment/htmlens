@@ -49,6 +49,7 @@ struct AiReadinessData {
     openapi: Option<OpenApiStatus>,
     #[serde(rename = "robotsTxt")]
     robots_txt: Option<RobotsTxtStatus>,
+    sitemap: Option<SitemapStatus>,
 }
 
 #[derive(Serialize)]
@@ -145,6 +146,46 @@ struct AiCrawlerInfo {
     rules: Option<String>,
 }
 
+#[derive(Serialize)]
+struct SitemapStatus {
+    found: bool,
+    #[serde(rename = "sitemapType")]
+    sitemap_type: String,  // "standard", "index", "unknown"
+    #[serde(rename = "urlCount")]
+    url_count: usize,
+    #[serde(rename = "lastModified")]
+    last_modified: Option<String>,
+    statistics: SitemapStats,
+    #[serde(rename = "nestedSitemaps")]
+    nested_sitemaps: Vec<String>,
+    #[serde(rename = "sampleUrls")]
+    sample_urls: Vec<SitemapUrlEntry>,
+    issues: Vec<String>,
+    recommendations: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SitemapStats {
+    #[serde(rename = "totalUrls")]
+    total_urls: usize,
+    #[serde(rename = "urlsWithLastmod")]
+    urls_with_lastmod: usize,
+    #[serde(rename = "urlsWithPriority")]
+    urls_with_priority: usize,
+    #[serde(rename = "avgPriority")]
+    avg_priority: f32,
+    #[serde(rename = "contentTypes")]
+    content_types: std::collections::HashMap<String, usize>,
+}
+
+#[derive(Serialize)]
+struct SitemapUrlEntry {
+    loc: String,
+    lastmod: Option<String>,
+    changefreq: Option<String>,
+    priority: Option<f32>,
+}
+
 // Frontend HTML will be included as a separate file
 const FRONTEND_HTML: &str = include_str!("frontend.html");
 
@@ -209,12 +250,21 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     // Check robots.txt
     let robots_txt = check_robots_txt(base_url).await;
     
+    // Check sitemap (use URLs from robots.txt if available)
+    let sitemap_urls = if let Some(ref robots) = robots_txt {
+        robots.sitemaps.clone()
+    } else {
+        Vec::new()
+    };
+    let sitemap = check_sitemap(base_url, sitemap_urls).await;
+    
     AiReadinessData {
         well_known,
         ai_plugin,
         mcp,
         openapi,
         robots_txt,
+        sitemap,
     }
 }
 
@@ -529,6 +579,127 @@ async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
         ai_crawlers: Vec::new(),
         blocks_all_bots: false,
         issues: vec!["robots.txt not found".to_string()],
+    })
+}
+
+async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<SitemapStatus> {
+    use htmlens_core::ai_readiness::sitemap;
+    
+    // Extract root domain from URL
+    let parsed_url = url::Url::parse(base_url).ok()?;
+    let root_url = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str()?);
+    
+    // Try sitemap URLs from robots.txt first
+    for sitemap_url in &sitemap_urls {
+        if let Ok(mut response) = Fetch::Url(sitemap_url.parse().ok()?).send().await {
+            if response.status_code() == 200 {
+                if let Ok(xml_content) = response.text().await {
+                    // Parse the sitemap using the core library
+                    if let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_url) {
+                        // Convert to Worker's SitemapStatus format
+                        let sitemap_type = match analysis.sitemap_type {
+                            sitemap::SitemapType::Standard => "standard",
+                            sitemap::SitemapType::Index => "index",
+                            sitemap::SitemapType::Unknown => "unknown",
+                        };
+                        
+                        // Take up to 10 sample URLs for display
+                        let sample_urls: Vec<SitemapUrlEntry> = analysis.url_entries
+                            .iter()
+                            .take(10)
+                            .map(|u| SitemapUrlEntry {
+                                loc: u.loc.clone(),
+                                lastmod: u.lastmod.clone(),
+                                changefreq: u.changefreq.clone(),
+                                priority: u.priority,
+                            })
+                            .collect();
+                        
+                        return Some(SitemapStatus {
+                            found: true,
+                            sitemap_type: sitemap_type.to_string(),
+                            url_count: analysis.url_count,
+                            last_modified: analysis.last_modified,
+                            statistics: SitemapStats {
+                                total_urls: analysis.statistics.total_urls,
+                                urls_with_lastmod: analysis.statistics.urls_with_lastmod,
+                                urls_with_priority: analysis.statistics.urls_with_priority,
+                                avg_priority: analysis.statistics.avg_priority,
+                                content_types: analysis.statistics.content_types,
+                            },
+                            nested_sitemaps: analysis.nested_sitemaps,
+                            sample_urls,
+                            issues: analysis.issues,
+                            recommendations: analysis.recommendations,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    // If no sitemap from robots.txt, try default location
+    let default_sitemap = format!("{}/sitemap.xml", root_url);
+    if let Ok(mut response) = Fetch::Url(default_sitemap.parse().ok()?).send().await {
+        if response.status_code() == 200 {
+            if let Ok(xml_content) = response.text().await {
+                if let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_url) {
+                    let sitemap_type = match analysis.sitemap_type {
+                        sitemap::SitemapType::Standard => "standard",
+                        sitemap::SitemapType::Index => "index",
+                        sitemap::SitemapType::Unknown => "unknown",
+                    };
+                    
+                    let sample_urls: Vec<SitemapUrlEntry> = analysis.url_entries
+                        .iter()
+                        .take(10)
+                        .map(|u| SitemapUrlEntry {
+                            loc: u.loc.clone(),
+                            lastmod: u.lastmod.clone(),
+                            changefreq: u.changefreq.clone(),
+                            priority: u.priority,
+                        })
+                        .collect();
+                    
+                    return Some(SitemapStatus {
+                        found: true,
+                        sitemap_type: sitemap_type.to_string(),
+                        url_count: analysis.url_count,
+                        last_modified: analysis.last_modified,
+                        statistics: SitemapStats {
+                            total_urls: analysis.statistics.total_urls,
+                            urls_with_lastmod: analysis.statistics.urls_with_lastmod,
+                            urls_with_priority: analysis.statistics.urls_with_priority,
+                            avg_priority: analysis.statistics.avg_priority,
+                            content_types: analysis.statistics.content_types,
+                        },
+                        nested_sitemaps: analysis.nested_sitemaps,
+                        sample_urls,
+                        issues: analysis.issues,
+                        recommendations: analysis.recommendations,
+                    });
+                }
+            }
+        }
+    }
+    
+    // Not found
+    Some(SitemapStatus {
+        found: false,
+        sitemap_type: "unknown".to_string(),
+        url_count: 0,
+        last_modified: None,
+        statistics: SitemapStats {
+            total_urls: 0,
+            urls_with_lastmod: 0,
+            urls_with_priority: 0,
+            avg_priority: 0.0,
+            content_types: std::collections::HashMap::new(),
+        },
+        nested_sitemaps: Vec::new(),
+        sample_urls: Vec::new(),
+        issues: vec!["No sitemap found".to_string()],
+        recommendations: vec!["Create a sitemap.xml file to help crawlers discover your content".to_string()],
     })
 }
 
@@ -1214,6 +1385,7 @@ mod integration_tests {
                 mcp: None,
                 openapi: None,
                 robots_txt: None,
+                sitemap: None,
             },
         };
 

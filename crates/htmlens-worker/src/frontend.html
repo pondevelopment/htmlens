@@ -106,6 +106,25 @@
         .robots-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; font-weight: 500; }
         .robots-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
         
+        /* Sitemap Styles */
+        .sitemap-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .sitemap-status h3 { color: #667eea; margin-top: 0; margin-bottom: 15px; }
+        .sitemap-status h4 { color: #333; font-size: 16px; margin-top: 15px; margin-bottom: 10px; }
+        .sitemap-status > div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .sitemap-stats, .content-types, .nested-sitemaps, .sample-urls, .sitemap-issues, .sitemap-recommendations { margin-top: 15px; padding: 15px; background: white; border-radius: 6px; }
+        .sitemap-stats-table, .content-types-table, .sample-urls-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .sitemap-stats-table td, .content-types-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; }
+        .sitemap-stats-table td:first-child, .content-types-table td:first-child { font-weight: 500; color: #555; }
+        .sitemap-stats-table td:last-child, .content-types-table td:last-child { text-align: right; color: #667eea; font-weight: 500; }
+        .sample-urls-table th { background: #667eea; color: white; padding: 10px; text-align: left; font-size: 13px; }
+        .sample-urls-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; font-size: 13px; }
+        .sample-urls-table a { color: #667eea; text-decoration: none; }
+        .sample-urls-table a:hover { text-decoration: underline; }
+        .sitemap-issues ul, .sitemap-recommendations ul { list-style: none; padding-left: 0; margin: 8px 0; }
+        .sitemap-issues li, .sitemap-recommendations li { padding: 6px 10px; margin: 4px 0; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; }
+        .sitemap-recommendations li { background: #d1ecf1; border-left: 3px solid #17a2b8; color: #0c5460; }
+        .sitemap-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
+        
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
     </style>
@@ -508,6 +527,113 @@
                 }
                 
                 html += '<div class="section-footer">Learn about robots.txt at <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank">Google Search Central →</a> or <a href="https://www.robotstxt.org/" target="_blank">robotstxt.org</a></div>';
+                html += '</div>';
+            }
+            
+            // Sitemap section
+            if (aiReadiness.sitemap) {
+                const sitemap = aiReadiness.sitemap;
+                html += '<div class="sitemap-status">';
+                html += '<h3>🗺️ XML Sitemap</h3>';
+                
+                if (sitemap.found) {
+                    html += `<div><strong>Status:</strong> ✅ Found</div>`;
+                    html += `<div><strong>Type:</strong> ${sitemap.sitemapType === 'index' ? '📑 Sitemap Index' : '📄 Standard Sitemap'}</div>`;
+                    html += `<div><strong>Total URLs:</strong> ${sitemap.urlCount.toLocaleString()}</div>`;
+                    
+                    if (sitemap.lastModified) {
+                        html += `<div><strong>Last Modified:</strong> ${sitemap.lastModified}</div>`;
+                    }
+                    
+                    // Statistics
+                    if (sitemap.statistics.totalUrls > 0) {
+                        html += '<div class="sitemap-stats">';
+                        html += '<h4>📊 Statistics</h4>';
+                        html += '<table class="sitemap-stats-table">';
+                        html += '<tr><td>URLs with dates</td><td>' + sitemap.statistics.urlsWithLastmod + ' (' + Math.round(sitemap.statistics.urlsWithLastmod / sitemap.statistics.totalUrls * 100) + '%)</td></tr>';
+                        html += '<tr><td>URLs with priority</td><td>' + sitemap.statistics.urlsWithPriority + ' (' + Math.round(sitemap.statistics.urlsWithPriority / sitemap.statistics.totalUrls * 100) + '%)</td></tr>';
+                        if (sitemap.statistics.avgPriority > 0) {
+                            html += '<tr><td>Average priority</td><td>' + sitemap.statistics.avgPriority.toFixed(2) + '</td></tr>';
+                        }
+                        html += '</table>';
+                        html += '</div>';
+                    }
+                    
+                    // Content type distribution
+                    if (sitemap.statistics.contentTypes && Object.keys(sitemap.statistics.contentTypes).length > 0) {
+                        html += '<div class="content-types">';
+                        html += '<h4>📁 Content Types</h4>';
+                        html += '<table class="content-types-table">';
+                        const sortedTypes = Object.entries(sitemap.statistics.contentTypes).sort((a, b) => b[1] - a[1]);
+                        sortedTypes.forEach(([type, count]) => {
+                            const icon = type === 'product' ? '🛍️' : type === 'blog' ? '📝' : type === 'article' ? '📰' : type === 'documentation' ? '📚' : '📄';
+                            html += `<tr><td>${icon} ${type}</td><td>${count.toLocaleString()} URLs</td></tr>`;
+                        });
+                        html += '</table>';
+                        html += '</div>';
+                    }
+                    
+                    // Nested sitemaps (for sitemap index)
+                    if (sitemap.nestedSitemaps && sitemap.nestedSitemaps.length > 0) {
+                        html += '<div class="nested-sitemaps">';
+                        html += '<h4>📑 Nested Sitemaps</h4>';
+                        html += '<ul class="sitemap-list">';
+                        sitemap.nestedSitemaps.forEach(url => {
+                            html += `<li><a href="${url}" target="_blank">${url}</a></li>`;
+                        });
+                        html += '</ul>';
+                        html += '</div>';
+                    }
+                    
+                    // Sample URLs (for standard sitemaps)
+                    if (sitemap.sampleUrls && sitemap.sampleUrls.length > 0) {
+                        html += '<div class="sample-urls">';
+                        html += '<h4>🔍 Sample URLs (first 10)</h4>';
+                        html += '<table class="sample-urls-table">';
+                        html += '<thead><tr><th>URL</th><th>Last Modified</th><th>Priority</th></tr></thead>';
+                        html += '<tbody>';
+                        sitemap.sampleUrls.forEach(url => {
+                            const shortUrl = url.loc.length > 60 ? url.loc.substring(0, 57) + '...' : url.loc;
+                            html += '<tr>';
+                            html += `<td><a href="${url.loc}" target="_blank" title="${url.loc}">${shortUrl}</a></td>`;
+                            html += `<td>${url.lastmod || '-'}</td>`;
+                            html += `<td>${url.priority !== null ? url.priority.toFixed(1) : '-'}</td>`;
+                            html += '</tr>';
+                        });
+                        html += '</tbody>';
+                        html += '</table>';
+                        html += '</div>';
+                    }
+                    
+                    // Issues
+                    if (sitemap.issues && sitemap.issues.length > 0) {
+                        html += '<div class="sitemap-issues">';
+                        html += '<h4>⚠️ Issues</h4>';
+                        html += '<ul>';
+                        sitemap.issues.forEach(issue => {
+                            html += `<li>${issue}</li>`;
+                        });
+                        html += '</ul>';
+                        html += '</div>';
+                    }
+                    
+                    // Recommendations
+                    if (sitemap.recommendations && sitemap.recommendations.length > 0) {
+                        html += '<div class="sitemap-recommendations">';
+                        html += '<h4>💡 Recommendations</h4>';
+                        html += '<ul>';
+                        sitemap.recommendations.forEach(rec => {
+                            html += `<li>${rec}</li>`;
+                        });
+                        html += '</ul>';
+                        html += '</div>';
+                    }
+                } else {
+                    html += '<div>❌ Sitemap not found</div>';
+                    html += '<div class="sitemap-recommendation">Recommendation: Create a sitemap.xml file to help search engines and AI crawlers discover all your content efficiently.</div>';
+                }
+                
+                html += '<div class="section-footer">Learn about sitemaps at <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview" target="_blank">Google Search Central →</a></div>';
                 html += '</div>';
             }
             

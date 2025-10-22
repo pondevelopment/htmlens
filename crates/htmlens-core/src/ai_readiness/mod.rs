@@ -8,6 +8,7 @@ pub mod plugin_manifest;
 pub mod mcp_manifest;
 pub mod openapi;
 pub mod robots_txt;
+pub mod sitemap;
 
 use serde::{Deserialize, Serialize};
 

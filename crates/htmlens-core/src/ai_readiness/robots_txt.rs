@@ -3,7 +3,6 @@
 //! Parses robots.txt files and analyzes crawling rules for different user agents,
 //! with special focus on AI crawlers (GPTBot, ClaudeBot, etc.)
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
