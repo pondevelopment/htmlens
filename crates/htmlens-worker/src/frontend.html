@@ -81,21 +81,21 @@
         .rich-result.not-eligible { background: #f8d7da; color: #721c24; }
         
         /* AI Readiness Styles */
-        .ai-readiness-section { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 20px; border-radius: 10px; margin: 20px 0; }
-        .ai-score { text-align: center; margin: 20px 0; }
-        .score-circle { font-size: 48px; font-weight: bold; color: #667eea; display: inline-block; width: 120px; height: 120px; border-radius: 50%; background: white; line-height: 120px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .score-circle.good { color: #28a745; }
-        .score-circle.medium { color: #ffc107; }
-        .score-circle.low { color: #dc3545; }
-        .score-label { margin-top: 10px; font-weight: 600; color: #555; }
-        .well-known-checks, .ai-plugin-status, .openapi-status, .ai-recommendations { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .ai-readiness-container { padding: 20px; }
+        .ai-readiness-container h2 { color: #667eea; margin-bottom: 20px; }
+        .ai-score { text-align: center; margin: 30px 0; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; }
+        .score-circle { font-size: 56px; font-weight: bold; color: white; display: inline-block; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,0.2); line-height: 140px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); backdrop-filter: blur(10px); border: 4px solid rgba(255,255,255,0.3); }
+        .score-label { margin-top: 15px; font-weight: 600; color: white; font-size: 18px; }
+        .well-known-checks, .ai-plugin-status, .openapi-status, .ai-recommendations { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .well-known-checks h4, .ai-plugin-status h4, .openapi-status h4, .ai-recommendations h4 { margin-top: 0; color: #333; font-size: 18px; margin-bottom: 15px; }
         .file-checks { margin-top: 10px; }
-        .file-check { padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 4px; font-size: 14px; }
-        .file-check.critical-missing { background: #fff3cd; border-left: 4px solid #ffc107; }
-        .invalid { color: #dc3545; font-weight: bold; }
-        .plugin-issues, .api-issues { color: #dc3545; margin-top: 10px; font-size: 13px; }
-        .ai-recommendations ul { list-style: none; padding: 0; }
-        .ai-recommendations li { padding: 8px; margin: 5px 0; background: #e7f3ff; border-left: 4px solid #007bff; border-radius: 4px; }
+        .file-check { padding: 12px; margin: 8px 0; background: white; border-radius: 6px; font-size: 14px; border-left: 3px solid #28a745; }
+        .file-check.critical-missing { background: #fff3cd; border-left: 4px solid #ffc107; font-weight: 500; }
+        .invalid { color: #dc3545; font-weight: bold; font-size: 12px; }
+        .plugin-issues, .api-issues { color: #dc3545; margin-top: 10px; font-size: 13px; padding: 10px; background: #f8d7da; border-radius: 6px; }
+        .ai-plugin-status div, .openapi-status div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .ai-recommendations ul { list-style: none; padding: 0; margin: 10px 0 0 0; }
+        .ai-recommendations li { padding: 12px; margin: 8px 0; background: white; border-left: 4px solid #667eea; border-radius: 6px; }
         
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
@@ -129,6 +129,7 @@
             <div class="results" id="results">
                 <div class="tabs">
                     <button class="tab active" data-tab="insights">🎯 Insights</button>
+                    <button class="tab" data-tab="ai-readiness">🤖 AI Readiness</button>
                     <button class="tab" data-tab="summary">Summary</button>
                     <button class="tab" data-tab="jsonld">JSON-LD</button>
                     <button class="tab" data-tab="structured">Structured Data</button>
@@ -136,6 +137,9 @@
                 </div>
                 <div class="tab-content active" id="insights-content">
                     <div id="insightsOutput"></div>
+                </div>
+                <div class="tab-content" id="ai-readiness-content">
+                    <div id="aiReadinessOutput"></div>
                 </div>
                 <div class="tab-content" id="summary-content">
                     <div class="json-output" id="summaryOutput"></div>
@@ -293,6 +297,11 @@
                 // Render insights
                 renderInsights(data);
                 
+                // Render AI readiness
+                if (data.aiReadiness) {
+                    renderAiReadinessTab(data.aiReadiness);
+                }
+                
                 document.getElementById('results').classList.add('active');
             } catch (error) {
                 showError(error.message);
@@ -302,9 +311,9 @@
             }
         }
         
-        function renderAiReadiness(aiReadiness) {
-            let html = '<div class="insight-section ai-readiness-section">';
-            html += '<div class="insight-header">🤖 AI Agent Readiness</div>';
+        function renderAiReadinessTab(aiReadiness) {
+            let html = '<div class="ai-readiness-container">';
+            html += '<h2 style="margin-top: 0;">🤖 AI Agent Readiness</h2>';
             
             // Overall score
             const scoreClass = aiReadiness.overallScore >= 70 ? 'good' : aiReadiness.overallScore >= 40 ? 'medium' : 'low';
@@ -380,7 +389,7 @@
             }
             
             html += '</div>';
-            return html;
+            document.getElementById('aiReadinessOutput').innerHTML = html;
         }
         
         function renderInsights(data) {
@@ -410,11 +419,6 @@
                     html += `<li>✓ ${strength}</li>`;
                 });
                 html += '</ul></div>';
-            }
-            
-            // AI Readiness Section
-            if (data.aiReadiness) {
-                html += renderAiReadiness(data.aiReadiness);
             }
             
             // Critical issues
