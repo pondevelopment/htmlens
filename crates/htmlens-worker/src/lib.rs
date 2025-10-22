@@ -448,7 +448,11 @@ async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
 }
 
 async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
-    let url = format!("{}/robots.txt", base_url.trim_end_matches('/'));
+    // Extract root domain from URL (robots.txt must be on root domain)
+    let parsed_url = url::Url::parse(base_url).ok()?;
+    let root_url = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str()?);
+    let url = format!("{}/robots.txt", root_url);
+    
     if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await {
         if response.status_code() == 200 {
             if let Ok(text) = response.text().await {
