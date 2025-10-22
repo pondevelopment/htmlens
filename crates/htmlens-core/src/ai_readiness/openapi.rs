@@ -2,9 +2,11 @@
 //!
 //! Validates OpenAPI/Swagger specifications for AI agent consumption.
 
+#[cfg(feature = "ai-readiness")]
 use anyhow::{Context, Result};
 use openapiv3::OpenAPI;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ai-readiness")]
 use std::time::Duration;
 
 /// OpenAPI validation result
@@ -206,6 +208,7 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
 }
 
 /// Fetch and validate OpenAPI specification from a URL
+#[cfg(feature = "ai-readiness")]
 pub async fn fetch_and_validate_openapi(url: &str) -> Result<OpenApiValidation> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))

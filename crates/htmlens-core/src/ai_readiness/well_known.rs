@@ -3,8 +3,10 @@
 //! The .well-known directory (RFC 8615) is a standard location for
 //! site-wide metadata and configuration files.
 
+#[cfg(feature = "ai-readiness")]
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ai-readiness")]
 use std::time::Duration;
 
 /// Results from checking .well-known directory
@@ -76,6 +78,7 @@ impl FileCheck {
 }
 
 /// Check all relevant .well-known files for a domain
+#[cfg(feature = "ai-readiness")]
 pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
     let base_url = base_url.trim_end_matches('/');
     
@@ -100,6 +103,7 @@ pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
 }
 
 /// Type of file expected
+#[cfg(feature = "ai-readiness")]
 #[derive(Debug, Clone, Copy)]
 enum FileType {
     Json,
@@ -107,6 +111,7 @@ enum FileType {
 }
 
 /// Check a specific .well-known file
+#[cfg(feature = "ai-readiness")]
 async fn check_file(base_url: &str, path: &str, file_type: FileType) -> FileCheck {
     let url = format!("{}{}", base_url, path);
     let mut check = FileCheck::new(path.to_string());
@@ -172,11 +177,13 @@ async fn check_file(base_url: &str, path: &str, file_type: FileType) -> FileChec
 }
 
 /// Validate JSON content
+#[cfg(feature = "ai-readiness")]
 fn validate_json(content: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(content).is_ok()
 }
 
 /// Validate text content (just check it's not empty)
+#[cfg(feature = "ai-readiness")]
 fn validate_text(content: &str) -> bool {
     !content.trim().is_empty()
 }

@@ -3,6 +3,7 @@
 //! Validates ChatGPT plugin manifests according to the specification.
 //! See: https://platform.openai.com/docs/plugins
 
+#[cfg(feature = "ai-readiness")]
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -231,6 +232,7 @@ pub fn validate_manifest(json_content: &str) -> ManifestValidation {
 }
 
 /// Fetch and validate AI plugin manifest from a URL
+#[cfg(feature = "ai-readiness")]
 pub async fn fetch_and_validate_manifest(base_url: &str) -> Result<ManifestValidation> {
     let url = format!("{}/.well-known/ai-plugin.json", base_url.trim_end_matches('/'));
     
