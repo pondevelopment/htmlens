@@ -238,7 +238,7 @@ pub async fn fetch_and_validate_manifest(base_url: &str) -> Result<ManifestValid
     
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
-        .user_agent("htmlens-ai-readiness-checker/0.4.0")
+        .user_agent("htmlens-ai-readiness-checker/0.4.2")
         .build()?;
     
     let response = client.get(&url).send().await?;

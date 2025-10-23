@@ -220,7 +220,7 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
 pub async fn fetch_and_validate_openapi(url: &str) -> Result<OpenApiValidation> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(FETCH_TIMEOUT_SECS))
-        .user_agent("htmlens-ai-readiness-checker/0.4.0")
+        .user_agent("htmlens-ai-readiness-checker/0.4.2")
         .build()?;
     
     let response = client.get(url).send().await

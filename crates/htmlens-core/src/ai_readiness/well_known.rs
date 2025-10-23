@@ -119,7 +119,7 @@ async fn check_file(base_url: &str, path: &str, file_type: FileType) -> FileChec
     // Create HTTP client with timeout
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
-        .user_agent("htmlens-ai-readiness-checker/0.4.0")
+        .user_agent("htmlens-ai-readiness-checker/0.4.2")
         .build()
     {
         Ok(client) => client,
