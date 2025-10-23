@@ -768,7 +768,7 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
 async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
     // Fetch the HTML page
     let url = base_url.trim_end_matches('/');
-    let response = match Fetch::Url(url.parse().ok()?).send().await {
+    let mut response = match Fetch::Url(url.parse().ok()?).send().await {
         Ok(r) => r,
         Err(_) => return None,
     };
