@@ -321,7 +321,7 @@ Model Context Protocol (MCP) is an emerging standard announced by Anthropic in 2
 
 **Scope**: Analyze semantic HTML structure and ARIA attributes for AI browser compatibility
 
-**Rationale**: AI browsers like **AI ATLAS** use semantic HTML and ARIA to understand page structure and content hierarchy. Proper use of landmarks, headings, and ARIA attributes significantly improves AI comprehension.
+**Rationale**: AI-enabled browsers use semantic HTML and ARIA to understand page structure and content hierarchy. Proper use of landmarks, headings, and ARIA attributes significantly improves AI comprehension.
 
 **Implementation**:
 - [x] Analyze landmark regions (`<main>`, `<nav>`, `<header>`, `<footer>`, `<aside>`, `<article>`)
@@ -335,7 +335,7 @@ Model Context Protocol (MCP) is an emerging standard announced by Anthropic in 2
 **Output**:
 ```markdown
 ## Semantic HTML & ARIA
-Used by AI browsers like **AI ATLAS**
+Used by AI-enabled browsers
 
 ### Page Landmarks:
 - ✅ Main content (<main>)
@@ -362,7 +362,7 @@ Used by AI browsers like **AI ATLAS**
 - Add descriptive alt text to all meaningful images
 ```
 
-**Priority**: 🔴 **Critical** - Used by AI ATLAS browser
+**Priority**: 🔴 **Critical** - Used by AI-enabled browsers
 
 **Estimated Effort**: 3-4 hours
 
@@ -813,7 +813,7 @@ robotparser = "0.13"     # robots.txt parsing (or custom impl)
 - ✅ Added `ai-readiness` feature flag to `htmlens-core`
 - ✅ All Phase 1 & 2 code compiles successfully
 - ✅ Worker API integration complete
-- ✅ Frontend display complete with AI ATLAS branding
+- ✅ Frontend display complete
 
 ### In Progress
 - ⏳ Phase 2.3 browser testing (not yet committed)

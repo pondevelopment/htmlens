@@ -1,8 +1,8 @@
 //! Semantic HTML and ARIA validation
 //!
 //! Validates that HTML uses proper semantic elements and ARIA attributes
-//! for better AI understanding and accessibility. This helps AI browsers
-//! like AI ATLAS parse and understand page structure.
+//! for better AI understanding and accessibility. This helps AI-enabled browsers
+//! parse and understand page structure.
 
 use serde::{Deserialize, Serialize};
 use scraper::{Html, Selector};
