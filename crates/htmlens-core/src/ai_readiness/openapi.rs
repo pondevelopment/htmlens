@@ -9,6 +9,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ai-readiness")]
 use std::time::Duration;
 
+/// HTTP request timeout for fetching OpenAPI specs
+#[cfg(feature = "ai-readiness")]
+const FETCH_TIMEOUT_SECS: u64 = 15;
+
+/// Expected OpenAPI major version
+const EXPECTED_OPENAPI_VERSION_PREFIX: &str = "3.";
+
 /// OpenAPI validation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenApiValidation {
@@ -135,10 +142,11 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
     validation.api_version = Some(spec.info.version.clone());
     
     // Check OpenAPI version
-    if !spec.openapi.starts_with("3.") {
+    if !spec.openapi.starts_with(EXPECTED_OPENAPI_VERSION_PREFIX) {
         validation.add_warning(format!(
-            "OpenAPI version {} - version 3.x is recommended",
-            spec.openapi
+            "OpenAPI version {} - version {}x is recommended",
+            spec.openapi,
+            EXPECTED_OPENAPI_VERSION_PREFIX
         ));
     }
     
@@ -154,10 +162,10 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
     }
     
     // Analyze paths and operations
-    validation.stats.total_paths = spec.paths.paths.len();
-    
     for (path, path_item_ref) in &spec.paths.paths {
         if let Some(path_item) = path_item_ref.as_item() {
+            validation.stats.total_paths += 1;
+            
             // Check each operation
             for (method, operation) in path_item.iter() {
                 validation.stats.total_operations += 1;
@@ -211,7 +219,7 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
 #[cfg(feature = "ai-readiness")]
 pub async fn fetch_and_validate_openapi(url: &str) -> Result<OpenApiValidation> {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(FETCH_TIMEOUT_SECS))
         .user_agent("htmlens-ai-readiness-checker/0.4.0")
         .build()?;
     
@@ -224,11 +232,38 @@ pub async fn fetch_and_validate_openapi(url: &str) -> Result<OpenApiValidation> 
     
     let content = response.text().await?;
     
-    // Determine if it's YAML or JSON based on URL or content
-    let is_yaml = url.ends_with(".yaml") || url.ends_with(".yml") || 
-                  (!url.ends_with(".json") && content.trim_start().starts_with("openapi:"));
+    // Determine if it's YAML or JSON based on URL extension or content structure
+    let is_yaml = is_yaml_format(url, &content);
     
     Ok(validate_openapi(&content, is_yaml))
+}
+
+/// Determine if content is YAML or JSON format
+#[cfg(feature = "ai-readiness")]
+fn is_yaml_format(url: &str, content: &str) -> bool {
+    // Check URL extension first
+    if url.ends_with(".yaml") || url.ends_with(".yml") {
+        return true;
+    }
+    if url.ends_with(".json") {
+        return false;
+    }
+    
+    // Fall back to content inspection
+    let trimmed = content.trim_start();
+    
+    // YAML typically starts with "openapi:" or "---"
+    if trimmed.starts_with("openapi:") || trimmed.starts_with("---") {
+        return true;
+    }
+    
+    // JSON typically starts with "{"
+    if trimmed.starts_with('{') {
+        return false;
+    }
+    
+    // Default to JSON if ambiguous
+    false
 }
 
 #[cfg(test)]
@@ -281,4 +316,82 @@ mod tests {
         assert!(!validation.valid);
         assert!(validation.issues.iter().any(|i| i.contains("No servers")));
     }
+    
+    #[test]
+    fn test_multiple_operations_per_path() {
+        let json = r#"{
+            "openapi": "3.0.1",
+            "info": {
+                "title": "Example API",
+                "version": "1.0.0"
+            },
+            "servers": [
+                {"url": "https://api.example.com"}
+            ],
+            "paths": {
+                "/items": {
+                    "get": {
+                        "summary": "List items",
+                        "responses": {
+                            "200": {"description": "Success"}
+                        }
+                    },
+                    "post": {
+                        "summary": "Create item",
+                        "responses": {
+                            "201": {"description": "Created"}
+                        }
+                    }
+                },
+                "/items/{id}": {
+                    "get": {
+                        "summary": "Get item",
+                        "responses": {
+                            "200": {"description": "Success"}
+                        }
+                    },
+                    "put": {
+                        "summary": "Update item",
+                        "responses": {
+                            "200": {"description": "Success"}
+                        }
+                    },
+                    "delete": {
+                        "summary": "Delete item",
+                        "responses": {
+                            "204": {"description": "No Content"}
+                        }
+                    }
+                }
+            }
+        }"#;
+        
+        let validation = validate_openapi(json, false);
+        assert!(validation.valid, "Expected valid spec but got issues: {:?}", validation.issues);
+        assert_eq!(validation.stats.total_paths, 2, "Expected 2 paths");
+        assert_eq!(validation.stats.total_operations, 5, "Expected 5 operations (GET, POST, GET, PUT, DELETE)");
+        assert_eq!(validation.endpoints.len(), 5, "Expected 5 endpoints");
+    }
+    
+    #[test]
+    fn test_yaml_format_detection() {
+        // YAML with extension
+        assert!(is_yaml_format("https://example.com/api.yaml", ""));
+        assert!(is_yaml_format("https://example.com/api.yml", ""));
+        
+        // JSON with extension
+        assert!(!is_yaml_format("https://example.com/api.json", ""));
+        
+        // YAML content
+        assert!(is_yaml_format("https://example.com/api", "openapi: 3.0.0\ninfo:\n  title: API"));
+        assert!(is_yaml_format("https://example.com/api", "---\nopenapi: 3.0.0"));
+        
+        // JSON content
+        assert!(!is_yaml_format("https://example.com/api", r#"{"openapi": "3.0.0"}"#));
+        
+        // Ambiguous defaults to JSON
+        assert!(!is_yaml_format("https://example.com/api", ""));
+    }
 }
+
+
