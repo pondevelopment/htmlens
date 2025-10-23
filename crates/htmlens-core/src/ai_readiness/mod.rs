@@ -9,6 +9,7 @@ pub mod mcp_manifest;
 pub mod openapi;
 pub mod robots_txt;
 pub mod sitemap;
+pub mod semantic_html;
 
 use serde::{Deserialize, Serialize};
 

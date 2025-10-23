@@ -125,6 +125,34 @@
         .sitemap-recommendations li { background: #d1ecf1; border-left: 3px solid #17a2b8; color: #0c5460; }
         .sitemap-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
         
+        /* Semantic HTML Styles */
+        .semantic-html-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .semantic-html-status h3 { color: #667eea; margin-top: 0; margin-bottom: 15px; }
+        .semantic-html-status h4 { color: #333; font-size: 16px; margin-top: 15px; margin-bottom: 10px; }
+        .semantic-score { padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; font-size: 18px; }
+        .semantic-score .score-value { font-size: 32px; font-weight: bold; }
+        .score-good { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; }
+        .score-ok { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); color: #856404; }
+        .score-poor { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #721c24; }
+        .score-description { font-size: 14px; color: #666; margin-top: 10px; text-align: center; }
+        .landmarks-section, .headings-section, .accessibility-section, .semantic-issues, .semantic-recommendations { 
+            margin-top: 15px; padding: 15px; background: white; border-radius: 6px; 
+        }
+        .landmarks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+        .landmark-item { padding: 10px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #667eea; }
+        .heading-distribution { margin-top: 10px; }
+        .heading-badge { display: inline-block; padding: 4px 12px; background: #667eea; color: white; border-radius: 12px; margin-right: 6px; font-size: 13px; }
+        .accessibility-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .accessibility-table td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .accessibility-table td:first-child { font-weight: 500; color: #555; }
+        .accessibility-table td:last-child { text-align: right; font-weight: 500; }
+        .accessibility-table .good { color: #28a745; }
+        .accessibility-table .ok { color: #ffc107; }
+        .accessibility-table .poor { color: #dc3545; }
+        .semantic-issues ul, .semantic-recommendations ul { list-style: none; padding-left: 0; margin: 8px 0; }
+        .semantic-issues li { padding: 8px 12px; margin: 6px 0; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; }
+        .semantic-recommendations li { padding: 8px 12px; margin: 6px 0; background: #d1ecf1; border-left: 3px solid #17a2b8; color: #0c5460; border-radius: 4px; }
+        
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
     </style>
@@ -634,6 +662,98 @@
                 }
                 
                 html += '<div class="section-footer">Learn about sitemaps at <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview" target="_blank">Google Search Central →</a></div>';
+                html += '</div>';
+            }
+            
+            // Semantic HTML section
+            if (aiReadiness.semanticHtml) {
+                const semantic = aiReadiness.semanticHtml;
+                html += '<div class="semantic-html-status">';
+                html += '<h3>🏗️ Semantic HTML & ARIA</h3>';
+                
+                // Score with color coding
+                const scoreClass = semantic.score >= 80 ? 'score-good' : semantic.score >= 60 ? 'score-ok' : 'score-poor';
+                html += `<div class="semantic-score ${scoreClass}">`;
+                html += `<strong>Semantic Quality Score:</strong> <span class="score-value">${semantic.score}/100</span>`;
+                html += '</div>';
+                html += '<div class="score-description">How well your HTML structure helps AI browsers like <strong>AI ATLAS</strong> understand your content</div>';
+                
+                // Landmarks
+                html += '<div class="landmarks-section">';
+                html += '<h4>🗺️ Page Landmarks</h4>';
+                html += '<div class="landmarks-grid">';
+                html += `<div class="landmark-item">${semantic.landmarks.hasMain ? '✅' : '❌'} Main content (<code>&lt;main&gt;</code>)</div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasNavigation ? '✅' : '❌'} Navigation (<code>&lt;nav&gt;</code>)</div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasHeader ? '✅' : '❌'} Header (<code>&lt;header&gt;</code>)</div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasFooter ? '✅' : '❌'} Footer (<code>&lt;footer&gt;</code>)</div>`;
+                if (semantic.landmarks.articleCount > 0) {
+                    html += `<div class="landmark-item">✅ ${semantic.landmarks.articleCount} Article(s)</div>`;
+                }
+                html += '</div>';
+                html += '</div>';
+                
+                // Headings
+                html += '<div class="headings-section">';
+                html += '<h4>📑 Heading Structure</h4>';
+                html += `<div>${semantic.headings.hasSingleH1 ? '✅' : '⚠️'} ${semantic.headings.hasSingleH1 ? 'Single <code>&lt;h1&gt;</code> (good)' : 'Multiple or missing <code>&lt;h1&gt;</code>'}</div>`;
+                html += `<div>${semantic.headings.properHierarchy ? '✅' : '⚠️'} ${semantic.headings.properHierarchy ? 'Proper hierarchy (no skipped levels)' : 'Hierarchy has gaps'}</div>`;
+                html += '<div class="heading-distribution">Distribution: ';
+                semantic.headings.distribution.forEach((count, index) => {
+                    if (count > 0) {
+                        html += `<span class="heading-badge">h${index + 1}: ${count}</span> `;
+                    }
+                });
+                html += '</div>';
+                html += '</div>';
+                
+                // Forms & Images
+                if (semantic.forms.totalInputs > 0 || semantic.images.totalImages > 0) {
+                    html += '<div class="accessibility-section">';
+                    html += '<h4>♿ Accessibility</h4>';
+                    html += '<table class="accessibility-table">';
+                    if (semantic.forms.totalInputs > 0) {
+                        const formClass = semantic.forms.labelPercentage >= 90 ? 'good' : semantic.forms.labelPercentage >= 70 ? 'ok' : 'poor';
+                        html += '<tr>';
+                        html += '<td>Form Inputs with Labels</td>';
+                        html += `<td class="${formClass}">${semantic.forms.labeledInputs}/${semantic.forms.totalInputs} (${semantic.forms.labelPercentage}%)</td>`;
+                        html += '</tr>';
+                    }
+                    if (semantic.images.totalImages > 0) {
+                        const imgClass = semantic.images.altPercentage >= 90 ? 'good' : semantic.images.altPercentage >= 70 ? 'ok' : 'poor';
+                        html += '<tr>';
+                        html += '<td>Images with Alt Text</td>';
+                        html += `<td class="${imgClass}">${semantic.images.imagesWithAlt}/${semantic.images.totalImages} (${semantic.images.altPercentage}%)</td>`;
+                        html += '</tr>';
+                    }
+                    html += '</table>';
+                    html += '</div>';
+                }
+                
+                // Issues
+                if (semantic.issues && semantic.issues.length > 0) {
+                    html += '<div class="semantic-issues">';
+                    html += '<h4>⚠️ Issues Found</h4>';
+                    html += '<ul>';
+                    semantic.issues.forEach(issue => {
+                        html += `<li>${issue}</li>`;
+                    });
+                    html += '</ul>';
+                    html += '</div>';
+                }
+                
+                // Recommendations
+                if (semantic.recommendations && semantic.recommendations.length > 0) {
+                    html += '<div class="semantic-recommendations">';
+                    html += '<h4>💡 Recommendations</h4>';
+                    html += '<ul>';
+                    semantic.recommendations.forEach(rec => {
+                        html += `<li>${rec}</li>`;
+                    });
+                    html += '</ul>';
+                    html += '</div>';
+                }
+                
+                html += '<div class="section-footer">Used by AI browsers like <strong>AI ATLAS</strong> • Learn more at <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA" target="_blank">MDN Web Docs →</a></div>';
                 html += '</div>';
             }
             

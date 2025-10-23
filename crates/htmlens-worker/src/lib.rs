@@ -50,6 +50,8 @@ struct AiReadinessData {
     #[serde(rename = "robotsTxt")]
     robots_txt: Option<RobotsTxtStatus>,
     sitemap: Option<SitemapStatus>,
+    #[serde(rename = "semanticHtml")]
+    semantic_html: Option<SemanticHtmlStatus>,
 }
 
 #[derive(Serialize)]
@@ -186,6 +188,60 @@ struct SitemapUrlEntry {
     priority: Option<f32>,
 }
 
+#[derive(Serialize)]
+struct SemanticHtmlStatus {
+    score: u32,
+    landmarks: LandmarksInfo,
+    headings: HeadingsInfo,
+    forms: FormsInfo,
+    images: ImagesInfo,
+    issues: Vec<String>,
+    recommendations: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct LandmarksInfo {
+    #[serde(rename = "hasMain")]
+    has_main: bool,
+    #[serde(rename = "hasNavigation")]
+    has_navigation: bool,
+    #[serde(rename = "hasHeader")]
+    has_header: bool,
+    #[serde(rename = "hasFooter")]
+    has_footer: bool,
+    #[serde(rename = "articleCount")]
+    article_count: usize,
+}
+
+#[derive(Serialize)]
+struct HeadingsInfo {
+    #[serde(rename = "hasSingleH1")]
+    has_single_h1: bool,
+    #[serde(rename = "properHierarchy")]
+    proper_hierarchy: bool,
+    distribution: Vec<usize>,
+}
+
+#[derive(Serialize)]
+struct FormsInfo {
+    #[serde(rename = "totalInputs")]
+    total_inputs: usize,
+    #[serde(rename = "labeledInputs")]
+    labeled_inputs: usize,
+    #[serde(rename = "labelPercentage")]
+    label_percentage: u32,
+}
+
+#[derive(Serialize)]
+struct ImagesInfo {
+    #[serde(rename = "totalImages")]
+    total_images: usize,
+    #[serde(rename = "imagesWithAlt")]
+    images_with_alt: usize,
+    #[serde(rename = "altPercentage")]
+    alt_percentage: u32,
+}
+
 // Frontend HTML will be included as a separate file
 const FRONTEND_HTML: &str = include_str!("frontend.html");
 
@@ -258,6 +314,9 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     };
     let sitemap = check_sitemap(base_url, sitemap_urls).await;
     
+    // Check semantic HTML
+    let semantic_html = check_semantic_html(base_url).await;
+    
     AiReadinessData {
         well_known,
         ai_plugin,
@@ -265,6 +324,7 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
         openapi,
         robots_txt,
         sitemap,
+        semantic_html,
     }
 }
 
@@ -702,6 +762,69 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
         sample_urls: Vec::new(),
         issues: vec!["No sitemap found".to_string()],
         recommendations: vec!["Create a sitemap.xml file to help crawlers discover your content".to_string()],
+    })
+}
+
+async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
+    // Fetch the HTML page
+    let url = base_url.trim_end_matches('/');
+    let response = match Fetch::Url(url.parse().ok()?).send().await {
+        Ok(r) => r,
+        Err(_) => return None,
+    };
+    
+    if response.status_code() != 200 {
+        return None;
+    }
+    
+    let html = match response.text().await {
+        Ok(text) => text,
+        Err(_) => return None,
+    };
+    
+    // Use the semantic_html analyzer from htmlens-core
+    use htmlens_core::ai_readiness::semantic_html;
+    let analysis = semantic_html::analyze_semantic_html(&html);
+    
+    // Convert to our simplified API format
+    let label_percentage = if analysis.forms.total_inputs > 0 {
+        (analysis.forms.labeled_inputs as f32 / analysis.forms.total_inputs as f32 * 100.0) as u32
+    } else {
+        100
+    };
+    
+    let alt_percentage = if analysis.images.total_images > 0 {
+        (analysis.images.images_with_alt as f32 / analysis.images.total_images as f32 * 100.0) as u32
+    } else {
+        100
+    };
+    
+    Some(SemanticHtmlStatus {
+        score: analysis.score,
+        landmarks: LandmarksInfo {
+            has_main: analysis.landmarks.has_main,
+            has_navigation: analysis.landmarks.has_navigation,
+            has_header: analysis.landmarks.has_header,
+            has_footer: analysis.landmarks.has_footer,
+            article_count: analysis.landmarks.article_count,
+        },
+        headings: HeadingsInfo {
+            has_single_h1: analysis.headings.has_single_h1,
+            proper_hierarchy: analysis.headings.proper_hierarchy,
+            distribution: analysis.headings.distribution,
+        },
+        forms: FormsInfo {
+            total_inputs: analysis.forms.total_inputs,
+            labeled_inputs: analysis.forms.labeled_inputs,
+            label_percentage,
+        },
+        images: ImagesInfo {
+            total_images: analysis.images.total_images,
+            images_with_alt: analysis.images.images_with_alt,
+            alt_percentage,
+        },
+        issues: analysis.issues,
+        recommendations: analysis.recommendations,
     })
 }
 
@@ -1388,6 +1511,7 @@ mod integration_tests {
                 openapi: None,
                 robots_txt: None,
                 sitemap: None,
+                semantic_html: None,
             },
         };
 

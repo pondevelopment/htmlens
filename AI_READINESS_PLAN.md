@@ -316,6 +316,61 @@ Model Context Protocol (MCP) is an emerging standard announced by Anthropic in 2
 
 ---
 
+### 2.3 Semantic HTML & ARIA Validation
+**Status**: ✅ Complete
+
+**Scope**: Analyze semantic HTML structure and ARIA attributes for AI browser compatibility
+
+**Rationale**: AI browsers like **AI ATLAS** use semantic HTML and ARIA to understand page structure and content hierarchy. Proper use of landmarks, headings, and ARIA attributes significantly improves AI comprehension.
+
+**Implementation**:
+- [x] Analyze landmark regions (`<main>`, `<nav>`, `<header>`, `<footer>`, `<aside>`, `<article>`)
+- [x] Validate heading hierarchy (single `<h1>`, proper nesting, no skipped levels)
+- [x] Check ARIA usage (`aria-label`, `aria-describedby`, `aria-live`, roles)
+- [x] Detect ARIA misuse (redundant roles on native elements)
+- [x] Validate form accessibility (labeled inputs, fieldsets, required field marking)
+- [x] Check image accessibility (alt text coverage, decorative images)
+- [x] Calculate semantic quality score (0-100)
+- [x] Generate specific recommendations
+
+**Output**:
+```markdown
+## Semantic HTML & ARIA
+
+### Semantic Quality Score: 85/100
+Used by AI browsers like **AI ATLAS**
+
+### Page Landmarks:
+- ✅ Main content (<main>)
+- ✅ Navigation (<nav>)
+- ✅ Header (<header>)
+- ✅ Footer (<footer>)
+- ✅ 3 Articles
+
+### Heading Structure:
+- ✅ Single <h1> (good)
+- ✅ Proper hierarchy (no skipped levels)
+- Distribution: h1: 1, h2: 5, h3: 12
+
+### Accessibility:
+- Form Inputs with Labels: 45/50 (90%) ✅
+- Images with Alt Text: 18/20 (90%) ✅
+
+### Issues Found:
+- ⚠️ 5 form inputs missing labels - AI needs labels to understand form purpose
+- ⚠️ 2 images missing alt text - AI cannot understand image content
+
+### Recommendations:
+- Add <label> elements or aria-label to all form inputs
+- Add descriptive alt text to all meaningful images
+```
+
+**Priority**: 🔴 **Critical** - Used by AI ATLAS browser
+
+**Estimated Effort**: 3-4 hours
+
+---
+
 ## Phase 3: Enhanced Structured Data 📊
 
 ### 3.1 Expanded Schema.org Validation
@@ -601,11 +656,12 @@ crates/
 │   │   ├── graph.rs              (existing)
 │   │   └── ai_readiness/         ← NEW MODULE
 │   │       ├── mod.rs            (public API)
-│   │       ├── well_known.rs     (Phase 1.1)
-│   │       ├── plugin_manifest.rs (Phase 1.2)
-│   │       ├── openapi.rs        (Phase 1.3)
-│   │       ├── robots.rs         (Phase 2.1)
-│   │       ├── sitemap.rs        (Phase 2.2)
+│   │       ├── well_known.rs     (Phase 1.1) ✅
+│   │       ├── plugin_manifest.rs (Phase 1.2) ✅
+│   │       ├── openapi.rs        (Phase 1.3) ✅
+│   │       ├── robots.rs         (Phase 2.1) ✅
+│   │       ├── sitemap.rs        (Phase 2.2) ✅
+│   │       ├── semantic_html.rs  (Phase 2.3) ✅
 │   │       ├── headers.rs        (Phase 4.1)
 │   │       └── manifest.rs       (Phase 4.2)
 ├── htmlens-cli/
@@ -613,8 +669,8 @@ crates/
 │       └── main.rs               (add --ai-readiness flag)
 └── htmlens-worker/
     └── src/
-        ├── lib.rs                (add /api/ai-readiness endpoint)
-        └── frontend.html         (add AI Readiness tab)
+        ├── lib.rs                (add /api/ai-readiness endpoint) ✅
+        └── frontend.html         (add AI Readiness tab) ✅
 ```
 
 ### Dependencies to Add
@@ -639,10 +695,11 @@ robotparser = "0.13"     # robots.txt parsing (or custom impl)
 - **Total**: ~12-14 hours
 
 ### Week 2: Content Discovery
-- [ ] Phase 2.1: Robots.txt parser (3-4h)
-- [ ] Phase 2.2: XML Sitemap validator (4-5h)
+- [x] Phase 2.1: Robots.txt parser (3-4h) ✅
+- [x] Phase 2.2: XML Sitemap validator (4-5h) ✅
+- [x] Phase 2.3: Semantic HTML & ARIA validation (3-4h) ✅
 - [ ] Phase 3.1: Expanded Schema.org validation (3-4h)
-- **Total**: ~10-13 hours
+- **Total**: ~13-17 hours (10h completed)
 
 ### Week 3: Polish & Integration
 - [ ] Phase 3.2: Coverage report (3-4h)
@@ -652,7 +709,9 @@ robotparser = "0.13"     # robots.txt parsing (or custom impl)
 - [ ] Phase 5.2: CLI & Worker integration (6-8h)
 - **Total**: ~16-22 hours
 
-**Total Estimated Effort**: 38-49 hours (~1 week of focused work)
+**Total Estimated Effort**: 41-53 hours (~1 week of focused work)  
+**Completed So Far**: ~23-27 hours (Phases 1.1-2.3) ✅  
+**Remaining Effort**: ~18-26 hours
 
 ---
 
@@ -738,9 +797,9 @@ robotparser = "0.13"     # robots.txt parsing (or custom impl)
 
 ## Progress Tracking
 
-**Last Updated**: October 22, 2025  
-**Current Phase**: Phase 2 In Progress 🕷️  
-**Next Steps**: Continue Phase 2.2 - XML Sitemap Validator
+**Last Updated**: January 2025  
+**Current Phase**: Phase 2 Complete ✅  
+**Next Steps**: Ready to begin Phase 3 - Enhanced Schema.org Validation
 
 ### Completed
 - ✅ Read and analyzed PDF requirements
@@ -751,12 +810,16 @@ robotparser = "0.13"     # robots.txt parsing (or custom impl)
 - ✅ **Phase 1.2**: AI Plugin Manifest Validation - Implemented
 - ✅ **Phase 1.2.5**: Model Context Protocol (MCP) Validation - Implemented
 - ✅ **Phase 1.3**: OpenAPI Specification Validation - Implemented
-- ✅ **Phase 2.1**: Robots.txt Parser - Implemented
+- ✅ **Phase 2.1**: Robots.txt Parser - Implemented (~480 lines)
+- ✅ **Phase 2.2**: XML Sitemap Validator - Implemented (~350 lines)
+- ✅ **Phase 2.3**: Semantic HTML & ARIA Validation - Implemented (~670 lines)
 - ✅ Added `ai-readiness` feature flag to `htmlens-core`
-- ✅ All Phase 1 & 2.1 code compiles successfully
+- ✅ All Phase 1 & 2 code compiles successfully
+- ✅ Worker API integration complete
+- ✅ Frontend display complete with AI ATLAS branding
 
 ### In Progress
-- ⏳ Ready to begin Phase 2.2 - XML Sitemap Validator
+- ⏳ Phase 2.3 browser testing (not yet committed)
 
 ### Blocked
 - None currently
