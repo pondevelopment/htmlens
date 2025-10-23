@@ -19,6 +19,8 @@ struct ApiResponse {
     #[serde(rename = "pageMarkdown")]
     page_markdown: String, // CF AI converted HTML page content
     meta: MetaData,
+    #[serde(rename = "aiReadiness")]
+    ai_readiness: AiReadinessData,
 }
 
 #[derive(Serialize)]
@@ -35,6 +37,208 @@ struct MetaData {
     jsonld_count: usize,
     #[serde(rename = "wasmStatus")]
     wasm_status: String,
+}
+
+#[derive(Serialize)]
+struct AiReadinessData {
+    #[serde(rename = "wellKnown")]
+    well_known: WellKnownChecks,
+    #[serde(rename = "aiPlugin")]
+    ai_plugin: Option<AiPluginStatus>,
+    mcp: Option<McpStatus>,
+    openapi: Option<OpenApiStatus>,
+    #[serde(rename = "robotsTxt")]
+    robots_txt: Option<RobotsTxtStatus>,
+    sitemap: Option<SitemapStatus>,
+    #[serde(rename = "semanticHtml")]
+    semantic_html: Option<SemanticHtmlStatus>,
+}
+
+#[derive(Serialize)]
+struct WellKnownChecks {
+    #[serde(rename = "aiPluginJson")]
+    ai_plugin_json: FileStatus,
+    #[serde(rename = "mcpJson")]
+    mcp_json: FileStatus,
+    #[serde(rename = "openidConfiguration")]
+    openid_configuration: FileStatus,
+    #[serde(rename = "securityTxt")]
+    security_txt: FileStatus,
+    #[serde(rename = "appleAppSiteAssociation")]
+    apple_app_site_association: FileStatus,
+    assetlinks: FileStatus,
+}
+
+#[derive(Serialize)]
+struct FileStatus {
+    found: bool,
+    status: u16,         // HTTP status code
+    valid: Option<bool>, // JSON validity if applicable
+}
+
+#[derive(Serialize)]
+struct AiPluginStatus {
+    valid: bool,
+    name: String,
+    description: String,
+    #[serde(rename = "hasAuth")]
+    has_auth: bool,
+    #[serde(rename = "apiUrl")]
+    api_url: Option<String>,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct McpStatus {
+    valid: bool,
+    name: String,
+    version: String,
+    #[serde(rename = "protocolVersion")]
+    protocol_version: String,
+    #[serde(rename = "transportType")]
+    transport_type: String,
+    endpoint: String,
+    #[serde(rename = "toolCount")]
+    tool_count: usize,
+    #[serde(rename = "resourceCount")]
+    resource_count: usize,
+    #[serde(rename = "promptCount")]
+    prompt_count: usize,
+    #[serde(rename = "hasToolsCapability")]
+    has_tools_capability: bool,
+    #[serde(rename = "hasResourcesCapability")]
+    has_resources_capability: bool,
+    #[serde(rename = "hasPromptsCapability")]
+    has_prompts_capability: bool,
+    #[serde(rename = "hasEventsCapability")]
+    has_events_capability: bool,
+    #[serde(rename = "healthEndpoint")]
+    health_endpoint: Option<String>,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct OpenApiStatus {
+    valid: bool,
+    version: String,
+    #[serde(rename = "operationCount")]
+    operation_count: usize,
+    #[serde(rename = "hasAuth")]
+    has_auth: bool,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct RobotsTxtStatus {
+    found: bool,
+    #[serde(rename = "sitemapCount")]
+    sitemap_count: usize,
+    sitemaps: Vec<String>,
+    #[serde(rename = "aiCrawlers")]
+    ai_crawlers: Vec<AiCrawlerInfo>,
+    #[serde(rename = "blocksAllBots")]
+    blocks_all_bots: bool,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct AiCrawlerInfo {
+    name: String,
+    access: String, // "allowed", "partial", "blocked", "default"
+    rules: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SitemapStatus {
+    found: bool,
+    #[serde(rename = "sitemapType")]
+    sitemap_type: String, // "standard", "index", "unknown"
+    #[serde(rename = "urlCount")]
+    url_count: usize,
+    #[serde(rename = "lastModified")]
+    last_modified: Option<String>,
+    statistics: SitemapStats,
+    #[serde(rename = "nestedSitemaps")]
+    nested_sitemaps: Vec<String>,
+    #[serde(rename = "sampleUrls")]
+    sample_urls: Vec<SitemapUrlEntry>,
+    issues: Vec<String>,
+    recommendations: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SitemapStats {
+    #[serde(rename = "totalUrls")]
+    total_urls: usize,
+    #[serde(rename = "urlsWithLastmod")]
+    urls_with_lastmod: usize,
+    #[serde(rename = "urlsWithPriority")]
+    urls_with_priority: usize,
+    #[serde(rename = "avgPriority")]
+    avg_priority: f32,
+    #[serde(rename = "contentTypes")]
+    content_types: std::collections::HashMap<String, usize>,
+}
+
+#[derive(Serialize)]
+struct SitemapUrlEntry {
+    loc: String,
+    lastmod: Option<String>,
+    changefreq: Option<String>,
+    priority: Option<f32>,
+}
+
+#[derive(Serialize)]
+struct SemanticHtmlStatus {
+    landmarks: LandmarksInfo,
+    headings: HeadingsInfo,
+    forms: FormsInfo,
+    images: ImagesInfo,
+    issues: Vec<String>,
+    recommendations: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct LandmarksInfo {
+    #[serde(rename = "hasMain")]
+    has_main: bool,
+    #[serde(rename = "hasNavigation")]
+    has_navigation: bool,
+    #[serde(rename = "hasHeader")]
+    has_header: bool,
+    #[serde(rename = "hasFooter")]
+    has_footer: bool,
+    #[serde(rename = "articleCount")]
+    article_count: usize,
+}
+
+#[derive(Serialize)]
+struct HeadingsInfo {
+    #[serde(rename = "hasSingleH1")]
+    has_single_h1: bool,
+    #[serde(rename = "properHierarchy")]
+    proper_hierarchy: bool,
+    distribution: Vec<usize>,
+}
+
+#[derive(Serialize)]
+struct FormsInfo {
+    #[serde(rename = "totalInputs")]
+    total_inputs: usize,
+    #[serde(rename = "labeledInputs")]
+    labeled_inputs: usize,
+    #[serde(rename = "labelPercentage")]
+    label_percentage: u32,
+}
+
+#[derive(Serialize)]
+struct ImagesInfo {
+    #[serde(rename = "totalImages")]
+    total_images: usize,
+    #[serde(rename = "imagesWithAlt")]
+    images_with_alt: usize,
+    #[serde(rename = "altPercentage")]
+    alt_percentage: u32,
 }
 
 // Frontend HTML will be included as a separate file
@@ -67,6 +271,696 @@ fn extract_description(html: &str) -> String {
         }
     }
     String::new()
+}
+
+async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
+    // Check .well-known files
+    let well_known = check_well_known_files(base_url).await;
+
+    // Check AI Plugin if found
+    let ai_plugin =
+        if well_known.ai_plugin_json.found && well_known.ai_plugin_json.valid == Some(true) {
+            check_ai_plugin(base_url).await
+        } else {
+            None
+        };
+
+    // Check MCP if found
+    let mcp = if well_known.mcp_json.found && well_known.mcp_json.valid == Some(true) {
+        check_mcp(base_url).await
+    } else {
+        None
+    };
+
+    // Check OpenAPI if AI plugin references it
+    let openapi = if let Some(ref plugin) = ai_plugin {
+        if let Some(ref api_url) = plugin.api_url {
+            check_openapi(api_url).await
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Check robots.txt
+    let robots_txt = check_robots_txt(base_url).await;
+
+    // Check sitemap (use URLs from robots.txt if available)
+    let sitemap_urls = if let Some(ref robots) = robots_txt {
+        robots.sitemaps.clone()
+    } else {
+        Vec::new()
+    };
+    let sitemap = check_sitemap(base_url, sitemap_urls).await;
+
+    // Check semantic HTML
+    let semantic_html = check_semantic_html(base_url).await;
+
+    AiReadinessData {
+        well_known,
+        ai_plugin,
+        mcp,
+        openapi,
+        robots_txt,
+        sitemap,
+        semantic_html,
+    }
+}
+
+async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
+    let files = vec![
+        ("ai-plugin.json", "aiPluginJson"),
+        ("mcp.json", "mcpJson"),
+        ("openid-configuration", "openidConfiguration"),
+        ("security.txt", "securityTxt"),
+        ("apple-app-site-association", "appleAppSiteAssociation"),
+        ("assetlinks.json", "assetlinks"),
+    ];
+
+    let mut results = WellKnownChecks {
+        ai_plugin_json: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        mcp_json: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        openid_configuration: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        security_txt: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        apple_app_site_association: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        assetlinks: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+    };
+
+    for (filename, _) in files {
+        let url = format!(
+            "{}/.well-known/{}",
+            base_url.trim_end_matches('/'),
+            filename
+        );
+        if let Ok(mut response) = Fetch::Url(url.parse().unwrap()).send().await {
+            let status = response.status_code();
+            let found = status == 200;
+            let valid = if found && (filename.ends_with(".json") || filename == "assetlinks.json") {
+                response
+                    .text()
+                    .await
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                    .map(|_| true)
+            } else {
+                None
+            };
+
+            let file_status = FileStatus {
+                found,
+                status,
+                valid,
+            };
+
+            match filename {
+                "ai-plugin.json" => results.ai_plugin_json = file_status,
+                "mcp.json" => results.mcp_json = file_status,
+                "openid-configuration" => results.openid_configuration = file_status,
+                "security.txt" => results.security_txt = file_status,
+                "apple-app-site-association" => results.apple_app_site_association = file_status,
+                "assetlinks.json" => results.assetlinks = file_status,
+                _ => {}
+            }
+        }
+    }
+
+    results
+}
+
+async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
+    let url = format!(
+        "{}/.well-known/ai-plugin.json",
+        base_url.trim_end_matches('/')
+    );
+    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await
+        && let Ok(text) = response.text().await
+        && let Ok(plugin) = serde_json::from_str::<serde_json::Value>(&text)
+    {
+        let mut issues = Vec::new();
+
+        let name = plugin
+            .get("name_for_human")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let description = plugin
+            .get("description_for_human")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let has_auth = plugin
+            .get("auth")
+            .and_then(|a| a.get("type"))
+            .and_then(|t| t.as_str())
+            .map(|t| t != "none")
+            .unwrap_or(false);
+
+        let api_url = plugin
+            .get("api")
+            .and_then(|a| a.get("url"))
+            .and_then(|u| u.as_str())
+            .map(|s| s.to_string());
+
+        if api_url.is_none() {
+            issues.push("Missing API URL".to_string());
+        }
+
+        return Some(AiPluginStatus {
+            valid: issues.is_empty(),
+            name,
+            description,
+            has_auth,
+            api_url,
+            issues,
+        });
+    }
+    None
+}
+
+async fn check_mcp(base_url: &str) -> Option<McpStatus> {
+    let url = format!("{}/.well-known/mcp.json", base_url.trim_end_matches('/'));
+    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await
+        && let Ok(text) = response.text().await
+        && let Ok(mcp) = serde_json::from_str::<serde_json::Value>(&text)
+    {
+        let mut issues = Vec::new();
+
+        let name = mcp
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let version = mcp
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let protocol_version = mcp
+            .get("protocolVersion")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let transport = mcp.get("transport");
+        let transport_type = transport
+            .and_then(|t| t.get("type"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let endpoint = transport
+            .and_then(|t| t.get("endpoint"))
+            .and_then(|e| e.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        if endpoint.is_empty() {
+            issues.push("Missing transport endpoint".to_string());
+        }
+
+        let capabilities = mcp.get("capabilities");
+        let has_tools_capability = capabilities.and_then(|c| c.get("tools")).is_some();
+        let has_resources_capability = capabilities.and_then(|c| c.get("resources")).is_some();
+        let has_prompts_capability = capabilities.and_then(|c| c.get("prompts")).is_some();
+        let has_events_capability = capabilities.and_then(|c| c.get("events")).is_some();
+
+        let tools = mcp
+            .get("tools")
+            .and_then(|t| t.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+
+        let resources = mcp
+            .get("resources")
+            .and_then(|r| r.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+
+        let prompts = mcp
+            .get("prompts")
+            .and_then(|p| p.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+
+        let health_endpoint = mcp
+            .get("health")
+            .and_then(|h| h.get("endpoint"))
+            .and_then(|e| e.as_str())
+            .map(|s| s.to_string());
+
+        return Some(McpStatus {
+            valid: issues.is_empty(),
+            name,
+            version,
+            protocol_version,
+            transport_type,
+            endpoint,
+            tool_count: tools,
+            resource_count: resources,
+            prompt_count: prompts,
+            has_tools_capability,
+            has_resources_capability,
+            has_prompts_capability,
+            has_events_capability,
+            health_endpoint,
+            issues,
+        });
+    }
+    None
+}
+
+async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
+    if let Ok(mut response) = Fetch::Url(api_url.parse().ok()?).send().await
+        && let Ok(text) = response.text().await
+        && let Ok(spec) = serde_json::from_str::<serde_json::Value>(&text)
+    {
+        let mut issues = Vec::new();
+
+        let version = spec
+            .get("openapi")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let paths = spec
+            .get("paths")
+            .and_then(|p| p.as_object())
+            .map(|p| p.len())
+            .unwrap_or(0);
+
+        let has_auth = spec
+            .get("components")
+            .and_then(|c| c.get("securitySchemes"))
+            .is_some();
+
+        if paths == 0 {
+            issues.push("No API paths defined".to_string());
+        }
+
+        return Some(OpenApiStatus {
+            valid: issues.is_empty(),
+            version,
+            operation_count: paths,
+            has_auth,
+            issues,
+        });
+    }
+    None
+}
+
+async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
+    // Extract root domain from URL (robots.txt must be on root domain)
+    let parsed_url = url::Url::parse(base_url).ok()?;
+    let root_url = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str()?);
+    let url = format!("{}/robots.txt", root_url);
+
+    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await
+        && response.status_code() == 200
+        && let Ok(text) = response.text().await
+    {
+        // Parse robots.txt content
+        let lines: Vec<&str> = text.lines().collect();
+        let mut sitemaps = Vec::new();
+        let mut ai_crawlers = Vec::new();
+        let mut blocks_all_bots = false;
+        let mut issues = Vec::new();
+
+        // Extract sitemaps
+        for line in &lines {
+            let line = line.trim();
+            if line.to_lowercase().starts_with("sitemap:") {
+                // Split only on first colon to preserve URL scheme (https:)
+                if let Some(colon_pos) = line.find(':') {
+                    let sitemap_url = &line[colon_pos + 1..];
+                    sitemaps.push(sitemap_url.trim().to_string());
+                }
+            }
+        }
+
+        // Check for wildcard block
+        let mut in_wildcard = false;
+        for line in &lines {
+            let line = line.trim().to_lowercase();
+            if line.starts_with("user-agent:") {
+                in_wildcard = line.contains("*");
+            } else if in_wildcard && line == "disallow: /" {
+                blocks_all_bots = true;
+                issues.push("Warning: All bots blocked with 'Disallow: /'".to_string());
+            }
+        }
+
+        // Check AI crawlers
+        let ai_crawler_names = vec![
+            "GPTBot",
+            "ChatGPT-User",
+            "ClaudeBot",
+            "Claude-Web",
+            "Google-Extended",
+            "Bingbot",
+            "Applebot",
+            "PerplexityBot",
+        ];
+
+        for crawler in ai_crawler_names {
+            let access = check_crawler_access(&text, crawler);
+            let rules = get_crawler_rules(&text, crawler);
+
+            ai_crawlers.push(AiCrawlerInfo {
+                name: crawler.to_string(),
+                access: access.clone(),
+                rules,
+            });
+
+            if access == "blocked" {
+                issues.push(format!("{} is blocked from accessing the site", crawler));
+            }
+        }
+
+        if sitemaps.is_empty() {
+            issues.push("No sitemap URLs found in robots.txt".to_string());
+        }
+
+        return Some(RobotsTxtStatus {
+            found: true,
+            sitemap_count: sitemaps.len(),
+            sitemaps,
+            ai_crawlers,
+            blocks_all_bots,
+            issues,
+        });
+    }
+
+    Some(RobotsTxtStatus {
+        found: false,
+        sitemap_count: 0,
+        sitemaps: Vec::new(),
+        ai_crawlers: Vec::new(),
+        blocks_all_bots: false,
+        issues: vec!["robots.txt not found".to_string()],
+    })
+}
+
+async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<SitemapStatus> {
+    use htmlens_core::ai_readiness::sitemap;
+
+    // Extract root domain from URL
+    let parsed_url = url::Url::parse(base_url).ok()?;
+    let root_url = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str()?);
+
+    // Try sitemap URLs from robots.txt first
+    for sitemap_url in &sitemap_urls {
+        if let Ok(mut response) = Fetch::Url(sitemap_url.parse().ok()?).send().await
+            && response.status_code() == 200
+            && let Ok(xml_content) = response.text().await
+            && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_url)
+        {
+            // Convert to Worker's SitemapStatus format
+            let sitemap_type = match analysis.sitemap_type {
+                sitemap::SitemapType::Standard => "standard",
+                sitemap::SitemapType::Index => "index",
+                sitemap::SitemapType::Unknown => "unknown",
+            };
+
+            // Take up to 10 sample URLs for display
+            let sample_urls: Vec<SitemapUrlEntry> = analysis
+                .url_entries
+                .iter()
+                .take(10)
+                .map(|u| SitemapUrlEntry {
+                    loc: u.loc.clone(),
+                    lastmod: u.lastmod.clone(),
+                    changefreq: u.changefreq.clone(),
+                    priority: u.priority,
+                })
+                .collect();
+
+            return Some(SitemapStatus {
+                found: true,
+                sitemap_type: sitemap_type.to_string(),
+                url_count: analysis.url_count,
+                last_modified: analysis.last_modified,
+                statistics: SitemapStats {
+                    total_urls: analysis.statistics.total_urls,
+                    urls_with_lastmod: analysis.statistics.urls_with_lastmod,
+                    urls_with_priority: analysis.statistics.urls_with_priority,
+                    avg_priority: analysis.statistics.avg_priority,
+                    content_types: analysis.statistics.content_types,
+                },
+                nested_sitemaps: analysis.nested_sitemaps,
+                sample_urls,
+                issues: analysis.issues,
+                recommendations: analysis.recommendations,
+            });
+        }
+    }
+
+    // If no sitemap from robots.txt, try default location
+    let default_sitemap = format!("{}/sitemap.xml", root_url);
+    if let Ok(mut response) = Fetch::Url(default_sitemap.parse().ok()?).send().await
+        && response.status_code() == 200
+        && let Ok(xml_content) = response.text().await
+        && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_url)
+    {
+        let sitemap_type = match analysis.sitemap_type {
+            sitemap::SitemapType::Standard => "standard",
+            sitemap::SitemapType::Index => "index",
+            sitemap::SitemapType::Unknown => "unknown",
+        };
+
+        let sample_urls: Vec<SitemapUrlEntry> = analysis
+            .url_entries
+            .iter()
+            .take(10)
+            .map(|u| SitemapUrlEntry {
+                loc: u.loc.clone(),
+                lastmod: u.lastmod.clone(),
+                changefreq: u.changefreq.clone(),
+                priority: u.priority,
+            })
+            .collect();
+
+        return Some(SitemapStatus {
+            found: true,
+            sitemap_type: sitemap_type.to_string(),
+            url_count: analysis.url_count,
+            last_modified: analysis.last_modified,
+            statistics: SitemapStats {
+                total_urls: analysis.statistics.total_urls,
+                urls_with_lastmod: analysis.statistics.urls_with_lastmod,
+                urls_with_priority: analysis.statistics.urls_with_priority,
+                avg_priority: analysis.statistics.avg_priority,
+                content_types: analysis.statistics.content_types,
+            },
+            nested_sitemaps: analysis.nested_sitemaps,
+            sample_urls,
+            issues: analysis.issues,
+            recommendations: analysis.recommendations,
+        });
+    }
+
+    // Not found
+    Some(SitemapStatus {
+        found: false,
+        sitemap_type: "unknown".to_string(),
+        url_count: 0,
+        last_modified: None,
+        statistics: SitemapStats {
+            total_urls: 0,
+            urls_with_lastmod: 0,
+            urls_with_priority: 0,
+            avg_priority: 0.0,
+            content_types: std::collections::HashMap::new(),
+        },
+        nested_sitemaps: Vec::new(),
+        sample_urls: Vec::new(),
+        issues: vec!["No sitemap found".to_string()],
+        recommendations: vec![
+            "Create a sitemap.xml file to help crawlers discover your content".to_string(),
+        ],
+    })
+}
+
+async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
+    // Fetch the HTML page
+    let url = base_url.trim_end_matches('/');
+    let mut response = match Fetch::Url(url.parse().ok()?).send().await {
+        Ok(r) => r,
+        Err(_) => return None,
+    };
+
+    if response.status_code() != 200 {
+        return None;
+    }
+
+    let html = match response.text().await {
+        Ok(text) => text,
+        Err(_) => return None,
+    };
+
+    // Use the semantic_html analyzer from htmlens-core
+    use htmlens_core::ai_readiness::semantic_html;
+    let analysis = semantic_html::analyze_semantic_html(&html);
+
+    // Convert to our simplified API format
+    let label_percentage = if analysis.forms.total_inputs > 0 {
+        (analysis.forms.labeled_inputs as f32 / analysis.forms.total_inputs as f32 * 100.0) as u32
+    } else {
+        100
+    };
+
+    let alt_percentage = if analysis.images.total_images > 0 {
+        (analysis.images.images_with_alt as f32 / analysis.images.total_images as f32 * 100.0)
+            as u32
+    } else {
+        100
+    };
+
+    Some(SemanticHtmlStatus {
+        landmarks: LandmarksInfo {
+            has_main: analysis.landmarks.has_main,
+            has_navigation: analysis.landmarks.has_navigation,
+            has_header: analysis.landmarks.has_header,
+            has_footer: analysis.landmarks.has_footer,
+            article_count: analysis.landmarks.article_count,
+        },
+        headings: HeadingsInfo {
+            has_single_h1: analysis.headings.has_single_h1,
+            proper_hierarchy: analysis.headings.proper_hierarchy,
+            distribution: analysis.headings.distribution,
+        },
+        forms: FormsInfo {
+            total_inputs: analysis.forms.total_inputs,
+            labeled_inputs: analysis.forms.labeled_inputs,
+            label_percentage,
+        },
+        images: ImagesInfo {
+            total_images: analysis.images.total_images,
+            images_with_alt: analysis.images.images_with_alt,
+            alt_percentage,
+        },
+        issues: analysis.issues,
+        recommendations: analysis.recommendations,
+    })
+}
+
+fn check_crawler_access(robots_txt: &str, crawler: &str) -> String {
+    let lines: Vec<&str> = robots_txt.lines().map(|l| l.trim()).collect();
+    let mut current_agent = String::new();
+    let mut specific_rules = false;
+    let mut is_blocked = false;
+    let mut has_disallow = false;
+
+    for line in &lines {
+        if line.to_lowercase().starts_with("user-agent:") {
+            if let Some(agent) = line.split(':').nth(1) {
+                current_agent = agent.trim().to_lowercase();
+                if current_agent == crawler.to_lowercase() {
+                    specific_rules = true;
+                }
+            }
+        } else if !current_agent.is_empty()
+            && (current_agent == crawler.to_lowercase() || current_agent == "*")
+            && line.to_lowercase().starts_with("disallow:")
+            && let Some(path) = line.split(':').nth(1)
+        {
+            let path = path.trim();
+            has_disallow = true;
+            if path == "/" {
+                is_blocked = true;
+            }
+        }
+    }
+
+    if is_blocked {
+        "blocked".to_string()
+    } else if has_disallow && specific_rules {
+        "partial".to_string()
+    } else if specific_rules {
+        "allowed".to_string()
+    } else {
+        "default".to_string()
+    }
+}
+
+fn get_crawler_rules(robots_txt: &str, crawler: &str) -> Option<String> {
+    let lines: Vec<&str> = robots_txt.lines().map(|l| l.trim()).collect();
+    let mut rules = Vec::new();
+    let mut in_target_agent = false;
+
+    for line in &lines {
+        if line.to_lowercase().starts_with("user-agent:") {
+            if in_target_agent {
+                break; // Stop when we hit next agent
+            }
+            if let Some(agent) = line.split(':').nth(1) {
+                let agent_lower = agent.trim().to_lowercase();
+                if agent_lower == crawler.to_lowercase() {
+                    in_target_agent = true;
+                    rules.push(line.to_string());
+                }
+            }
+        } else if in_target_agent
+            && (line.to_lowercase().starts_with("disallow:")
+                || line.to_lowercase().starts_with("allow:")
+                || line.to_lowercase().starts_with("crawl-delay:"))
+        {
+            rules.push(line.to_string());
+        }
+    }
+
+    if rules.is_empty() {
+        // Check for wildcard
+        let mut in_wildcard = false;
+        for line in &lines {
+            if line.to_lowercase().starts_with("user-agent:")
+                && let Some(agent) = line.split(':').nth(1)
+                && agent.trim() == "*"
+            {
+                in_wildcard = true;
+                rules.push(line.to_string());
+            } else if in_wildcard
+                && (line.to_lowercase().starts_with("disallow:")
+                    || line.to_lowercase().starts_with("allow:"))
+            {
+                rules.push(line.to_string());
+            }
+        }
+    }
+
+    if rules.is_empty() {
+        None
+    } else {
+        Some(rules.join("; "))
+    }
 }
 
 fn format_cli_style_markdown(
@@ -559,6 +1453,9 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
             let markdown =
                 format_cli_style_markdown(&target_url, &title, &description, &jsonld_blocks);
 
+            // Check AI readiness
+            let ai_readiness = check_ai_readiness(&target_url).await;
+
             let response_data = ApiResponse {
                 url: target_url,
                 title,
@@ -576,6 +1473,7 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                     jsonld_count: jsonld_blocks.len(),
                     wasm_status: "rust".to_string(),
                 },
+                ai_readiness,
             };
 
             headers.set("Content-Type", "application/json")?;
@@ -636,6 +1534,46 @@ mod integration_tests {
                 html_length: 100,
                 jsonld_count: 0,
                 wasm_status: "rust".to_string(),
+            },
+            ai_readiness: AiReadinessData {
+                well_known: WellKnownChecks {
+                    ai_plugin_json: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    mcp_json: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    openid_configuration: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    security_txt: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    apple_app_site_association: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    assetlinks: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                },
+                ai_plugin: None,
+                mcp: None,
+                openapi: None,
+                robots_txt: None,
+                sitemap: None,
+                semantic_html: None,
             },
         };
 

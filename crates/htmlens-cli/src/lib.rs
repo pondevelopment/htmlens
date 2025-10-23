@@ -135,6 +135,7 @@ mod cli_utils_tests {
     #[test]
     fn test_build_adjacency_concept() {
         // Simulated edge structure
+        #[allow(dead_code)]
         struct Edge {
             from: String,
             to: String,
@@ -167,7 +168,7 @@ mod cli_utils_tests {
         let adjacency = build_adjacency(&edges);
 
         assert_eq!(adjacency.get("product1").unwrap().len(), 2);
-        assert!(adjacency.get("nonexistent").is_none());
+        assert!(!adjacency.contains_key("nonexistent"));
     }
 
     #[test]

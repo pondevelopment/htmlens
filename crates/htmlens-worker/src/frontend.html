@@ -80,6 +80,74 @@
         .rich-result.partial { background: #fff3cd; color: #856404; }
         .rich-result.not-eligible { background: #f8d7da; color: #721c24; }
         
+        /* AI Readiness Styles */
+        .ai-readiness-container { padding: 20px; }
+        .ai-readiness-container h2 { color: #667eea; margin-bottom: 10px; }
+        .ai-readiness-container p { color: #666; line-height: 1.6; }
+        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status, .robots-txt-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4, .robots-txt-status h4 { margin-top: 0; color: #333; font-size: 18px; margin-bottom: 15px; }
+        .file-checks { margin-top: 10px; }
+        .file-check { padding: 12px; margin: 8px 0; background: white; border-radius: 6px; font-size: 14px; border-left: 3px solid #28a745; }
+        .file-check.critical-missing { background: #fff3cd; border-left: 4px solid #ffc107; font-weight: 500; }
+        .invalid { color: #dc3545; font-weight: bold; font-size: 12px; }
+        .plugin-issues, .mcp-issues, .api-issues, .robots-issues { color: #dc3545; margin-top: 10px; font-size: 13px; padding: 10px; background: #f8d7da; border-radius: 6px; }
+        .ai-plugin-status div, .mcp-status div, .openapi-status div, .robots-txt-status div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .mcp-capabilities ul { list-style: none; padding-left: 20px; margin: 8px 0; }
+        .mcp-capabilities li { padding: 4px 0; }
+        .ai-crawlers-table { width: 100%; border-collapse: collapse; margin: 10px 0; background: white; }
+        .ai-crawlers-table th { background: #667eea; color: white; padding: 10px; text-align: left; }
+        .ai-crawlers-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; }
+        .ai-crawlers-table tr.access-blocked { background: #f8d7da; }
+        .ai-crawlers-table tr.access-allowed { background: #d4edda; }
+        .ai-crawlers-table tr.access-partial { background: #fff3cd; }
+        .ai-crawlers-table .rules-cell { font-size: 12px; color: #666; max-width: 300px; word-wrap: break-word; }
+        .sitemap-list ul { list-style: none; padding-left: 20px; margin: 8px 0; }
+        .sitemap-list li { padding: 4px 0; }
+        .robots-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; font-weight: 500; }
+        .robots-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
+        
+        /* Sitemap Styles */
+        .sitemap-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .sitemap-status h3 { color: #667eea; margin-top: 0; margin-bottom: 15px; }
+        .sitemap-status h4 { color: #333; font-size: 16px; margin-top: 15px; margin-bottom: 10px; }
+        .sitemap-status > div { margin: 8px 0; padding: 8px; background: white; border-radius: 4px; }
+        .sitemap-stats, .content-types, .nested-sitemaps, .sample-urls, .sitemap-issues, .sitemap-recommendations { margin-top: 15px; padding: 15px; background: white; border-radius: 6px; }
+        .sitemap-stats-table, .content-types-table, .sample-urls-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .sitemap-stats-table td, .content-types-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; }
+        .sitemap-stats-table td:first-child, .content-types-table td:first-child { font-weight: 500; color: #555; }
+        .sitemap-stats-table td:last-child, .content-types-table td:last-child { text-align: right; color: #667eea; font-weight: 500; }
+        .sample-urls-table th { background: #667eea; color: white; padding: 10px; text-align: left; font-size: 13px; }
+        .sample-urls-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; font-size: 13px; }
+        .sample-urls-table a { color: #667eea; text-decoration: none; }
+        .sample-urls-table a:hover { text-decoration: underline; }
+        .sitemap-issues ul, .sitemap-recommendations ul { list-style: none; padding-left: 0; margin: 8px 0; }
+        .sitemap-issues li, .sitemap-recommendations li { padding: 6px 10px; margin: 4px 0; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; }
+        .sitemap-recommendations li { background: #d1ecf1; border-left: 3px solid #17a2b8; color: #0c5460; }
+        .sitemap-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
+        
+        /* Semantic HTML Styles */
+        .semantic-html-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
+        .semantic-html-status h3 { color: #667eea; margin-top: 0; margin-bottom: 15px; }
+        .semantic-html-status h4 { color: #333; font-size: 16px; margin-top: 15px; margin-bottom: 10px; }
+        .score-description { font-size: 14px; color: #666; margin-bottom: 15px; text-align: center; }
+        .landmarks-section, .headings-section, .accessibility-section, .semantic-issues, .semantic-recommendations { 
+            margin-top: 15px; padding: 15px; background: white; border-radius: 6px; 
+        }
+        .landmarks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+        .landmark-item { padding: 10px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #667eea; }
+        .heading-distribution { margin-top: 10px; }
+        .heading-badge { display: inline-block; padding: 4px 12px; background: #667eea; color: white; border-radius: 12px; margin-right: 6px; font-size: 13px; }
+        .accessibility-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .accessibility-table td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .accessibility-table td:first-child { font-weight: 500; color: #555; }
+        .accessibility-table td:last-child { text-align: right; font-weight: 500; }
+        .accessibility-table .good { color: #28a745; }
+        .accessibility-table .ok { color: #ffc107; }
+        .accessibility-table .poor { color: #dc3545; }
+        .semantic-issues ul, .semantic-recommendations ul { list-style: none; padding-left: 0; margin: 8px 0; }
+        .semantic-issues li { padding: 8px 12px; margin: 6px 0; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px; }
+        .semantic-recommendations li { padding: 8px 12px; margin: 6px 0; background: #d1ecf1; border-left: 3px solid #17a2b8; color: #0c5460; border-radius: 4px; }
+        
         footer { text-align: center; color: white; margin-top: 40px; opacity: 0.8; }
         footer a { color: white; }
     </style>
@@ -112,6 +180,7 @@
             <div class="results" id="results">
                 <div class="tabs">
                     <button class="tab active" data-tab="insights">🎯 Insights</button>
+                    <button class="tab" data-tab="ai-readiness">🤖 AI Readiness</button>
                     <button class="tab" data-tab="summary">Summary</button>
                     <button class="tab" data-tab="jsonld">JSON-LD</button>
                     <button class="tab" data-tab="structured">Structured Data</button>
@@ -119,6 +188,9 @@
                 </div>
                 <div class="tab-content active" id="insights-content">
                     <div id="insightsOutput"></div>
+                </div>
+                <div class="tab-content" id="ai-readiness-content">
+                    <div id="aiReadinessOutput"></div>
                 </div>
                 <div class="tab-content" id="summary-content">
                     <div class="json-output" id="summaryOutput"></div>
@@ -276,6 +348,11 @@
                 // Render insights
                 renderInsights(data);
                 
+                // Render AI readiness
+                if (data.aiReadiness) {
+                    renderAiReadinessTab(data.aiReadiness);
+                }
+                
                 document.getElementById('results').classList.add('active');
             } catch (error) {
                 showError(error.message);
@@ -283,6 +360,405 @@
                 document.getElementById('loading').classList.remove('active');
                 document.getElementById('analyzeBtn').disabled = false;
             }
+        }
+        
+        function renderAiReadinessTab(aiReadiness) {
+            let html = '<div class="ai-readiness-container">';
+            html += '<h2 style="margin-top: 0;">🤖 AI Agent Readiness</h2>';
+            html += '<p style="color: #666; margin-bottom: 30px;">Check how well your website communicates with AI agents and chatbots.</p>';
+            
+            // .well-known files
+            html += '<div class="well-known-checks">';
+            html += '<h4>📁 .well-known Directory</h4>';
+            html += '<div class="file-checks">';
+            
+            const checks = [
+                { 
+                    key: 'aiPluginJson', 
+                    label: '🤖 ai-plugin.json (ChatGPT)', 
+                    critical: true,
+                    docs: 'https://platform.openai.com/docs/plugins/getting-started/plugin-manifest',
+                    description: 'ChatGPT plugin manifest for AI integration'
+                },
+                { 
+                    key: 'mcpJson', 
+                    label: '🔮 mcp.json (Claude/MCP)', 
+                    critical: true,
+                    docs: 'https://modelcontextprotocol.io/',
+                    description: 'Model Context Protocol manifest for modern AI agent integration'
+                },
+                { 
+                    key: 'securityTxt', 
+                    label: '🔒 security.txt', 
+                    critical: false,
+                    docs: 'https://securitytxt.org/',
+                    description: 'Security researcher contact information'
+                },
+                { 
+                    key: 'openidConfiguration', 
+                    label: '🔑 openid-configuration (OAuth)', 
+                    critical: false,
+                    docs: 'https://openid.net/specs/openid-connect-discovery-1_0.html',
+                    description: 'OAuth/OpenID Connect discovery endpoint'
+                },
+                { 
+                    key: 'appleAppSiteAssociation', 
+                    label: '📱 apple-app-site-association', 
+                    critical: false,
+                    docs: 'https://developer.apple.com/documentation/xcode/supporting-associated-domains',
+                    description: 'iOS Universal Links configuration'
+                },
+                { 
+                    key: 'assetlinks', 
+                    label: '🤖 assetlinks.json (Android)', 
+                    critical: false,
+                    docs: 'https://developer.android.com/training/app-links/verify-android-applinks',
+                    description: 'Android App Links configuration'
+                }
+            ];
+            
+            checks.forEach(check => {
+                const file = aiReadiness.wellKnown[check.key];
+                const icon = file.found ? '✅' : '❌';
+                const statusText = file.found ? `Found (${file.status})` : `Not found (${file.status})`;
+                const criticalClass = check.critical && !file.found ? 'critical-missing' : '';
+                html += `<div class="file-check ${criticalClass}">`;
+                html += `<div>${icon} <strong>${check.label}</strong>: ${statusText}`;
+                if (file.valid === false) html += ' <span class="invalid">(Invalid JSON)</span>';
+                html += '</div>';
+                html += `<div class="file-check-description">${check.description} - <a href="${check.docs}" target="_blank">Learn more →</a></div>`;
+                html += '</div>';
+            });
+            
+            html += '</div></div>';
+            
+            // AI Plugin status
+            if (aiReadiness.aiPlugin) {
+                const plugin = aiReadiness.aiPlugin;
+                html += '<div class="ai-plugin-status">';
+                html += '<h4>🎯 AI Plugin Manifest (OpenAI) <a href="https://platform.openai.com/docs/plugins" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                html += `<div><strong>Name:</strong> ${plugin.name}</div>`;
+                html += `<div><strong>Description:</strong> ${plugin.description}</div>`;
+                html += `<div><strong>Authentication:</strong> ${plugin.hasAuth ? 'Required' : 'None'}</div>`;
+                if (plugin.apiUrl) html += `<div><strong>API:</strong> ${plugin.apiUrl}</div>`;
+                if (plugin.issues.length > 0) {
+                    html += '<div class="plugin-issues">Issues: ' + plugin.issues.join(', ') + '</div>';
+                }
+                html += '<div class="section-footer">Learn how to create ChatGPT plugins at <a href="https://platform.openai.com/docs/plugins/getting-started" target="_blank">OpenAI Platform →</a></div>';
+                html += '</div>';
+            }
+            
+            // MCP status
+            if (aiReadiness.mcp) {
+                const mcp = aiReadiness.mcp;
+                html += '<div class="mcp-status">';
+                html += '<h4>🔮 Model Context Protocol (Anthropic) <a href="https://modelcontextprotocol.io/" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                html += `<div><strong>Name:</strong> ${mcp.name}</div>`;
+                html += `<div><strong>Version:</strong> ${mcp.version}</div>`;
+                html += `<div><strong>Protocol:</strong> ${mcp.protocolVersion}</div>`;
+                html += `<div><strong>Transport:</strong> ${mcp.transportType} (${mcp.endpoint})</div>`;
+                html += '<div class="mcp-capabilities">';
+                html += '<strong>Capabilities:</strong>';
+                html += '<ul>';
+                if (mcp.hasToolsCapability) html += `<li>✅ Tools (${mcp.toolCount} available)</li>`;
+                if (mcp.hasResourcesCapability) html += `<li>✅ Resources (${mcp.resourceCount} available)</li>`;
+                if (mcp.hasPromptsCapability) html += `<li>✅ Prompts (${mcp.promptCount} available)</li>`;
+                if (mcp.hasEventsCapability) html += `<li>✅ Events</li>`;
+                if (!mcp.hasToolsCapability && !mcp.hasResourcesCapability && !mcp.hasPromptsCapability && !mcp.hasEventsCapability) {
+                    html += '<li>⚠️ No capabilities declared</li>';
+                }
+                html += '</ul>';
+                html += '</div>';
+                if (mcp.healthEndpoint) html += `<div><strong>Health Check:</strong> ${mcp.healthEndpoint}</div>`;
+                if (mcp.issues.length > 0) {
+                    html += '<div class="mcp-issues">Issues: ' + mcp.issues.join(', ') + '</div>';
+                }
+                html += '<div class="section-footer">Learn about MCP at <a href="https://modelcontextprotocol.io/" target="_blank">MCP Documentation →</a> or <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic Announcement</a></div>';
+                html += '</div>';
+            }
+            
+            // OpenAPI status
+            if (aiReadiness.openapi) {
+                const api = aiReadiness.openapi;
+                html += '<div class="openapi-status">';
+                html += '<h4>📋 OpenAPI Specification <a href="https://swagger.io/specification/" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                html += `<div><strong>Version:</strong> ${api.version}</div>`;
+                html += `<div><strong>Operations:</strong> ${api.operationCount}</div>`;
+                html += `<div><strong>Security:</strong> ${api.hasAuth ? 'Configured' : 'None'}</div>`;
+                if (api.issues.length > 0) {
+                    html += '<div class="api-issues">Issues: ' + api.issues.join(', ') + '</div>';
+                }
+                html += '<div class="section-footer">Learn about OpenAPI at <a href="https://www.openapis.org/" target="_blank">OpenAPI Initiative →</a> or use <a href="https://editor.swagger.io/" target="_blank">Swagger Editor</a></div>';
+                html += '</div>';
+            }
+            
+            // Robots.txt status
+            if (aiReadiness.robotsTxt) {
+                const robots = aiReadiness.robotsTxt;
+                html += '<div class="robots-txt-status">';
+                html += '<h4>🤖 robots.txt Analysis <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                
+                if (robots.found) {
+                    html += `<div><strong>Status:</strong> ✅ Found</div>`;
+                    html += `<div><strong>Sitemaps:</strong> ${robots.sitemapCount} found</div>`;
+                    
+                    if (robots.sitemaps.length > 0) {
+                        html += '<div class="sitemap-list"><strong>Sitemap URLs:</strong><ul>';
+                        robots.sitemaps.forEach(sitemap => {
+                            html += `<li><a href="${sitemap}" target="_blank">${sitemap}</a></li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    if (robots.blocksAllBots) {
+                        html += '<div class="robots-warning">⚠️ Warning: All bots are blocked (Disallow: /)</div>';
+                    }
+                    
+                    // AI Crawler table
+                    html += '<div class="ai-crawlers-section">';
+                    html += '<strong>AI Crawler Access:</strong>';
+                    html += '<table class="ai-crawlers-table">';
+                    html += '<thead><tr><th>Crawler</th><th>Access</th><th>Rules</th></tr></thead>';
+                    html += '<tbody>';
+                    
+                    robots.aiCrawlers.forEach(crawler => {
+                        const accessIcon = crawler.access === 'allowed' ? '✅' : 
+                                         crawler.access === 'blocked' ? '❌' : 
+                                         crawler.access === 'partial' ? '⚠️' : '➖';
+                        const accessClass = `access-${crawler.access}`;
+                        html += `<tr class="${accessClass}">`;
+                        html += `<td>${accessIcon} <strong>${crawler.name}</strong></td>`;
+                        html += `<td>${crawler.access}</td>`;
+                        html += `<td class="rules-cell">${crawler.rules || 'No specific rules'}</td>`;
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table>';
+                    html += '</div>';
+                    
+                    if (robots.issues.length > 0) {
+                        html += '<div class="robots-issues">';
+                        html += '<strong>Issues:</strong><ul>';
+                        robots.issues.forEach(issue => {
+                            html += `<li>${issue}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                } else {
+                    html += '<div>❌ robots.txt not found</div>';
+                    html += '<div class="robots-recommendation">Recommendation: Add robots.txt to help search engines and AI crawlers understand your site.</div>';
+                }
+                
+                html += '<div class="section-footer">Learn about robots.txt at <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank">Google Search Central →</a> or <a href="https://www.robotstxt.org/" target="_blank">robotstxt.org</a></div>';
+                html += '</div>';
+            }
+            
+            // Sitemap section
+            if (aiReadiness.sitemap) {
+                const sitemap = aiReadiness.sitemap;
+                html += '<div class="sitemap-status">';
+                html += '<h3>🗺️ XML Sitemap</h3>';
+                
+                if (sitemap.found) {
+                    html += `<div><strong>Status:</strong> ✅ Found</div>`;
+                    html += `<div><strong>Type:</strong> ${sitemap.sitemapType === 'index' ? '📑 Sitemap Index' : '📄 Standard Sitemap'}</div>`;
+                    html += `<div><strong>Total URLs:</strong> ${sitemap.urlCount.toLocaleString()}</div>`;
+                    
+                    if (sitemap.lastModified) {
+                        html += `<div><strong>Last Modified:</strong> ${sitemap.lastModified}</div>`;
+                    }
+                    
+                    // Statistics
+                    if (sitemap.statistics.totalUrls > 0) {
+                        html += '<div class="sitemap-stats">';
+                        html += '<h4>📊 Statistics</h4>';
+                        html += '<table class="sitemap-stats-table">';
+                        html += '<tr><td>URLs with dates</td><td>' + sitemap.statistics.urlsWithLastmod + ' (' + Math.round(sitemap.statistics.urlsWithLastmod / sitemap.statistics.totalUrls * 100) + '%)</td></tr>';
+                        html += '<tr><td>URLs with priority</td><td>' + sitemap.statistics.urlsWithPriority + ' (' + Math.round(sitemap.statistics.urlsWithPriority / sitemap.statistics.totalUrls * 100) + '%)</td></tr>';
+                        if (sitemap.statistics.avgPriority > 0) {
+                            html += '<tr><td>Average priority</td><td>' + sitemap.statistics.avgPriority.toFixed(2) + '</td></tr>';
+                        }
+                        html += '</table>';
+                        html += '</div>';
+                    }
+                    
+                    // Content type distribution
+                    if (sitemap.statistics.contentTypes && Object.keys(sitemap.statistics.contentTypes).length > 0) {
+                        html += '<div class="content-types">';
+                        html += '<h4>📁 Content Types</h4>';
+                        html += '<table class="content-types-table">';
+                        const sortedTypes = Object.entries(sitemap.statistics.contentTypes).sort((a, b) => b[1] - a[1]);
+                        sortedTypes.forEach(([type, count]) => {
+                            const icon = type === 'product' ? '🛍️' : type === 'blog' ? '📝' : type === 'article' ? '📰' : type === 'documentation' ? '📚' : '📄';
+                            html += `<tr><td>${icon} ${type}</td><td>${count.toLocaleString()} URLs</td></tr>`;
+                        });
+                        html += '</table>';
+                        html += '</div>';
+                    }
+                    
+                    // Nested sitemaps (for sitemap index)
+                    if (sitemap.nestedSitemaps && sitemap.nestedSitemaps.length > 0) {
+                        html += '<div class="nested-sitemaps">';
+                        html += '<h4>📑 Nested Sitemaps</h4>';
+                        html += '<ul class="sitemap-list">';
+                        sitemap.nestedSitemaps.forEach(url => {
+                            html += `<li><a href="${url}" target="_blank">${url}</a></li>`;
+                        });
+                        html += '</ul>';
+                        html += '</div>';
+                    }
+                    
+                    // Sample URLs (for standard sitemaps)
+                    if (sitemap.sampleUrls && sitemap.sampleUrls.length > 0) {
+                        html += '<div class="sample-urls">';
+                        html += '<h4>🔍 Sample URLs (first 10)</h4>';
+                        html += '<table class="sample-urls-table">';
+                        html += '<thead><tr><th>URL</th><th>Last Modified</th><th>Priority</th></tr></thead>';
+                        html += '<tbody>';
+                        sitemap.sampleUrls.forEach(url => {
+                            const shortUrl = url.loc.length > 60 ? url.loc.substring(0, 57) + '...' : url.loc;
+                            html += '<tr>';
+                            html += `<td><a href="${url.loc}" target="_blank" title="${url.loc}">${shortUrl}</a></td>`;
+                            html += `<td>${url.lastmod || '-'}</td>`;
+                            html += `<td>${url.priority !== null ? url.priority.toFixed(1) : '-'}</td>`;
+                            html += '</tr>';
+                        });
+                        html += '</tbody>';
+                        html += '</table>';
+                        html += '</div>';
+                    }
+                    
+                    // Issues
+                    if (sitemap.issues && sitemap.issues.length > 0) {
+                        html += '<div class="sitemap-issues">';
+                        html += '<h4>⚠️ Issues</h4>';
+                        html += '<ul>';
+                        sitemap.issues.forEach(issue => {
+                            html += `<li>${issue}</li>`;
+                        });
+                        html += '</ul>';
+                        html += '</div>';
+                    }
+                    
+                    // Recommendations
+                    if (sitemap.recommendations && sitemap.recommendations.length > 0) {
+                        html += '<div class="sitemap-recommendations">';
+                        html += '<h4>💡 Recommendations</h4>';
+                        html += '<ul>';
+                        sitemap.recommendations.forEach(rec => {
+                            html += `<li>${rec}</li>`;
+                        });
+                        html += '</ul>';
+                        html += '</div>';
+                    }
+                } else {
+                    html += '<div>❌ Sitemap not found</div>';
+                    html += '<div class="sitemap-recommendation">Recommendation: Create a sitemap.xml file to help search engines and AI crawlers discover all your content efficiently.</div>';
+                }
+                
+                html += '<div class="section-footer">Learn about sitemaps at <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview" target="_blank">Google Search Central →</a></div>';
+                html += '</div>';
+            }
+            
+            // Semantic HTML section
+            if (aiReadiness.semanticHtml) {
+                const semantic = aiReadiness.semanticHtml;
+                html += '<div class="semantic-html-status">';
+                html += '<h3>🏗️ Semantic HTML & ARIA</h3>';
+                html += '<div class="score-description">How well your HTML structure helps AI-enabled browsers understand your content</div>';
+                
+                // Landmarks
+                html += '<div class="landmarks-section">';
+                html += '<h4>🗺️ Page Landmarks</h4>';
+                html += '<div class="landmarks-grid">';
+                html += `<div class="landmark-item">${semantic.landmarks.hasMain ? '✅' : '❌'} Main content (<code>&lt;main&gt;</code>)</div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasNavigation ? '✅' : '❌'} Navigation (<code>&lt;nav&gt;</code>)</div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasHeader ? '✅' : '❌'} Header (<code>&lt;header&gt;</code>)</div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasFooter ? '✅' : '❌'} Footer (<code>&lt;footer&gt;</code>)</div>`;
+                if (semantic.landmarks.articleCount > 0) {
+                    html += `<div class="landmark-item">✅ ${semantic.landmarks.articleCount} Article(s)</div>`;
+                }
+                html += '</div>';
+                html += '</div>';
+                
+                // Headings
+                html += '<div class="headings-section">';
+                html += '<h4>📑 Heading Structure</h4>';
+                html += `<div>${semantic.headings.hasSingleH1 ? '✅' : '⚠️'} ${semantic.headings.hasSingleH1 ? 'Single <code>&lt;h1&gt;</code> (good)' : 'Multiple or missing <code>&lt;h1&gt;</code>'}</div>`;
+                html += `<div>${semantic.headings.properHierarchy ? '✅' : '⚠️'} ${semantic.headings.properHierarchy ? 'Proper hierarchy (no skipped levels)' : 'Hierarchy has gaps'}</div>`;
+                html += '<div class="heading-distribution">Distribution: ';
+                semantic.headings.distribution.forEach((count, index) => {
+                    if (count > 0) {
+                        html += `<span class="heading-badge">h${index + 1}: ${count}</span> `;
+                    }
+                });
+                html += '</div>';
+                html += '</div>';
+                
+                // Forms & Images
+                if (semantic.forms.totalInputs > 0 || semantic.images.totalImages > 0) {
+                    html += '<div class="accessibility-section">';
+                    html += '<h4>♿ Accessibility</h4>';
+                    html += '<table class="accessibility-table">';
+                    if (semantic.forms.totalInputs > 0) {
+                        const formClass = semantic.forms.labelPercentage >= 90 ? 'good' : semantic.forms.labelPercentage >= 70 ? 'ok' : 'poor';
+                        html += '<tr>';
+                        html += '<td>Form Inputs with Labels</td>';
+                        html += `<td class="${formClass}">${semantic.forms.labeledInputs}/${semantic.forms.totalInputs} (${semantic.forms.labelPercentage}%)</td>`;
+                        html += '</tr>';
+                    }
+                    if (semantic.images.totalImages > 0) {
+                        const imgClass = semantic.images.altPercentage >= 90 ? 'good' : semantic.images.altPercentage >= 70 ? 'ok' : 'poor';
+                        html += '<tr>';
+                        html += '<td>Images with Alt Text</td>';
+                        html += `<td class="${imgClass}">${semantic.images.imagesWithAlt}/${semantic.images.totalImages} (${semantic.images.altPercentage}%)</td>`;
+                        html += '</tr>';
+                    }
+                    html += '</table>';
+                    html += '</div>';
+                }
+                
+                // Issues
+                if (semantic.issues && semantic.issues.length > 0) {
+                    html += '<div class="semantic-issues">';
+                    html += '<h4>⚠️ Issues Found</h4>';
+                    html += '<ul>';
+                    semantic.issues.forEach(issue => {
+                        html += `<li>${issue}</li>`;
+                    });
+                    html += '</ul>';
+                    html += '</div>';
+                }
+                
+                // Recommendations
+                if (semantic.recommendations && semantic.recommendations.length > 0) {
+                    html += '<div class="semantic-recommendations">';
+                    html += '<h4>💡 Recommendations</h4>';
+                    html += '<ul>';
+                    semantic.recommendations.forEach(rec => {
+                        html += `<li>${rec}</li>`;
+                    });
+                    html += '</ul>';
+                    html += '</div>';
+                }
+                
+                html += '<div class="section-footer">Used by AI-enabled browsers • Learn more at <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA" target="_blank">MDN Web Docs →</a></div>';
+                html += '</div>';
+            }
+            
+            // General resources section
+            html += '<div class="ai-resources">';
+            html += '<h4>📚 Additional Resources</h4>';
+            html += '<ul>';
+            html += '<li><a href="https://www.rfc-editor.org/rfc/rfc8615.html" target="_blank">RFC 8615: Well-Known URIs</a> - Official specification for .well-known directory</li>';
+            html += '<li><a href="https://ai.google.dev/gemini-api/docs/plugins" target="_blank">Google Gemini Plugins</a> - AI plugin integration for Google\'s Gemini</li>';
+            html += '<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/" target="_blank">Microsoft Semantic Kernel</a> - AI orchestration framework</li>';
+            html += '<li><a href="https://developers.cloudflare.com/ai/" target="_blank">Cloudflare AI</a> - AI tools and Workers AI platform</li>';
+            html += '</ul>';
+            html += '</div>';
+            
+            html += '</div>';
+            document.getElementById('aiReadinessOutput').innerHTML = html;
         }
         
         function renderInsights(data) {

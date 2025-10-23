@@ -16,7 +16,6 @@
 //!
 //! ```no_run
 //! use htmlens_core::parser;
-//! use htmlens_core::graph::KnowledgeGraph;
 //!
 //! # async fn example() -> anyhow::Result<()> {
 //! let html = r#"
@@ -26,7 +25,7 @@
 //! "#;
 //!
 //! let blocks = parser::extract_json_ld_blocks(html)?;
-//! let json_ld = parser::combine_json_ld_blocks(blocks)?;
+//! let json_ld = parser::combine_json_ld_blocks(&blocks)?;
 //! # Ok(())
 //! # }
 //! ```
@@ -36,6 +35,9 @@ pub mod types;
 
 #[cfg(feature = "full-expansion")]
 pub mod graph;
+
+#[cfg(any(feature = "ai-readiness", feature = "ai-readiness-parser"))]
+pub mod ai_readiness;
 
 // Re-export commonly used types
 pub use types::{GraphEdge, GraphNode, KnowledgeGraph};
@@ -182,9 +184,10 @@ mod tests {
 
         let markdown = html_to_markdown(html);
 
-        assert!(markdown.contains("# Main Title"));
+        // html2md uses alternative heading format for h1 and * for lists
+        assert!(markdown.contains("Main Title\n=========="));
         assert!(markdown.contains("**bold**"));
-        assert!(markdown.contains("- Item 1"));
-        assert!(markdown.contains("- Item 2"));
+        assert!(markdown.contains("* Item 1"));
+        assert!(markdown.contains("* Item 2"));
     }
 }

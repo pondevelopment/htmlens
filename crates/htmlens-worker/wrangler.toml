@@ -2,7 +2,6 @@ name = "htmlens-worker"
 main = "build/worker/shim.mjs"
 compatibility_date = "2025-10-16"
 workers_dev = true
-account_id = "2417b166e4a2a25705ff09dd4816f12e"
 
 [build]
 command = "which worker-build >/dev/null 2>&1 || cargo install -q worker-build && worker-build --release"

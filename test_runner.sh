@@ -70,7 +70,7 @@ run_test "CLI with product fixture" 'cargo run --package htmlens-cli -- "$(cat t
 
 run_test "CLI help output" 'cargo run --package htmlens-cli -- --help | grep -q "Developed by Pon Datalab"'
 
-run_test "CLI version output" 'cargo run --package htmlens-cli -- --version | grep -q "htmlens 0.4.0"'
+run_test "CLI version output" 'cargo run --package htmlens-cli -- --version | grep -q "htmlens 0.4.2"'
 
 echo -e "${YELLOW}Testing parser functionality...${NC}"
 echo "==============================="
@@ -79,7 +79,7 @@ echo "==============================="
 run_test "JSON-LD extraction test" 'cargo run --package htmlens-cli -- -g "$(cat tests/fixtures/direct_product.json)" | grep -q "Product"'
 
 # Test multiple variants
-run_test "Product group processing" 'echo '\''{"@context": "https://schema.org", "@type": "ProductGroup", "hasVariant": [{"@type": "Product", "name": "Variant 1"}, {"@type": "Product", "name": "Variant 2"}]}'\'' | cargo run --package htmlens-cli -- | grep -q "Variant"'
+run_test "Product group processing" 'cargo run --package htmlens-cli -- '\''{"@context": "https://schema.org", "@type": "ProductGroup", "hasVariant": [{"@type": "Product", "name": "Variant 1"}, {"@type": "Product", "name": "Variant 2"}]}'\'' | grep -q "Variant"'
 
 echo -e "${YELLOW}Testing security features...${NC}"
 echo "============================="
