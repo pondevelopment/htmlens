@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod worker_tests {
     use crate::{extract_description, extract_title, format_cli_style_markdown};
 
     #[test]

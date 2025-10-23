@@ -4,30 +4,30 @@
 //! for better AI understanding and accessibility. This helps AI-enabled browsers
 //! parse and understand page structure.
 
-use serde::{Deserialize, Serialize};
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 
 /// Results from semantic HTML analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemanticHtmlAnalysis {
     /// Landmark regions found
     pub landmarks: LandmarkAnalysis,
-    
+
     /// Heading structure
     pub headings: HeadingAnalysis,
-    
+
     /// ARIA usage
     pub aria: AriaAnalysis,
-    
+
     /// Form accessibility
     pub forms: FormAnalysis,
-    
+
     /// Image accessibility
     pub images: ImageAnalysis,
-    
+
     /// Issues found
     pub issues: Vec<String>,
-    
+
     /// Recommendations
     pub recommendations: Vec<String>,
 }
@@ -37,22 +37,22 @@ pub struct SemanticHtmlAnalysis {
 pub struct LandmarkAnalysis {
     /// Has <main> or role="main"
     pub has_main: bool,
-    
+
     /// Has <nav> or role="navigation"
     pub has_navigation: bool,
-    
+
     /// Has <header> or role="banner"
     pub has_header: bool,
-    
+
     /// Has <footer> or role="contentinfo"
     pub has_footer: bool,
-    
+
     /// Count of <article> or role="article"
     pub article_count: usize,
-    
+
     /// Count of <section> elements
     pub section_count: usize,
-    
+
     /// Count of <aside> or role="complementary"
     pub aside_count: usize,
 }
@@ -62,13 +62,13 @@ pub struct LandmarkAnalysis {
 pub struct HeadingAnalysis {
     /// Has exactly one <h1>
     pub has_single_h1: bool,
-    
+
     /// Heading distribution (h1, h2, h3, h4, h5, h6)
     pub distribution: Vec<usize>,
-    
+
     /// Has proper hierarchy (no skipped levels)
     pub proper_hierarchy: bool,
-    
+
     /// Issues with heading structure
     pub hierarchy_issues: Vec<String>,
 }
@@ -78,16 +78,16 @@ pub struct HeadingAnalysis {
 pub struct AriaAnalysis {
     /// Elements with aria-label
     pub labeled_elements: usize,
-    
+
     /// Elements with aria-describedby
     pub described_elements: usize,
-    
+
     /// Live regions (aria-live)
     pub live_regions: usize,
-    
+
     /// Interactive elements with roles
     pub interactive_roles: usize,
-    
+
     /// Potential ARIA misuse
     pub misuse_warnings: Vec<String>,
 }
@@ -97,16 +97,16 @@ pub struct AriaAnalysis {
 pub struct FormAnalysis {
     /// Total forms found
     pub form_count: usize,
-    
+
     /// Inputs with associated labels
     pub labeled_inputs: usize,
-    
+
     /// Total inputs
     pub total_inputs: usize,
-    
+
     /// Forms with fieldsets
     pub forms_with_fieldsets: usize,
-    
+
     /// Required fields properly marked
     pub required_fields_marked: bool,
 }
@@ -116,13 +116,13 @@ pub struct FormAnalysis {
 pub struct ImageAnalysis {
     /// Total images
     pub total_images: usize,
-    
+
     /// Images with alt text
     pub images_with_alt: usize,
-    
+
     /// Decorative images (alt="")
     pub decorative_images: usize,
-    
+
     /// Images missing alt
     pub images_missing_alt: usize,
 }
@@ -130,48 +130,59 @@ pub struct ImageAnalysis {
 /// Analyze semantic HTML structure from HTML content
 pub fn analyze_semantic_html(html: &str) -> SemanticHtmlAnalysis {
     let document = Html::parse_document(html);
-    
+
     let landmarks = analyze_landmarks(&document);
     let headings = analyze_headings(&document);
     let aria = analyze_aria(&document);
     let forms = analyze_forms(&document);
     let images = analyze_images(&document);
-    
+
     let mut issues = Vec::new();
     let mut recommendations = Vec::new();
-    
+
     // Check for critical issues
     if !landmarks.has_main {
-        issues.push("Missing main landmark - AI browsers use this to identify primary content".to_string());
+        issues.push(
+            "Missing main landmark - AI browsers use this to identify primary content".to_string(),
+        );
         recommendations.push("Add a main element around your primary content".to_string());
     }
-    
+
     if !headings.has_single_h1 {
         issues.push("Should have exactly one h1 per page for clear document structure".to_string());
         recommendations.push("Use a single h1 for the main page title".to_string());
     }
-    
+
     if !headings.proper_hierarchy {
-        issues.push("Heading hierarchy has gaps - AI may misunderstand content structure".to_string());
+        issues.push(
+            "Heading hierarchy has gaps - AI may misunderstand content structure".to_string(),
+        );
     }
-    
+
     if forms.total_inputs > 0 {
-        let label_percentage = (forms.labeled_inputs as f32 / forms.total_inputs as f32 * 100.0) as u32;
+        let label_percentage =
+            (forms.labeled_inputs as f32 / forms.total_inputs as f32 * 100.0) as u32;
         if label_percentage < 80 {
-            issues.push(format!("Only {}% of form inputs have labels - AI needs labels to understand form purpose", label_percentage));
+            issues.push(format!(
+                "Only {}% of form inputs have labels - AI needs labels to understand form purpose",
+                label_percentage
+            ));
             recommendations.push("Add label elements or aria-label to all form inputs".to_string());
         }
     }
-    
+
     if images.total_images > 0 {
-        let alt_percentage = (images.images_with_alt as f32 / images.total_images as f32 * 100.0) as u32;
+        let alt_percentage =
+            (images.images_with_alt as f32 / images.total_images as f32 * 100.0) as u32;
         if alt_percentage < 90 {
-            issues.push(format!("{}% of images missing alt text - AI cannot understand image content", 
-                (100 - alt_percentage)));
+            issues.push(format!(
+                "{}% of images missing alt text - AI cannot understand image content",
+                (100 - alt_percentage)
+            ));
             recommendations.push("Add descriptive alt text to all meaningful images".to_string());
         }
     }
-    
+
     SemanticHtmlAnalysis {
         landmarks,
         headings,
@@ -186,14 +197,19 @@ pub fn analyze_semantic_html(html: &str) -> SemanticHtmlAnalysis {
 fn analyze_landmarks(document: &Html) -> LandmarkAnalysis {
     // Check for semantic landmarks
     let has_main = select_exists(document, "main") || select_exists(document, "[role='main']");
-    let has_navigation = select_exists(document, "nav") || select_exists(document, "[role='navigation']");
-    let has_header = select_exists(document, "header") || select_exists(document, "[role='banner']");
-    let has_footer = select_exists(document, "footer") || select_exists(document, "[role='contentinfo']");
-    
-    let article_count = count_elements(document, "article") + count_elements(document, "[role='article']");
+    let has_navigation =
+        select_exists(document, "nav") || select_exists(document, "[role='navigation']");
+    let has_header =
+        select_exists(document, "header") || select_exists(document, "[role='banner']");
+    let has_footer =
+        select_exists(document, "footer") || select_exists(document, "[role='contentinfo']");
+
+    let article_count =
+        count_elements(document, "article") + count_elements(document, "[role='article']");
     let section_count = count_elements(document, "section");
-    let aside_count = count_elements(document, "aside") + count_elements(document, "[role='complementary']");
-    
+    let aside_count =
+        count_elements(document, "aside") + count_elements(document, "[role='complementary']");
+
     LandmarkAnalysis {
         has_main,
         has_navigation,
@@ -212,15 +228,15 @@ fn analyze_headings(document: &Html) -> HeadingAnalysis {
     let h4_count = count_elements(document, "h4");
     let h5_count = count_elements(document, "h5");
     let h6_count = count_elements(document, "h6");
-    
+
     let distribution = vec![h1_count, h2_count, h3_count, h4_count, h5_count, h6_count];
     let has_single_h1 = h1_count == 1;
-    
+
     // Check hierarchy (no skipped levels)
     let mut proper_hierarchy = true;
     let mut hierarchy_issues = Vec::new();
     let mut last_level = 0;
-    
+
     for (level, &count) in distribution.iter().enumerate() {
         if count > 0 {
             let current_level = level + 1;
@@ -234,7 +250,7 @@ fn analyze_headings(document: &Html) -> HeadingAnalysis {
             last_level = current_level;
         }
     }
-    
+
     HeadingAnalysis {
         has_single_h1,
         distribution,
@@ -247,22 +263,26 @@ fn analyze_aria(document: &Html) -> AriaAnalysis {
     let labeled_elements = count_elements(document, "[aria-label]");
     let described_elements = count_elements(document, "[aria-describedby]");
     let live_regions = count_elements(document, "[aria-live]");
-    let interactive_roles = count_elements(document, "[role='button']") +
-                           count_elements(document, "[role='link']") +
-                           count_elements(document, "[role='tab']") +
-                           count_elements(document, "[role='menuitem']");
-    
+    let interactive_roles = count_elements(document, "[role='button']")
+        + count_elements(document, "[role='link']")
+        + count_elements(document, "[role='tab']")
+        + count_elements(document, "[role='menuitem']");
+
     let mut misuse_warnings = Vec::new();
-    
+
     // Check for common ARIA misuse
     if count_elements(document, "button[role='button']") > 0 {
-        misuse_warnings.push("Found <button> with role='button' - redundant, native elements have implicit roles".to_string());
+        misuse_warnings.push(
+            "Found <button> with role='button' - redundant, native elements have implicit roles"
+                .to_string(),
+        );
     }
-    
+
     if count_elements(document, "a[role='link']") > 0 {
-        misuse_warnings.push("Found <a> with role='link' - redundant, use semantic HTML instead".to_string());
+        misuse_warnings
+            .push("Found <a> with role='link' - redundant, use semantic HTML instead".to_string());
     }
-    
+
     AriaAnalysis {
         labeled_elements,
         described_elements,
@@ -274,19 +294,19 @@ fn analyze_aria(document: &Html) -> AriaAnalysis {
 
 fn analyze_forms(document: &Html) -> FormAnalysis {
     let form_count = count_elements(document, "form");
-    let total_inputs = count_elements(document, "input:not([type='hidden'])") +
-                       count_elements(document, "select") +
-                       count_elements(document, "textarea");
-    
+    let total_inputs = count_elements(document, "input:not([type='hidden'])")
+        + count_elements(document, "select")
+        + count_elements(document, "textarea");
+
     // Count inputs with labels (either <label> or aria-label)
-    let labeled_inputs = count_elements(document, "input[id] + label, label input") +
-                        count_elements(document, "input[aria-label]") +
-                        count_elements(document, "select[aria-label]") +
-                        count_elements(document, "textarea[aria-label]");
-    
+    let labeled_inputs = count_elements(document, "input[id] + label, label input")
+        + count_elements(document, "input[aria-label]")
+        + count_elements(document, "select[aria-label]")
+        + count_elements(document, "textarea[aria-label]");
+
     let forms_with_fieldsets = count_elements(document, "form fieldset");
     let required_fields_marked = count_elements(document, "[required], [aria-required='true']") > 0;
-    
+
     FormAnalysis {
         form_count,
         labeled_inputs,
@@ -301,7 +321,7 @@ fn analyze_images(document: &Html) -> ImageAnalysis {
     let images_with_alt = count_elements(document, "img[alt]");
     let decorative_images = count_elements(document, "img[alt='']");
     let images_missing_alt = total_images.saturating_sub(images_with_alt);
-    
+
     ImageAnalysis {
         total_images,
         images_with_alt,
@@ -327,10 +347,10 @@ fn count_elements(document: &Html, selector_str: &str) -> usize {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ai-readiness"))]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_good_semantic_html() {
         let html = r#"
@@ -350,14 +370,14 @@ mod tests {
         </body>
         </html>
         "#;
-        
+
         let analysis = analyze_semantic_html(html);
         assert!(analysis.landmarks.has_main);
         assert!(analysis.landmarks.has_navigation);
         assert!(analysis.landmarks.has_header);
         assert!(analysis.headings.has_single_h1);
     }
-    
+
     #[test]
     fn test_poor_semantic_html() {
         let html = r#"
@@ -369,7 +389,7 @@ mod tests {
         </body>
         </html>
         "#;
-        
+
         let analysis = analyze_semantic_html(html);
         assert!(!analysis.landmarks.has_main);
         assert!(!analysis.headings.has_single_h1);

@@ -73,7 +73,29 @@ pub fn combine_json_ld_blocks(blocks: &[String]) -> Result<String> {
     }
 
     if blocks.len() == 1 {
-        return Ok(blocks[0].clone());
+        // Parse the single block to check if it has a context
+        let parsed: JsonValue = serde_json::from_str(&blocks[0])
+            .with_context(|| format!("failed to parse JSON-LD block: {}", blocks[0]))?;
+
+        // If it already has a context, return as-is
+        if parsed.get("@context").is_some() {
+            return Ok(blocks[0].clone());
+        }
+
+        // If no context, add the default schema.org context
+        if let JsonValue::Object(mut obj) = parsed {
+            obj.insert(
+                "@context".to_string(),
+                JsonValue::String("https://schema.org".to_string()),
+            );
+            return Ok(serde_json::to_string(&obj)?);
+        }
+
+        // For non-objects, this is invalid JSON-LD
+        return Err(anyhow::anyhow!(
+            "Invalid JSON-LD: single block must be an object, got {:?}",
+            parsed
+        ));
     }
 
     // Parse each block and collect into a graph array
@@ -288,14 +310,16 @@ mod tests {
         let result = combine_json_ld_blocks(&blocks);
         assert!(result.is_err());
 
-        // Test with only valid JSON
+        // Test with only valid JSON (single block)
         let valid_blocks = vec![r#"{"@type": "Organization", "name": "Valid"}"#.to_string()];
 
         let combined = combine_json_ld_blocks(&valid_blocks).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&combined).unwrap();
 
-        assert_eq!(parsed["@graph"].as_array().unwrap().len(), 1);
-        assert_eq!(parsed["@graph"][0]["name"], "Valid");
+        // Single block should be returned as an object with added context, not @graph
+        assert_eq!(parsed["@context"], "https://schema.org");
+        assert_eq!(parsed["@type"], "Organization");
+        assert_eq!(parsed["name"], "Valid");
     }
 
     #[test]
@@ -349,9 +373,10 @@ mod tests {
         "#;
 
         let markdown = html_to_markdown(html);
-        assert!(markdown.contains("# Heading 1"));
-        assert!(markdown.contains("## Heading 2"));
-        assert!(markdown.contains("### Heading 3"));
+        // html2md uses alternative heading formats for h1 and h2
+        assert!(markdown.contains("Heading 1\n=========="));
+        assert!(markdown.contains("Heading 2\n----------"));
+        assert!(markdown.contains("### Heading 3 ###"));
     }
 
     #[test]

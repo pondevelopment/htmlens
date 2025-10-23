@@ -21,28 +21,28 @@ const EXPECTED_OPENAPI_VERSION_PREFIX: &str = "3.";
 pub struct OpenApiValidation {
     /// Whether the spec is valid
     pub valid: bool,
-    
+
     /// OpenAPI version found
     pub version: Option<String>,
-    
+
     /// API title
     pub title: Option<String>,
-    
+
     /// API version
     pub api_version: Option<String>,
-    
+
     /// Base server URLs
     pub servers: Vec<String>,
-    
+
     /// List of endpoints found
     pub endpoints: Vec<EndpointInfo>,
-    
+
     /// Issues found during validation
     pub issues: Vec<String>,
-    
+
     /// Warnings (non-blocking)
     pub warnings: Vec<String>,
-    
+
     /// Statistics
     pub stats: OpenApiStats,
 }
@@ -52,13 +52,13 @@ pub struct OpenApiValidation {
 pub struct EndpointInfo {
     /// HTTP method (GET, POST, etc.)
     pub method: String,
-    
+
     /// Path (e.g., /items/{id})
     pub path: String,
-    
+
     /// Summary description
     pub summary: Option<String>,
-    
+
     /// Whether it has a 200 response defined
     pub has_success_response: bool,
 }
@@ -68,13 +68,13 @@ pub struct EndpointInfo {
 pub struct OpenApiStats {
     /// Total number of paths
     pub total_paths: usize,
-    
+
     /// Total number of operations
     pub total_operations: usize,
-    
+
     /// Number of schemas defined
     pub total_schemas: usize,
-    
+
     /// Whether security schemes are defined
     pub has_security: bool,
 }
@@ -94,13 +94,13 @@ impl OpenApiValidation {
             stats: OpenApiStats::default(),
         }
     }
-    
+
     /// Add an issue
     pub fn add_issue(&mut self, message: String) {
         self.valid = false;
         self.issues.push(message);
     }
-    
+
     /// Add a warning
     pub fn add_warning(&mut self, message: String) {
         self.warnings.push(message);
@@ -116,7 +116,7 @@ impl Default for OpenApiValidation {
 /// Parse and validate an OpenAPI specification
 pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
     let mut validation = OpenApiValidation::new();
-    
+
     // Parse the spec
     let spec: OpenAPI = if is_yaml {
         match serde_yaml::from_str(content) {
@@ -135,55 +135,51 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
             }
         }
     };
-    
+
     // Extract basic info
     validation.version = Some(spec.openapi.clone());
     validation.title = Some(spec.info.title.clone());
     validation.api_version = Some(spec.info.version.clone());
-    
+
     // Check OpenAPI version
     if !spec.openapi.starts_with(EXPECTED_OPENAPI_VERSION_PREFIX) {
         validation.add_warning(format!(
             "OpenAPI version {} - version {}x is recommended",
-            spec.openapi,
-            EXPECTED_OPENAPI_VERSION_PREFIX
+            spec.openapi, EXPECTED_OPENAPI_VERSION_PREFIX
         ));
     }
-    
+
     // Extract server URLs
-    validation.servers = spec
-        .servers
-        .iter()
-        .map(|s| s.url.clone())
-        .collect();
-    
+    validation.servers = spec.servers.iter().map(|s| s.url.clone()).collect();
+
     if validation.servers.is_empty() {
-        validation.add_issue("No servers defined - at least one server URL is required".to_string());
+        validation
+            .add_issue("No servers defined - at least one server URL is required".to_string());
     }
-    
+
     // Analyze paths and operations
     for (path, path_item_ref) in &spec.paths.paths {
         if let Some(path_item) = path_item_ref.as_item() {
             validation.stats.total_paths += 1;
-            
+
             // Check each operation
             for (method, operation) in path_item.iter() {
                 validation.stats.total_operations += 1;
-                
+
                 let method_str = method.to_uppercase();
                 let has_200 = operation
                     .responses
                     .responses
                     .iter()
                     .any(|(code, _)| matches!(code, openapiv3::StatusCode::Code(200)));
-                
+
                 if !has_200 {
                     validation.add_warning(format!(
                         "{} {} has no 200 response defined",
                         method_str, path
                     ));
                 }
-                
+
                 validation.endpoints.push(EndpointInfo {
                     method: method_str,
                     path: path.clone(),
@@ -193,25 +189,27 @@ pub fn validate_openapi(content: &str, is_yaml: bool) -> OpenApiValidation {
             }
         }
     }
-    
+
     if validation.stats.total_operations == 0 {
         validation.add_issue("No operations defined in the API".to_string());
     }
-    
+
     // Check for schemas
     if let Some(components) = &spec.components {
         validation.stats.total_schemas = components.schemas.len();
-        
+
         if !components.security_schemes.is_empty() {
             validation.stats.has_security = true;
         }
     }
-    
+
     // Additional checks
     if validation.stats.total_schemas == 0 {
-        validation.add_warning("No schemas defined - consider adding data models for better documentation".to_string());
+        validation.add_warning(
+            "No schemas defined - consider adding data models for better documentation".to_string(),
+        );
     }
-    
+
     validation
 }
 
@@ -222,19 +220,22 @@ pub async fn fetch_and_validate_openapi(url: &str) -> Result<OpenApiValidation> 
         .timeout(Duration::from_secs(FETCH_TIMEOUT_SECS))
         .user_agent("htmlens-ai-readiness-checker/0.4.2")
         .build()?;
-    
-    let response = client.get(url).send().await
+
+    let response = client
+        .get(url)
+        .send()
+        .await
         .context("Failed to fetch OpenAPI spec")?;
-    
+
     if !response.status().is_success() {
         anyhow::bail!("Failed to fetch OpenAPI spec: HTTP {}", response.status());
     }
-    
+
     let content = response.text().await?;
-    
+
     // Determine if it's YAML or JSON based on URL extension or content structure
     let is_yaml = is_yaml_format(url, &content);
-    
+
     Ok(validate_openapi(&content, is_yaml))
 }
 
@@ -248,28 +249,28 @@ fn is_yaml_format(url: &str, content: &str) -> bool {
     if url.ends_with(".json") {
         return false;
     }
-    
+
     // Fall back to content inspection
     let trimmed = content.trim_start();
-    
+
     // YAML typically starts with "openapi:" or "---"
     if trimmed.starts_with("openapi:") || trimmed.starts_with("---") {
         return true;
     }
-    
+
     // JSON typically starts with "{"
     if trimmed.starts_with('{') {
         return false;
     }
-    
+
     // Default to JSON if ambiguous
     false
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ai-readiness"))]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_valid_openapi_json() {
         let json = r#"{
@@ -294,13 +295,17 @@ mod tests {
                 }
             }
         }"#;
-        
+
         let validation = validate_openapi(json, false);
-        assert!(validation.valid, "Expected valid spec but got issues: {:?}", validation.issues);
+        assert!(
+            validation.valid,
+            "Expected valid spec but got issues: {:?}",
+            validation.issues
+        );
         assert_eq!(validation.stats.total_operations, 1);
         assert_eq!(validation.endpoints.len(), 1);
     }
-    
+
     #[test]
     fn test_missing_servers() {
         let json = r#"{
@@ -311,12 +316,12 @@ mod tests {
             },
             "paths": {}
         }"#;
-        
+
         let validation = validate_openapi(json, false);
         assert!(!validation.valid);
         assert!(validation.issues.iter().any(|i| i.contains("No servers")));
     }
-    
+
     #[test]
     fn test_multiple_operations_per_path() {
         let json = r#"{
@@ -365,33 +370,47 @@ mod tests {
                 }
             }
         }"#;
-        
+
         let validation = validate_openapi(json, false);
-        assert!(validation.valid, "Expected valid spec but got issues: {:?}", validation.issues);
+        assert!(
+            validation.valid,
+            "Expected valid spec but got issues: {:?}",
+            validation.issues
+        );
         assert_eq!(validation.stats.total_paths, 2, "Expected 2 paths");
-        assert_eq!(validation.stats.total_operations, 5, "Expected 5 operations (GET, POST, GET, PUT, DELETE)");
+        assert_eq!(
+            validation.stats.total_operations, 5,
+            "Expected 5 operations (GET, POST, GET, PUT, DELETE)"
+        );
         assert_eq!(validation.endpoints.len(), 5, "Expected 5 endpoints");
     }
-    
+
     #[test]
     fn test_yaml_format_detection() {
         // YAML with extension
         assert!(is_yaml_format("https://example.com/api.yaml", ""));
         assert!(is_yaml_format("https://example.com/api.yml", ""));
-        
+
         // JSON with extension
         assert!(!is_yaml_format("https://example.com/api.json", ""));
-        
+
         // YAML content
-        assert!(is_yaml_format("https://example.com/api", "openapi: 3.0.0\ninfo:\n  title: API"));
-        assert!(is_yaml_format("https://example.com/api", "---\nopenapi: 3.0.0"));
-        
+        assert!(is_yaml_format(
+            "https://example.com/api",
+            "openapi: 3.0.0\ninfo:\n  title: API"
+        ));
+        assert!(is_yaml_format(
+            "https://example.com/api",
+            "---\nopenapi: 3.0.0"
+        ));
+
         // JSON content
-        assert!(!is_yaml_format("https://example.com/api", r#"{"openapi": "3.0.0"}"#));
-        
+        assert!(!is_yaml_format(
+            "https://example.com/api",
+            r#"{"openapi": "3.0.0"}"#
+        ));
+
         // Ambiguous defaults to JSON
         assert!(!is_yaml_format("https://example.com/api", ""));
     }
 }
-
-

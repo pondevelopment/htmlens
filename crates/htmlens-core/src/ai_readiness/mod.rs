@@ -3,13 +3,13 @@
 //! This module provides tools to check how well a website communicates
 //! with AI agents through standard specifications and files.
 
-pub mod well_known;
-pub mod plugin_manifest;
 pub mod mcp_manifest;
 pub mod openapi;
+pub mod plugin_manifest;
 pub mod robots_txt;
-pub mod sitemap;
 pub mod semantic_html;
+pub mod sitemap;
+pub mod well_known;
 
 use serde::{Deserialize, Serialize};
 
@@ -18,19 +18,19 @@ use serde::{Deserialize, Serialize};
 pub struct AiReadinessReport {
     /// URL that was checked
     pub url: String,
-    
+
     /// Overall readiness score (0-100)
     pub score: u8,
-    
+
     /// Results from checking .well-known directory
     pub well_known: well_known::WellKnownChecks,
-    
+
     /// Summary of what's working well
     pub strengths: Vec<String>,
-    
+
     /// Issues that need attention
     pub issues: Vec<AiReadinessIssue>,
-    
+
     /// Recommendations for improvement
     pub recommendations: Vec<String>,
 }
@@ -40,13 +40,13 @@ pub struct AiReadinessReport {
 pub struct AiReadinessIssue {
     /// Issue severity
     pub severity: IssueSeverity,
-    
+
     /// Category of the issue
     pub category: String,
-    
+
     /// Description of the issue
     pub message: String,
-    
+
     /// Optional link to documentation
     pub reference: Option<String>,
 }
@@ -56,13 +56,13 @@ pub struct AiReadinessIssue {
 pub enum IssueSeverity {
     /// Critical issue - blocks AI integration
     Critical,
-    
+
     /// High priority - strongly recommended
     High,
-    
+
     /// Medium priority - recommended
     Medium,
-    
+
     /// Low priority - nice to have
     Low,
 }
@@ -79,11 +79,11 @@ impl AiReadinessReport {
             recommendations: Vec::new(),
         }
     }
-    
+
     /// Calculate the overall score based on checks
     pub fn calculate_score(&mut self) {
         let mut score = 100u32;
-        
+
         // Deduct points based on issue severity
         for issue in &self.issues {
             let deduction = match issue.severity {
@@ -94,7 +94,7 @@ impl AiReadinessReport {
             };
             score = score.saturating_sub(deduction);
         }
-        
+
         self.score = score.min(100) as u8;
     }
 }
