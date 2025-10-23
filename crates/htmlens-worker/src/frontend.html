@@ -129,12 +129,7 @@
         .semantic-html-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
         .semantic-html-status h3 { color: #667eea; margin-top: 0; margin-bottom: 15px; }
         .semantic-html-status h4 { color: #333; font-size: 16px; margin-top: 15px; margin-bottom: 10px; }
-        .semantic-score { padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; font-size: 18px; }
-        .semantic-score .score-value { font-size: 32px; font-weight: bold; }
-        .score-good { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); color: #155724; }
-        .score-ok { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); color: #856404; }
-        .score-poor { background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); color: #721c24; }
-        .score-description { font-size: 14px; color: #666; margin-top: 10px; text-align: center; }
+        .score-description { font-size: 14px; color: #666; margin-bottom: 15px; text-align: center; }
         .landmarks-section, .headings-section, .accessibility-section, .semantic-issues, .semantic-recommendations { 
             margin-top: 15px; padding: 15px; background: white; border-radius: 6px; 
         }
@@ -670,12 +665,6 @@
                 const semantic = aiReadiness.semanticHtml;
                 html += '<div class="semantic-html-status">';
                 html += '<h3>🏗️ Semantic HTML & ARIA</h3>';
-                
-                // Score with color coding
-                const scoreClass = semantic.score >= 80 ? 'score-good' : semantic.score >= 60 ? 'score-ok' : 'score-poor';
-                html += `<div class="semantic-score ${scoreClass}">`;
-                html += `<strong>Semantic Quality Score:</strong> <span class="score-value">${semantic.score}/100</span>`;
-                html += '</div>';
                 html += '<div class="score-description">How well your HTML structure helps AI browsers like <strong>AI ATLAS</strong> understand your content</div>';
                 
                 // Landmarks

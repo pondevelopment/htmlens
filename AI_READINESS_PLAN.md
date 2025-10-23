@@ -330,14 +330,11 @@ Model Context Protocol (MCP) is an emerging standard announced by Anthropic in 2
 - [x] Detect ARIA misuse (redundant roles on native elements)
 - [x] Validate form accessibility (labeled inputs, fieldsets, required field marking)
 - [x] Check image accessibility (alt text coverage, decorative images)
-- [x] Calculate semantic quality score (0-100)
 - [x] Generate specific recommendations
 
 **Output**:
 ```markdown
 ## Semantic HTML & ARIA
-
-### Semantic Quality Score: 85/100
 Used by AI browsers like **AI ATLAS**
 
 ### Page Landmarks:

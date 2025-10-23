@@ -190,7 +190,6 @@ struct SitemapUrlEntry {
 
 #[derive(Serialize)]
 struct SemanticHtmlStatus {
-    score: u32,
     landmarks: LandmarksInfo,
     headings: HeadingsInfo,
     forms: FormsInfo,
@@ -800,7 +799,6 @@ async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
     };
     
     Some(SemanticHtmlStatus {
-        score: analysis.score,
         landmarks: LandmarksInfo {
             has_main: analysis.landmarks.has_main,
             has_navigation: analysis.landmarks.has_navigation,

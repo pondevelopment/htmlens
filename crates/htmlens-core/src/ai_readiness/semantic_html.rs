@@ -10,9 +10,6 @@ use scraper::{Html, Selector};
 /// Results from semantic HTML analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemanticHtmlAnalysis {
-    /// Overall semantic quality score (0-100)
-    pub score: u32,
-    
     /// Landmark regions found
     pub landmarks: LandmarkAnalysis,
     
@@ -175,34 +172,7 @@ pub fn analyze_semantic_html(html: &str) -> SemanticHtmlAnalysis {
         }
     }
     
-    // Calculate score (0-100)
-    let mut score = 100u32;
-    
-    // Deduct points for missing elements
-    if !landmarks.has_main { score = score.saturating_sub(15); }
-    if !landmarks.has_navigation { score = score.saturating_sub(5); }
-    if !landmarks.has_header { score = score.saturating_sub(5); }
-    if !headings.has_single_h1 { score = score.saturating_sub(10); }
-    if !headings.proper_hierarchy { score = score.saturating_sub(10); }
-    
-    // Deduct for form accessibility
-    if forms.total_inputs > 0 {
-        let label_percentage = (forms.labeled_inputs as f32 / forms.total_inputs as f32 * 100.0) as u32;
-        if label_percentage < 100 {
-            score = score.saturating_sub((100 - label_percentage) / 5);
-        }
-    }
-    
-    // Deduct for image accessibility
-    if images.total_images > 0 {
-        let alt_percentage = (images.images_with_alt as f32 / images.total_images as f32 * 100.0) as u32;
-        if alt_percentage < 100 {
-            score = score.saturating_sub((100 - alt_percentage) / 5);
-        }
-    }
-    
     SemanticHtmlAnalysis {
-        score,
         landmarks,
         headings,
         aria,
@@ -386,7 +356,6 @@ mod tests {
         assert!(analysis.landmarks.has_navigation);
         assert!(analysis.landmarks.has_header);
         assert!(analysis.headings.has_single_h1);
-        assert!(analysis.score >= 90);
     }
     
     #[test]
@@ -404,7 +373,6 @@ mod tests {
         let analysis = analyze_semantic_html(html);
         assert!(!analysis.landmarks.has_main);
         assert!(!analysis.headings.has_single_h1);
-        assert!(analysis.score < 70);
         assert!(!analysis.issues.is_empty());
     }
 }
