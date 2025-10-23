@@ -142,13 +142,13 @@ pub fn analyze_semantic_html(html: &str) -> SemanticHtmlAnalysis {
     
     // Check for critical issues
     if !landmarks.has_main {
-        issues.push("Missing <main> landmark - AI browsers use this to identify primary content".to_string());
-        recommendations.push("Add <main> element around your primary content".to_string());
+        issues.push("Missing main landmark - AI browsers use this to identify primary content".to_string());
+        recommendations.push("Add a main element around your primary content".to_string());
     }
     
     if !headings.has_single_h1 {
-        issues.push("Should have exactly one <h1> per page for clear document structure".to_string());
-        recommendations.push("Use a single <h1> for the main page title".to_string());
+        issues.push("Should have exactly one h1 per page for clear document structure".to_string());
+        recommendations.push("Use a single h1 for the main page title".to_string());
     }
     
     if !headings.proper_hierarchy {
@@ -159,7 +159,7 @@ pub fn analyze_semantic_html(html: &str) -> SemanticHtmlAnalysis {
         let label_percentage = (forms.labeled_inputs as f32 / forms.total_inputs as f32 * 100.0) as u32;
         if label_percentage < 80 {
             issues.push(format!("Only {}% of form inputs have labels - AI needs labels to understand form purpose", label_percentage));
-            recommendations.push("Add <label> elements or aria-label to all form inputs".to_string());
+            recommendations.push("Add label elements or aria-label to all form inputs".to_string());
         }
     }
     
