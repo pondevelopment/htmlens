@@ -4,12 +4,12 @@
 //! site-wide metadata and configuration files.
 
 #[cfg(feature = "ai-readiness")]
+use crate::url_utils::normalize_origin;
+#[cfg(feature = "ai-readiness")]
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ai-readiness")]
 use std::time::Duration;
-#[cfg(feature = "ai-readiness")]
-use url::Url;
 
 /// Results from checking .well-known directory
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -69,7 +69,7 @@ impl FileCheck {
 /// Check all relevant .well-known files for a domain
 #[cfg(feature = "ai-readiness")]
 pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
-    let normalized_base = normalize_base_url(base_url);
+    let normalized_base = normalize_origin(base_url);
     let base_url = normalized_base.trim_end_matches('/');
 
     let mut checks = WellKnownChecks {
@@ -97,19 +97,6 @@ pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
     checks.assetlinks = check_file(base_url, &checks.assetlinks.path, FileType::Json).await;
 
     Ok(checks)
-}
-
-/// Normalize an input URL to its origin (scheme + host [+ port]).
-#[cfg(feature = "ai-readiness")]
-fn normalize_base_url(base_url: &str) -> String {
-    if let Ok(mut parsed) = Url::parse(base_url) {
-        parsed.set_path("");
-        parsed.set_query(None);
-        parsed.set_fragment(None);
-        parsed.to_string()
-    } else {
-        base_url.to_string()
-    }
 }
 
 /// Type of file expected
@@ -218,19 +205,19 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_base_url() {
+    fn test_normalize_origin() {
         assert_eq!(
-            normalize_base_url("https://example.com/path/page.html"),
-            "https://example.com/"
+            normalize_origin("https://example.com/path/page.html"),
+            "https://example.com"
         );
         assert_eq!(
-            normalize_base_url("https://example.com"),
-            "https://example.com/"
+            normalize_origin("https://example.com"),
+            "https://example.com"
         );
         assert_eq!(
-            normalize_base_url("https://example.com:8443/foo"),
-            "https://example.com:8443/"
+            normalize_origin("https://example.com:8443/foo"),
+            "https://example.com:8443"
         );
-        assert_eq!(normalize_base_url("not a url"), "not a url");
+        assert_eq!(normalize_origin("not a url"), "not a url");
     }
 }

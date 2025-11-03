@@ -2,7 +2,7 @@
 //!
 //! Pure Rust implementation that serves a web UI and extracts JSON-LD using htmlens-core
 
-use htmlens_core::{GraphNode, parser};
+use htmlens_core::{GraphNode, normalize_origin, parser};
 use serde::Serialize;
 use url::Url;
 use worker::*;
@@ -599,13 +599,12 @@ async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
 }
 
 async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
-    // Extract root domain from URL (robots.txt must be on root domain)
-    let parsed_url = Url::parse(base_url).ok()?;
-    let origin = parsed_url.as_str().trim_end_matches('/');
+    // robots.txt must be located at the origin
+    let origin = normalize_origin(base_url);
     let robots_url = format!("{}/robots.txt", origin);
+    let parsed = Url::parse(&robots_url).ok()?;
 
-    if let Ok(parsed) = Url::parse(&robots_url)
-        && let Ok(mut response) = Fetch::Url(parsed).send().await
+    if let Ok(mut response) = Fetch::Url(parsed).send().await
         && response.status_code() == 200
         && let Ok(text) = response.text().await
     {
@@ -695,8 +694,8 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
     use htmlens_core::ai_readiness::sitemap;
 
     // Extract root domain from URL
-    let parsed_url = Url::parse(base_url).ok()?;
-    let root_origin = parsed_url.as_str().trim_end_matches('/').to_string();
+    let root_origin = normalize_origin(base_url);
+    Url::parse(&root_origin).ok()?;
 
     // Try sitemap URLs from robots.txt first
     for sitemap_url in &sitemap_urls {
@@ -875,17 +874,6 @@ async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
         issues: analysis.issues,
         recommendations: analysis.recommendations,
     })
-}
-
-fn normalize_origin(url: &str) -> String {
-    Url::parse(url)
-        .map(|mut parsed| {
-            parsed.set_path("");
-            parsed.set_query(None);
-            parsed.set_fragment(None);
-            parsed.as_str().trim_end_matches('/').to_string()
-        })
-        .unwrap_or_else(|_| url.trim_end_matches('/').to_string())
 }
 
 fn check_crawler_access(robots_txt: &str, crawler: &str) -> String {
