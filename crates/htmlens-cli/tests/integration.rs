@@ -63,7 +63,13 @@ fn test_cli_version() {
     let stderr = String::from_utf8(output.stderr).unwrap();
     let combined = format!("{}{}", stdout, stderr);
 
-    assert!(combined.contains("htmlens 0.4.2"));
+    let expected_version = format!("htmlens {}", env!("CARGO_PKG_VERSION"));
+    assert!(
+        combined.contains(&expected_version),
+        "expected version string '{}' in output, got: {}",
+        expected_version,
+        combined
+    );
 }
 
 #[test]

@@ -5,15 +5,26 @@
 
 set -e
 
-echo "🧪 HTMLens Test Suite"
-echo "===================="
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="$SCRIPT_DIR"
+CLI_VERSION=$(grep -m1 '^version = "' "$WORKSPACE_ROOT/Cargo.toml" | cut -d '"' -f2)
+
+if [ -z "$CLI_VERSION" ]; then
+    echo "${RED}Unable to determine CLI version from Cargo.toml${NC}" >&2
+    exit 1
+fi
+
+echo "🧪 HTMLens Test Suite"
+echo "===================="
+
+cd "$WORKSPACE_ROOT"
 
 # Test counters
 TOTAL_TESTS=0
@@ -70,7 +81,7 @@ run_test "CLI with product fixture" 'cargo run --package htmlens-cli -- "$(cat t
 
 run_test "CLI help output" 'cargo run --package htmlens-cli -- --help | grep -q "Developed by Pon Datalab"'
 
-run_test "CLI version output" 'cargo run --package htmlens-cli -- --version | grep -q "htmlens 0.4.2"'
+run_test "CLI version output" "cargo run --package htmlens-cli -- --version | grep -q \"htmlens ${CLI_VERSION}\""
 
 echo -e "${YELLOW}Testing parser functionality...${NC}"
 echo "==============================="
