@@ -32,6 +32,7 @@
 
 pub mod parser;
 pub mod types;
+pub mod url_utils;
 
 #[cfg(feature = "full-expansion")]
 pub mod graph;
@@ -43,6 +44,7 @@ pub mod ai_readiness;
 pub use types::{GraphEdge, GraphNode, KnowledgeGraph};
 
 pub use parser::{combine_json_ld_blocks, extract_json_ld_blocks, html_to_markdown, sanitize_html};
+pub use url_utils::normalize_origin;
 
 #[cfg(feature = "full-expansion")]
 pub use parser::fetch_html;

@@ -4,6 +4,8 @@
 //! site-wide metadata and configuration files.
 
 #[cfg(feature = "ai-readiness")]
+use crate::url_utils::normalize_origin;
+#[cfg(feature = "ai-readiness")]
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ai-readiness")]
@@ -67,7 +69,8 @@ impl FileCheck {
 /// Check all relevant .well-known files for a domain
 #[cfg(feature = "ai-readiness")]
 pub async fn check_well_known_files(base_url: &str) -> Result<WellKnownChecks> {
-    let base_url = base_url.trim_end_matches('/');
+    let normalized_base = normalize_origin(base_url);
+    let base_url = normalized_base.trim_end_matches('/');
 
     let mut checks = WellKnownChecks {
         ai_plugin: FileCheck::new("/.well-known/ai-plugin.json".to_string()),
@@ -199,5 +202,22 @@ mod tests {
         assert!(validate_text("Contact: security@example.com"));
         assert!(!validate_text(""));
         assert!(!validate_text("   "));
+    }
+
+    #[test]
+    fn test_normalize_origin() {
+        assert_eq!(
+            normalize_origin("https://example.com/path/page.html"),
+            "https://example.com"
+        );
+        assert_eq!(
+            normalize_origin("https://example.com"),
+            "https://example.com"
+        );
+        assert_eq!(
+            normalize_origin("https://example.com:8443/foo"),
+            "https://example.com:8443"
+        );
+        assert_eq!(normalize_origin("not a url"), "not a url");
     }
 }

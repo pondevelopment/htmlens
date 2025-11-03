@@ -368,21 +368,26 @@ mod tests {
 
     #[test]
     fn test_url_limit_warning() {
-        let mut xml = String::from(
-            r#"<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#,
-        );
+        let mut analysis = SitemapAnalysis {
+            found: true,
+            sitemap_type: SitemapType::Standard,
+            url_count: 50_001,
+            last_modified: None,
+            url_entries: Vec::new(),
+            statistics: SitemapStatistics {
+                total_urls: 50_001,
+                urls_with_lastmod: 0,
+                urls_with_priority: 0,
+                avg_priority: 0.0,
+                content_types: std::collections::HashMap::new(),
+            },
+            nested_sitemaps: Vec::new(),
+            issues: Vec::new(),
+            recommendations: Vec::new(),
+        };
 
-        // Add 50,001 URLs
-        for i in 0..50_001 {
-            xml.push_str(&format!(
-                r#"<url><loc>https://example.com/page{}</loc></url>"#,
-                i
-            ));
-        }
-        xml.push_str("</urlset>");
+        validate_sitemap(&mut analysis, "https://example.com");
 
-        let result = parse_sitemap(&xml, "https://example.com").unwrap();
-        assert!(result.issues.iter().any(|i| i.contains("exceeds 50,000")));
+        assert!(analysis.issues.iter().any(|i| i.contains("exceeds 50,000")));
     }
 }

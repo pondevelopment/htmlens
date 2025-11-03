@@ -2,8 +2,9 @@
 //!
 //! Pure Rust implementation that serves a web UI and extracts JSON-LD using htmlens-core
 
-use htmlens_core::{GraphNode, parser};
+use htmlens_core::{GraphNode, normalize_origin, parser};
 use serde::Serialize;
+use url::Url;
 use worker::*;
 
 #[derive(Serialize)]
@@ -274,20 +275,22 @@ fn extract_description(html: &str) -> String {
 }
 
 async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
+    let origin = normalize_origin(base_url);
+
     // Check .well-known files
-    let well_known = check_well_known_files(base_url).await;
+    let well_known = check_well_known_files(&origin).await;
 
     // Check AI Plugin if found
     let ai_plugin =
         if well_known.ai_plugin_json.found && well_known.ai_plugin_json.valid == Some(true) {
-            check_ai_plugin(base_url).await
+            check_ai_plugin(&origin).await
         } else {
             None
         };
 
     // Check MCP if found
     let mcp = if well_known.mcp_json.found && well_known.mcp_json.valid == Some(true) {
-        check_mcp(base_url).await
+        check_mcp(&origin).await
     } else {
         None
     };
@@ -304,7 +307,7 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     };
 
     // Check robots.txt
-    let robots_txt = check_robots_txt(base_url).await;
+    let robots_txt = check_robots_txt(&origin).await;
 
     // Check sitemap (use URLs from robots.txt if available)
     let sitemap_urls = if let Some(ref robots) = robots_txt {
@@ -312,7 +315,7 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     } else {
         Vec::new()
     };
-    let sitemap = check_sitemap(base_url, sitemap_urls).await;
+    let sitemap = check_sitemap(&origin, sitemap_urls).await;
 
     // Check semantic HTML
     let semantic_html = check_semantic_html(base_url).await;
@@ -372,12 +375,10 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
     };
 
     for (filename, _) in files {
-        let url = format!(
-            "{}/.well-known/{}",
-            base_url.trim_end_matches('/'),
-            filename
-        );
-        if let Ok(mut response) = Fetch::Url(url.parse().unwrap()).send().await {
+        let url = format!("{}/.well-known/{}", base_url, filename);
+        if let Ok(parsed) = Url::parse(&url)
+            && let Ok(mut response) = Fetch::Url(parsed).send().await
+        {
             let status = response.status_code();
             let found = status == 200;
             let valid = if found && (filename.ends_with(".json") || filename == "assetlinks.json") {
@@ -413,11 +414,9 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
 }
 
 async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
-    let url = format!(
-        "{}/.well-known/ai-plugin.json",
-        base_url.trim_end_matches('/')
-    );
-    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await
+    let url = format!("{}/.well-known/ai-plugin.json", base_url);
+    if let Ok(parsed) = Url::parse(&url)
+        && let Ok(mut response) = Fetch::Url(parsed).send().await
         && let Ok(text) = response.text().await
         && let Ok(plugin) = serde_json::from_str::<serde_json::Value>(&text)
     {
@@ -465,8 +464,9 @@ async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
 }
 
 async fn check_mcp(base_url: &str) -> Option<McpStatus> {
-    let url = format!("{}/.well-known/mcp.json", base_url.trim_end_matches('/'));
-    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await
+    let url = format!("{}/.well-known/mcp.json", base_url);
+    if let Ok(parsed) = Url::parse(&url)
+        && let Ok(mut response) = Fetch::Url(parsed).send().await
         && let Ok(text) = response.text().await
         && let Ok(mcp) = serde_json::from_str::<serde_json::Value>(&text)
     {
@@ -559,7 +559,8 @@ async fn check_mcp(base_url: &str) -> Option<McpStatus> {
 }
 
 async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
-    if let Ok(mut response) = Fetch::Url(api_url.parse().ok()?).send().await
+    if let Ok(parsed) = Url::parse(api_url)
+        && let Ok(mut response) = Fetch::Url(parsed).send().await
         && let Ok(text) = response.text().await
         && let Ok(spec) = serde_json::from_str::<serde_json::Value>(&text)
     {
@@ -598,12 +599,12 @@ async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
 }
 
 async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
-    // Extract root domain from URL (robots.txt must be on root domain)
-    let parsed_url = url::Url::parse(base_url).ok()?;
-    let root_url = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str()?);
-    let url = format!("{}/robots.txt", root_url);
+    // robots.txt must be located at the origin
+    let origin = normalize_origin(base_url);
+    let robots_url = format!("{}/robots.txt", origin);
+    let parsed = Url::parse(&robots_url).ok()?;
 
-    if let Ok(mut response) = Fetch::Url(url.parse().ok()?).send().await
+    if let Ok(mut response) = Fetch::Url(parsed).send().await
         && response.status_code() == 200
         && let Ok(text) = response.text().await
     {
@@ -693,15 +694,16 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
     use htmlens_core::ai_readiness::sitemap;
 
     // Extract root domain from URL
-    let parsed_url = url::Url::parse(base_url).ok()?;
-    let root_url = format!("{}://{}", parsed_url.scheme(), parsed_url.host_str()?);
+    let root_origin = normalize_origin(base_url);
+    Url::parse(&root_origin).ok()?;
 
     // Try sitemap URLs from robots.txt first
     for sitemap_url in &sitemap_urls {
-        if let Ok(mut response) = Fetch::Url(sitemap_url.parse().ok()?).send().await
+        if let Ok(parsed) = Url::parse(sitemap_url)
+            && let Ok(mut response) = Fetch::Url(parsed).send().await
             && response.status_code() == 200
             && let Ok(xml_content) = response.text().await
-            && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_url)
+            && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
         {
             // Convert to Worker's SitemapStatus format
             let sitemap_type = match analysis.sitemap_type {
@@ -744,11 +746,12 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
     }
 
     // If no sitemap from robots.txt, try default location
-    let default_sitemap = format!("{}/sitemap.xml", root_url);
-    if let Ok(mut response) = Fetch::Url(default_sitemap.parse().ok()?).send().await
+    let default_sitemap = format!("{}/sitemap.xml", root_origin);
+    if let Ok(parsed) = Url::parse(&default_sitemap)
+        && let Ok(mut response) = Fetch::Url(parsed).send().await
         && response.status_code() == 200
         && let Ok(xml_content) = response.text().await
-        && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_url)
+        && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
     {
         let sitemap_type = match analysis.sitemap_type {
             sitemap::SitemapType::Standard => "standard",
@@ -812,7 +815,8 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
 async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
     // Fetch the HTML page
     let url = base_url.trim_end_matches('/');
-    let mut response = match Fetch::Url(url.parse().ok()?).send().await {
+    let parsed = Url::parse(url).ok()?;
+    let mut response = match Fetch::Url(parsed).send().await {
         Ok(r) => r,
         Err(_) => return None,
     };
