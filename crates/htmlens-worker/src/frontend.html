@@ -469,6 +469,10 @@
         .impact-box { background: rgba(255,166,87,0.08); border-left: 4px solid #ffa657; padding: 12px; margin: 10px 0; border-radius: 8px; font-size: 13px; color: #ffa657; }
         .impact-box strong { color: #ffa657; }
         .section-intro { background: rgba(255,255,255,0.03); padding: 18px; border-radius: 12px; margin-bottom: 24px; line-height: 1.7; color: #8b92a7; }
+        .section-intro a { color: #00d4ff; text-decoration: none; }
+        .section-intro a:hover { color: #00b8e6; text-decoration: underline; }
+        .ai-readiness-container a { color: #00d4ff; text-decoration: none; }
+        .ai-readiness-container a:hover { color: #00b8e6; text-decoration: underline; }
         .file-link { display: inline-block; margin-top: 6px; font-size: 12px; }
         .file-link a { color: #00d4ff; text-decoration: none; }
         .file-link a:hover { color: #00b8e6; text-decoration: underline; }
@@ -1393,7 +1397,7 @@
                     html += `<div class="insight-card critical">`;
                     html += `<div class="insight-title">${issue.title}</div>`;
                     html += `<div class="insight-why"><strong>Why:</strong> ${issue.why}</div>`;
-                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${issue.fix}</div>`;
+                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${escapeHtml(issue.fix)}</div>`;
                     if (issue.impact) html += `<div class="insight-impact">Impact: ${issue.impact}</div>`;
                     if (issue.reference) html += `<div class="insight-reference">📚 Reference: <a href="${issue.reference}" target="_blank">${issue.referenceText}</a></div>`;
                     html += '</div>';
@@ -1409,7 +1413,7 @@
                     html += `<div class="insight-card high">`;
                     html += `<div class="insight-title">${issue.title}</div>`;
                     html += `<div class="insight-why"><strong>Why:</strong> ${issue.why}</div>`;
-                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${issue.fix}</div>`;
+                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${escapeHtml(issue.fix)}</div>`;
                     if (issue.impact) html += `<div class="insight-impact">Impact: ${issue.impact}</div>`;
                     if (issue.reference) html += `<div class="insight-reference">📚 Reference: <a href="${issue.reference}" target="_blank">${issue.referenceText}</a></div>`;
                     html += '</div>';
@@ -1425,7 +1429,7 @@
                     html += `<div class="insight-card recommended">`;
                     html += `<div class="insight-title">${issue.title}</div>`;
                     html += `<div class="insight-why"><strong>Why:</strong> ${issue.why}</div>`;
-                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${issue.fix}</div>`;
+                    html += `<div class="insight-fix"><strong>How to fix:</strong> ${escapeHtml(issue.fix)}</div>`;
                     if (issue.impact) html += `<div class="insight-impact">Impact: ${issue.impact}</div>`;
                     if (issue.reference) html += `<div class="insight-reference">📚 Reference: <a href="${issue.reference}" target="_blank">${issue.referenceText}</a></div>`;
                     html += '</div>';
@@ -2350,6 +2354,12 @@
         function showError(message) {
             document.getElementById('errorMessage').textContent = message;
             document.getElementById('error').style.display = 'block';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         function formatMarkdownTables(markdown) {

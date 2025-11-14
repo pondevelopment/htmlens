@@ -734,8 +734,47 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
             && let Ok(mut response) = Fetch::Url(parsed).send().await
             && response.status_code() == 200
             && let Ok(xml_content) = response.text().await
-            && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
+            && let Ok(mut analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
         {
+            // If this is a sitemap index with nested sitemaps, fetch them to get accurate counts
+            if !analysis.nested_sitemaps.is_empty() {
+                let mut total_urls = 0;
+                let mut urls_with_lastmod = 0;
+                let mut urls_with_priority = 0;
+                let mut priority_sum = 0.0;
+                let mut all_sample_urls = Vec::new();
+                
+                for nested_url in &analysis.nested_sitemaps {
+                    if let Ok(nested_parsed) = Url::parse(nested_url)
+                        && let Ok(mut nested_response) = Fetch::Url(nested_parsed).send().await
+                        && nested_response.status_code() == 200
+                        && let Ok(nested_xml) = nested_response.text().await
+                        && let Ok(nested_analysis) = sitemap::parse_sitemap(&nested_xml, &root_origin)
+                    {
+                        total_urls += nested_analysis.url_count;
+                        urls_with_lastmod += nested_analysis.statistics.urls_with_lastmod;
+                        urls_with_priority += nested_analysis.statistics.urls_with_priority;
+                        priority_sum += nested_analysis.statistics.avg_priority * nested_analysis.statistics.urls_with_priority as f32;
+                        // Collect some sample URLs from nested sitemaps
+                        all_sample_urls.extend(nested_analysis.url_entries.iter().take(3).cloned());
+                    }
+                }
+                
+                // Update analysis with aggregated data
+                if total_urls > 0 {
+                    analysis.url_count = total_urls;
+                    analysis.statistics.total_urls = total_urls;
+                    analysis.statistics.urls_with_lastmod = urls_with_lastmod;
+                    analysis.statistics.urls_with_priority = urls_with_priority;
+                    analysis.statistics.avg_priority = if urls_with_priority > 0 {
+                        priority_sum / urls_with_priority as f32
+                    } else {
+                        0.0
+                    };
+                    analysis.url_entries = all_sample_urls;
+                }
+            }
+            
             // Convert to Worker's SitemapStatus format
             let sitemap_type = match analysis.sitemap_type {
                 sitemap::SitemapType::Standard => "standard",
@@ -782,8 +821,47 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
         && let Ok(mut response) = Fetch::Url(parsed).send().await
         && response.status_code() == 200
         && let Ok(xml_content) = response.text().await
-        && let Ok(analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
+        && let Ok(mut analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
     {
+        // If this is a sitemap index with nested sitemaps, fetch them to get accurate counts
+        if !analysis.nested_sitemaps.is_empty() {
+            let mut total_urls = 0;
+            let mut urls_with_lastmod = 0;
+            let mut urls_with_priority = 0;
+            let mut priority_sum = 0.0;
+            let mut all_sample_urls = Vec::new();
+            
+            for nested_url in &analysis.nested_sitemaps {
+                if let Ok(nested_parsed) = Url::parse(nested_url)
+                    && let Ok(mut nested_response) = Fetch::Url(nested_parsed).send().await
+                    && nested_response.status_code() == 200
+                    && let Ok(nested_xml) = nested_response.text().await
+                    && let Ok(nested_analysis) = sitemap::parse_sitemap(&nested_xml, &root_origin)
+                {
+                    total_urls += nested_analysis.url_count;
+                    urls_with_lastmod += nested_analysis.statistics.urls_with_lastmod;
+                    urls_with_priority += nested_analysis.statistics.urls_with_priority;
+                    priority_sum += nested_analysis.statistics.avg_priority * nested_analysis.statistics.urls_with_priority as f32;
+                    // Collect some sample URLs from nested sitemaps
+                    all_sample_urls.extend(nested_analysis.url_entries.iter().take(3).cloned());
+                }
+            }
+            
+            // Update analysis with aggregated data
+            if total_urls > 0 {
+                analysis.url_count = total_urls;
+                analysis.statistics.total_urls = total_urls;
+                analysis.statistics.urls_with_lastmod = urls_with_lastmod;
+                analysis.statistics.urls_with_priority = urls_with_priority;
+                analysis.statistics.avg_priority = if urls_with_priority > 0 {
+                    priority_sum / urls_with_priority as f32
+                } else {
+                    0.0
+                };
+                analysis.url_entries = all_sample_urls;
+            }
+        }
+        
         let sitemap_type = match analysis.sitemap_type {
             sitemap::SitemapType::Standard => "standard",
             sitemap::SitemapType::Index => "index",
