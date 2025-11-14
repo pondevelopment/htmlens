@@ -332,6 +332,8 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
 }
 
 async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
+    console_log!("[AI Readiness] Checking .well-known files for: {}", base_url);
+    
     let files = vec![
         ("ai-plugin.json", "aiPluginJson"),
         ("mcp.json", "mcpJson"),
@@ -376,21 +378,50 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
 
     for (filename, _) in files {
         let url = format!("{}/.well-known/{}", base_url, filename);
-        if let Ok(parsed) = Url::parse(&url)
-            && let Ok(mut response) = Fetch::Url(parsed).send().await
+        console_log!("[.well-known] Checking: {}", url);
+        
+        // Create request with redirect set to "manual" to prevent following redirects
+        let mut init = RequestInit::new();
+        init.with_redirect(RequestRedirect::Manual);
+        
+        if let Ok(request) = Request::new_with_init(&url, &init)
+            && let Ok(mut response) = Fetch::Request(request).send().await
         {
-            let status = response.status_code();
-            let found = status == 200;
-            let valid = if found && (filename.ends_with(".json") || filename == "assetlinks.json") {
-                response
-                    .text()
-                    .await
-                    .ok()
-                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-                    .map(|_| true)
+                let status = response.status_code();
+                
+                // For JSON files, validate the content even if status is 200
+                // (some servers return 200 with HTML error pages)
+                let (found, valid) = if filename.ends_with(".json") 
+                    || filename == "openid-configuration"  // OpenID config is JSON even without .json extension
+                    || filename == "apple-app-site-association"  // Apple Universal Links config is JSON
+                {
+                    if let Ok(text) = response.text().await {
+                        // Check if it's actually valid JSON
+                    if serde_json::from_str::<serde_json::Value>(&text).is_ok() {
+                        console_log!("[.well-known] {} - Valid JSON found", filename);
+                        (true, Some(true))
+                    } else {
+                        // Status was 200 but content is not valid JSON (likely error page)
+                        console_log!("[.well-known] {} - Invalid JSON (likely redirected to error page)", filename);
+                        (false, Some(false))
+                    }
+                } else {
+                    console_log!("[.well-known] {} - Failed to read response body", filename);
+                    (false, None)
+                }
             } else {
-                None
+                // For non-JSON files (like security.txt), just check status
+                let found = status == 200;
+                (found, None)
             };
+
+            console_log!(
+                "[AI Readiness] {} - Status: {}, Found: {}, Valid: {:?}",
+                filename,
+                status,
+                found,
+                valid
+            );
 
             let file_status = FileStatus {
                 found,
