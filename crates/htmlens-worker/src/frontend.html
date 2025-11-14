@@ -63,7 +63,7 @@
         .insight-card { background: #f8f9fa; border-left: 4px solid #ccc; padding: 16px; margin-bottom: 12px; border-radius: 4px; }
         .insight-card.critical { border-left-color: #dc3545; background: #fff5f5; }
         .insight-card.high { border-left-color: #ffc107; background: #fffbf0; }
-        .insight-card.recommended { border-left-color: #28a745; background: #f0fff4; }
+        .insight-card.recommended { border-left-color: #17a2b8; background: #d1ecf1; }
         .insight-card.optional { border-left-color: #6c757d; background: #f8f9fa; }
         .insight-title { font-weight: 600; margin-bottom: 6px; color: #333; }
         .insight-why { color: #666; font-size: 14px; margin-bottom: 8px; }
@@ -105,6 +105,19 @@
         .sitemap-list li { padding: 4px 0; }
         .robots-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 10px 0; font-weight: 500; }
         .robots-recommendation { background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; padding: 10px; margin: 10px 0; }
+        .bot-description { font-size: 13px; color: #666; font-style: italic; margin-top: 4px; }
+        .collapsible-rules { cursor: pointer; color: #667eea; text-decoration: underline; user-select: none; }
+        .rules-detail { display: none; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-family: monospace; font-size: 12px; }
+        .rules-detail.show { display: block; }
+        .explainer-box { background: #e7f3ff; border-left: 4px solid #2196F3; padding: 12px; margin: 15px 0; border-radius: 4px; }
+        .explainer-box strong { color: #1976D2; }
+        .benefit-box { background: #f0fff4; border-left: 4px solid #28a745; padding: 10px; margin: 8px 0; border-radius: 4px; font-size: 13px; }
+        .benefit-box strong { color: #155724; }
+        .impact-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 8px 0; border-radius: 4px; font-size: 13px; }
+        .impact-box strong { color: #856404; }
+        .section-intro { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; line-height: 1.6; }
+        .file-link { display: inline-block; margin-top: 4px; font-size: 12px; }
+        .file-link a { color: #667eea; text-decoration: none; }
         
         /* Sitemap Styles */
         .sitemap-status { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e0e0e0; }
@@ -289,18 +302,39 @@
             document.getElementById('analyzeBtn').disabled = true;
             
             try {
+                console.log('Fetching:', API_BASE + '/api?url=' + encodeURIComponent(url));
                 const response = await fetch(API_BASE + '/api?url=' + encodeURIComponent(url));
-                const data = await response.json();
+                console.log('Response status:', response.status, response.statusText);
                 
-                if (!response.ok) throw new Error(data.error || 'Failed to analyze');
+                if (!response.ok) {
+                    let errorMessage = 'Failed to analyze';
+                    try {
+                        const errorData = await response.json();
+                        console.log('Error data:', errorData);
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        console.error('Failed to parse error JSON:', e);
+                        // If JSON parsing fails, use default error
+                        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                // Validate required fields
+                if (!data.url || !data.graph || !data.jsonld) {
+                    throw new Error('Invalid response structure from API');
+                }
                 
                 // Build Business Summary similar to TypeScript version
                 let summary = '📊 Business Summary\n\n';
                 summary += `Page: ${data.url}\n\n`;
                 
-                // Extract entity types
-                const entityTypes = [...new Set(data.graph.nodes.flatMap(n => n.types))];
-                summary += `Content Type: ${entityTypes.join(', ')}\n\n`;
+                // Extract entity types with null checks
+                const entityTypes = data.graph.nodes ? [...new Set(data.graph.nodes.flatMap(n => n.types || []))] : [];
+                summary += `Content Type: ${entityTypes.join(', ') || 'None detected'}\n\n`;
                 
                 // Product Information
                 const products = data.jsonld.filter(item => 
@@ -350,19 +384,20 @@
                 
                 // Render AI readiness
                 if (data.aiReadiness) {
-                    renderAiReadinessTab(data.aiReadiness);
+                    renderAiReadinessTab(data.url, data.aiReadiness);
                 }
                 
                 document.getElementById('results').classList.add('active');
             } catch (error) {
-                showError(error.message);
+                console.error('Analysis error:', error);
+                showError(error.message || 'An unexpected error occurred');
             } finally {
                 document.getElementById('loading').classList.remove('active');
                 document.getElementById('analyzeBtn').disabled = false;
             }
         }
         
-        function renderAiReadinessTab(aiReadiness) {
+        function renderAiReadinessTab(url, aiReadiness) {
             let html = '<div class="ai-readiness-container">';
             html += '<h2 style="margin-top: 0;">🤖 AI Agent Readiness</h2>';
             html += '<p style="color: #666; margin-bottom: 30px;">Check how well your website communicates with AI agents and chatbots.</p>';
@@ -370,6 +405,15 @@
             // .well-known files
             html += '<div class="well-known-checks">';
             html += '<h4>📁 .well-known Directory</h4>';
+            
+            // Add comprehensive section introduction
+            html += '<div class="section-intro">';
+            html += '<p><strong>What is the .well-known directory?</strong></p>';
+            html += '<p>The <code>.well-known</code> directory is like a "front desk" for your website where automated systems (AI bots, apps, security researchers) look for important information. It\'s a standardized location (defined by <a href="https://www.rfc-editor.org/rfc/rfc8615.html" target="_blank">Internet Standard RFC 8615</a>) where websites publish machine-readable information.</p>';
+            html += '<p style="margin-top: 10px;"><strong>Why does it matter?</strong></p>';
+            html += '<p>Think of it like having clear signs at a building entrance. Without these files, AI assistants and apps don\'t know how to interact with your website properly. With them, you unlock advanced features like ChatGPT plugins, app deep-linking, and better security practices.</p>';
+            html += '</div>';
+            
             html += '<div class="file-checks">';
             
             const checks = [
@@ -378,42 +422,60 @@
                     label: '🤖 ai-plugin.json (ChatGPT)', 
                     critical: true,
                     docs: 'https://platform.openai.com/docs/plugins/getting-started/plugin-manifest',
-                    description: 'ChatGPT plugin manifest for AI integration'
+                    description: 'ChatGPT plugin manifest for AI integration',
+                    explainer: 'Tells ChatGPT how to interact with your website as a plugin. Think of it like an instruction manual for AI assistants.',
+                    benefit: 'Your website can become a ChatGPT plugin, allowing millions of users to access your data/services directly through ChatGPT conversations.',
+                    impact: 'ChatGPT and other AI assistants won\'t be able to integrate with your website as a plugin. You\'ll miss out on the plugin ecosystem and direct AI-driven traffic.'
                 },
                 { 
                     key: 'mcpJson', 
                     label: '🔮 mcp.json (Claude/MCP)', 
                     critical: true,
                     docs: 'https://modelcontextprotocol.io/',
-                    description: 'Model Context Protocol manifest for modern AI agent integration'
+                    description: 'Model Context Protocol manifest for modern AI agent integration',
+                    explainer: 'Allows Claude and other modern AI assistants to understand what data and actions your website offers. Like a menu for AI agents.',
+                    benefit: 'Claude AI and MCP-compatible assistants can discover and use your website\'s capabilities automatically. This is the newest standard for AI-website communication.',
+                    impact: 'Modern AI assistants like Claude won\'t know how to interact with your site programmatically. You\'ll miss the next wave of AI integration.'
                 },
                 { 
                     key: 'securityTxt', 
                     label: '🔒 security.txt', 
                     critical: false,
                     docs: 'https://securitytxt.org/',
-                    description: 'Security researcher contact information'
+                    description: 'Security researcher contact information',
+                    explainer: 'Provides contact info for security researchers who find vulnerabilities. Like a "found a bug? email us here" sign.',
+                    benefit: 'Security researchers know how to responsibly report vulnerabilities. Shows you take security seriously. May help with compliance requirements.',
+                    impact: 'Security researchers may not know how to contact you about vulnerabilities, potentially leading to public disclosure or exploitation before you can fix issues.'
                 },
                 { 
                     key: 'openidConfiguration', 
                     label: '🔑 openid-configuration (OAuth)', 
                     critical: false,
                     docs: 'https://openid.net/specs/openid-connect-discovery-1_0.html',
-                    description: 'OAuth/OpenID Connect discovery endpoint'
+                    description: 'OAuth/OpenID Connect discovery endpoint',
+                    explainer: 'Enables "Sign in with [Your Site]" buttons on other websites. Think "Login with Google" but for your site.',
+                    benefit: 'Other websites can offer "Sign in with [Your Brand]" buttons. Users can use your account across multiple sites, increasing engagement and brand reach.',
+                    impact: 'You can\'t offer your service as an identity provider. Users won\'t be able to use "Sign in with [Your Brand]" on other sites.'
                 },
                 { 
                     key: 'appleAppSiteAssociation', 
                     label: '📱 apple-app-site-association', 
                     critical: false,
                     docs: 'https://developer.apple.com/documentation/xcode/supporting-associated-domains',
-                    description: 'iOS Universal Links configuration'
+                    description: 'iOS Universal Links configuration',
+                    explainer: 'Lets links to your website open your mobile app instead (on iOS devices). Like a bridge between your website and iPhone app.',
+                    benefit: 'Seamless user experience - clicking website links on iOS opens your app directly. Better engagement and lower abandonment rates.',
+                    impact: 'Links to your site will open in Safari instead of your app on iOS. Users have to manually switch to your app, causing friction and potential drop-off.'
                 },
                 { 
                     key: 'assetlinks', 
                     label: '🤖 assetlinks.json (Android)', 
                     critical: false,
                     docs: 'https://developer.android.com/training/app-links/verify-android-applinks',
-                    description: 'Android App Links configuration'
+                    description: 'Android App Links configuration',
+                    explainer: 'Same as above but for Android devices - connects your website links to your Android app.',
+                    benefit: 'Android users clicking your links go directly to your app. Creates a unified experience across web and mobile.',
+                    impact: 'Links open in Chrome browser instead of your Android app. Fragmented user experience between web and mobile.'
                 }
             ];
             
@@ -426,7 +488,23 @@
                 html += `<div>${icon} <strong>${check.label}</strong>: ${statusText}`;
                 if (file.valid === false) html += ' <span class="invalid">(Invalid JSON)</span>';
                 html += '</div>';
-                html += `<div class="file-check-description">${check.description} - <a href="${check.docs}" target="_blank">Learn more →</a></div>`;
+                
+                // Add link to the actual file if found
+                if (file.found) {
+                    const wellKnownUrl = url.replace(/\/$/, '') + '/.well-known/' + check.key.replace('Json', '.json').replace('Configuration', '-configuration').replace('Txt', '.txt').replace('Association', '-association');
+                    html += `<div class="file-link">🔗 <a href="${wellKnownUrl}" target="_blank">View file</a></div>`;
+                }
+                
+                html += `<div class="file-check-description"><strong>What it does:</strong> ${check.explainer}</div>`;
+                
+                // Show benefit when found, or impact when not found
+                if (file.found) {
+                    html += `<div class="benefit-box"><strong>✅ Benefit:</strong> ${check.benefit}</div>`;
+                } else {
+                    html += `<div class="impact-box"><strong>⚠️ Impact of not having this:</strong> ${check.impact}</div>`;
+                }
+                
+                html += `<div class="file-check-description" style="font-size: 12px; margin-top: 4px;">Technical: ${check.description} - <a href="${check.docs}" target="_blank">Learn more →</a></div>`;
                 html += '</div>';
             });
             
@@ -437,12 +515,22 @@
                 const plugin = aiReadiness.aiPlugin;
                 html += '<div class="ai-plugin-status">';
                 html += '<h4>🎯 AI Plugin Manifest (OpenAI) <a href="https://platform.openai.com/docs/plugins" target="_blank" class="docs-link">📚 Docs</a></h4>';
-                html += `<div><strong>Name:</strong> ${plugin.name}</div>`;
+                
+                html += '<div class="explainer-box">';
+                html += '<p><strong>What is this?</strong> Your website has a ChatGPT plugin configuration file! This means ChatGPT can interact with your website\'s API directly.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Real-world example:</strong> Users chatting with ChatGPT can say "search for products on [your site]" and ChatGPT will fetch real-time data from your website and display it in the conversation.</p>';
+                html += '</div>';
+                
+                html += `<div><strong>Plugin Name:</strong> ${plugin.name}</div>`;
                 html += `<div><strong>Description:</strong> ${plugin.description}</div>`;
-                html += `<div><strong>Authentication:</strong> ${plugin.hasAuth ? 'Required' : 'None'}</div>`;
-                if (plugin.apiUrl) html += `<div><strong>API:</strong> ${plugin.apiUrl}</div>`;
+                html += `<div><strong>Authentication:</strong> ${plugin.hasAuth ? '🔒 Required (more secure)' : '🔓 None (public access)'}</div>`;
+                if (plugin.apiUrl) {
+                    html += `<div><strong>API Endpoint:</strong> <a href="${plugin.apiUrl}" target="_blank">${plugin.apiUrl}</a></div>`;
+                    html += '<div class="benefit-box"><strong>✅ What this enables:</strong> ChatGPT users can directly access your data and services without leaving the conversation. This creates a new channel for customer engagement and can drive traffic to your services.</div>';
+                }
                 if (plugin.issues.length > 0) {
-                    html += '<div class="plugin-issues">Issues: ' + plugin.issues.join(', ') + '</div>';
+                    html += '<div class="plugin-issues"><strong>⚠️ Configuration Issues:</strong> ' + plugin.issues.join(', ') + '</div>';
+                    html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent ChatGPT from properly connecting to your API. Fix them to ensure smooth integration.</div>';
                 }
                 html += '<div class="section-footer">Learn how to create ChatGPT plugins at <a href="https://platform.openai.com/docs/plugins/getting-started" target="_blank">OpenAI Platform →</a></div>';
                 html += '</div>';
@@ -453,25 +541,45 @@
                 const mcp = aiReadiness.mcp;
                 html += '<div class="mcp-status">';
                 html += '<h4>🔮 Model Context Protocol (Anthropic) <a href="https://modelcontextprotocol.io/" target="_blank" class="docs-link">📚 Docs</a></h4>';
-                html += `<div><strong>Name:</strong> ${mcp.name}</div>`;
-                html += `<div><strong>Version:</strong> ${mcp.version}</div>`;
-                html += `<div><strong>Protocol:</strong> ${mcp.protocolVersion}</div>`;
-                html += `<div><strong>Transport:</strong> ${mcp.transportType} (${mcp.endpoint})</div>`;
+                
+                html += '<div class="explainer-box">';
+                html += '<p><strong>What is this?</strong> Your website supports the Model Context Protocol (MCP) - the newest standard for AI-website communication developed by Anthropic (makers of Claude AI).</p>';
+                html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> MCP is like USB-C for AI integration - a universal standard that will work with many future AI assistants. It\'s more flexible and powerful than older plugin systems.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Real example:</strong> Claude AI can read your documentation, access your data, or perform actions on your site - all through this standardized protocol.</p>';
+                html += '</div>';
+                
+                html += `<div><strong>Server Name:</strong> ${mcp.name}</div>`;
+                html += `<div><strong>Version:</strong> ${mcp.version} (Protocol: ${mcp.protocolVersion})</div>`;
+                html += `<div><strong>Connection:</strong> ${mcp.transportType} endpoint at <code>${mcp.endpoint}</code></div>`;
+                
                 html += '<div class="mcp-capabilities">';
-                html += '<strong>Capabilities:</strong>';
+                html += '<strong>🛠️ What AI Assistants Can Do:</strong>';
                 html += '<ul>';
-                if (mcp.hasToolsCapability) html += `<li>✅ Tools (${mcp.toolCount} available)</li>`;
-                if (mcp.hasResourcesCapability) html += `<li>✅ Resources (${mcp.resourceCount} available)</li>`;
-                if (mcp.hasPromptsCapability) html += `<li>✅ Prompts (${mcp.promptCount} available)</li>`;
-                if (mcp.hasEventsCapability) html += `<li>✅ Events</li>`;
+                if (mcp.hasToolsCapability) {
+                    html += `<li>✅ <strong>Execute ${mcp.toolCount} Tools</strong> - AI can perform actions like searching, creating, or updating data</li>`;
+                }
+                if (mcp.hasResourcesCapability) {
+                    html += `<li>✅ <strong>Access ${mcp.resourceCount} Resources</strong> - AI can read your data, documents, or content</li>`;
+                }
+                if (mcp.hasPromptsCapability) {
+                    html += `<li>✅ <strong>Use ${mcp.promptCount} Prompts</strong> - Pre-configured AI instructions for common tasks</li>`;
+                }
+                if (mcp.hasEventsCapability) {
+                    html += `<li>✅ <strong>Receive Events</strong> - AI can be notified when things change on your site</li>`;
+                }
                 if (!mcp.hasToolsCapability && !mcp.hasResourcesCapability && !mcp.hasPromptsCapability && !mcp.hasEventsCapability) {
-                    html += '<li>⚠️ No capabilities declared</li>';
+                    html += '<li>⚠️ No capabilities declared - MCP server may not be fully configured</li>';
                 }
                 html += '</ul>';
                 html += '</div>';
-                if (mcp.healthEndpoint) html += `<div><strong>Health Check:</strong> ${mcp.healthEndpoint}</div>`;
+                
+                html += '<div class="benefit-box"><strong>✅ Benefits:</strong> Future-proof AI integration. Works with Claude AI now and will work with other MCP-compatible assistants. More powerful than simple API access - AI can understand context and perform complex workflows.</div>';
+                
+                if (mcp.healthEndpoint) html += `<div><strong>Health Monitor:</strong> <a href="${mcp.healthEndpoint}" target="_blank">${mcp.healthEndpoint}</a> - Check if the server is running</div>`;
+                
                 if (mcp.issues.length > 0) {
-                    html += '<div class="mcp-issues">Issues: ' + mcp.issues.join(', ') + '</div>';
+                    html += '<div class="mcp-issues"><strong>⚠️ Configuration Issues:</strong> ' + mcp.issues.join(', ') + '</div>';
+                    html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent AI assistants from connecting properly. Review your MCP configuration.</div>';
                 }
                 html += '<div class="section-footer">Learn about MCP at <a href="https://modelcontextprotocol.io/" target="_blank">MCP Documentation →</a> or <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic Announcement</a></div>';
                 html += '</div>';
@@ -481,14 +589,26 @@
             if (aiReadiness.openapi) {
                 const api = aiReadiness.openapi;
                 html += '<div class="openapi-status">';
-                html += '<h4>📋 OpenAPI Specification <a href="https://swagger.io/specification/" target="_blank" class="docs-link">📚 Docs</a></h4>';
-                html += `<div><strong>Version:</strong> ${api.version}</div>`;
-                html += `<div><strong>Operations:</strong> ${api.operationCount}</div>`;
-                html += `<div><strong>Security:</strong> ${api.hasAuth ? 'Configured' : 'None'}</div>`;
+                html += '<h4>📡 OpenAPI Specification <a href="https://swagger.io/specification/" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                
+                html += '<div class="explainer-box">';
+                html += '<p><strong>What is this?</strong> Your website provides an OpenAPI specification - a machine-readable document that describes your entire API (what data is available, what actions can be performed, what format to use).</p>';
+                html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> Like a menu at a restaurant, this tells AI assistants exactly what they can order from your API, how to order it, and what they\'ll get back.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Real example:</strong> An AI assistant can automatically discover that your API has a "search products" endpoint, understand it needs a query parameter, and know it returns JSON with product details.</p>';
+                html += '</div>';
+                
+                html += `<div><strong>Specification Version:</strong> OpenAPI ${api.version}</div>`;
+                html += `<div><strong>API Operations:</strong> ${api.operationCount} endpoints documented</div>`;
+                html += `<div><strong>Security:</strong> ${api.hasAuth ? '✅ Authentication configured' : '⚠️ No authentication specified'}</div>`;
+                
+                html += '<div class="benefit-box"><strong>✅ Benefits:</strong> AI assistants can automatically understand and use your API without manual coding. Reduces integration time from days to minutes. Works with ChatGPT plugins, Claude tools, and any OpenAPI-compatible system.</div>';
+                
                 if (api.issues.length > 0) {
-                    html += '<div class="api-issues">Issues: ' + api.issues.join(', ') + '</div>';
+                    html += '<div class="api-issues"><strong>⚠️ Specification Issues:</strong> ' + api.issues.join(', ') + '</div>';
+                    html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent AI from correctly understanding or using your API. Validate your OpenAPI spec using tools like <a href="https://editor.swagger.io/" target="_blank">Swagger Editor</a>.</div>';
                 }
-                html += '<div class="section-footer">Learn about OpenAPI at <a href="https://www.openapis.org/" target="_blank">OpenAPI Initiative →</a> or use <a href="https://editor.swagger.io/" target="_blank">Swagger Editor</a></div>';
+                
+                html += '<div class="section-footer">Learn about OpenAPI at <a href="https://www.openapis.org/" target="_blank">OpenAPI Initiative →</a> or validate at <a href="https://editor.swagger.io/" target="_blank">Swagger Editor</a></div>';
                 html += '</div>';
             }
             
@@ -498,38 +618,69 @@
                 html += '<div class="robots-txt-status">';
                 html += '<h4>🤖 robots.txt Analysis <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank" class="docs-link">📚 Docs</a></h4>';
                 
+                html += '<div class="explainer-box">';
+                html += '<p><strong>What is robots.txt?</strong> A simple text file that tells search engines and AI bots which parts of your website they can visit. Like a "no entry" sign for automated visitors.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> You can protect private areas (like admin pages), save bandwidth by blocking unnecessary bots, or invite specific AI crawlers to learn from your public content.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Real example:</strong> "Allow ChatGPT to read my blog posts, but block all bots from my customer login pages"</p>';
+                html += '</div>';
+                
                 if (robots.found) {
-                    html += `<div><strong>Status:</strong> ✅ Found</div>`;
-                    html += `<div><strong>Sitemaps:</strong> ${robots.sitemapCount} found</div>`;
+                    html += `<div><strong>Status:</strong> ✅ Found at <a href="${robots.url || (window.location.origin + '/robots.txt')}" target="_blank" class="file-link">/robots.txt</a></div>`;
+                    html += `<div><strong>Sitemap References:</strong> ${robots.sitemapCount} sitemap(s) listed</div>`;
                     
                     if (robots.sitemaps.length > 0) {
-                        html += '<div class="sitemap-list"><strong>Sitemap URLs:</strong><ul>';
+                        html += '<div class="sitemap-list"><strong>📍 Sitemaps Found:</strong>';
+                        html += '<div class="explainer-box" style="margin-top: 8px;">Listing sitemaps here tells crawlers where to find all your pages. Saves them time and ensures they don\'t miss important content.</div>';
+                        html += '<ul>';
                         robots.sitemaps.forEach(sitemap => {
-                            html += `<li><a href="${sitemap}" target="_blank">${sitemap}</a></li>`;
+                            html += `<li><a href="${sitemap}" target="_blank" class="file-link">${sitemap}</a></li>`;
                         });
                         html += '</ul></div>';
                     }
                     
                     if (robots.blocksAllBots) {
-                        html += '<div class="robots-warning">⚠️ Warning: All bots are blocked (Disallow: /)</div>';
+                        html += '<div class="robots-warning">⚠️ <strong>Warning:</strong> All bots are blocked (Disallow: /)</div>';
+                        html += '<div class="impact-box"><strong>Impact:</strong> Your website is invisible to search engines and AI assistants. No one can find your content through Google, ChatGPT, or other services. This is typically only intended for development/staging sites.</div>';
+                    } else {
+                        html += '<div class="benefit-box"><strong>✅ Good Configuration:</strong> Your robots.txt is properly configured to allow appropriate bot access.</div>';
                     }
                     
                     // AI Crawler table
-                    html += '<div class="ai-crawlers-section">';
-                    html += '<strong>AI Crawler Access:</strong>';
+                    html += '<div class="ai-crawlers-section" style="margin-top: 20px;">';
+                    html += '<strong>🤖 AI Crawler Access Control:</strong>';
+                    html += '<div class="explainer-box" style="margin-top: 8px; margin-bottom: 12px;">These are the major AI bots that might visit your website to learn about your content for answering user questions. Each one represents a different AI assistant (ChatGPT, Claude, Perplexity, etc.).</div>';
                     html += '<table class="ai-crawlers-table">';
-                    html += '<thead><tr><th>Crawler</th><th>Access</th><th>Rules</th></tr></thead>';
+                    html += '<thead><tr><th>Crawler</th><th>Access Status</th><th>Rules Applied</th></tr></thead>';
                     html += '<tbody>';
                     
-                    robots.aiCrawlers.forEach(crawler => {
+                    const botDescriptions = {
+                        'GPTBot': 'OpenAI\'s web crawler that gathers data for ChatGPT and GPT models',
+                        'ChatGPT-User': 'When ChatGPT users browse the web through ChatGPT (Browse with Bing feature)',
+                        'ClaudeBot': 'Anthropic\'s web crawler that gathers data for Claude AI assistant',
+                        'Claude-Web': 'When Claude users request web content through Claude',
+                        'Google-Extended': 'Google\'s crawler for training AI models (separate from regular search)',
+                        'Bingbot': 'Microsoft\'s main search crawler, also used for Copilot AI',
+                        'Applebot': 'Apple\'s crawler for Siri and Spotlight search',
+                        'PerplexityBot': 'Perplexity AI\'s crawler for their AI-powered search engine'
+                    };
+                    
+                    robots.aiCrawlers.forEach((crawler, index) => {
                         const accessIcon = crawler.access === 'allowed' ? '✅' : 
                                          crawler.access === 'blocked' ? '❌' : 
                                          crawler.access === 'partial' ? '⚠️' : '➖';
                         const accessClass = `access-${crawler.access}`;
                         html += `<tr class="${accessClass}">`;
-                        html += `<td>${accessIcon} <strong>${crawler.name}</strong></td>`;
-                        html += `<td>${crawler.access}</td>`;
-                        html += `<td class="rules-cell">${crawler.rules || 'No specific rules'}</td>`;
+                        html += `<td><strong>${crawler.name}</strong><div class="bot-description">${botDescriptions[crawler.name] || 'AI crawler bot'}</div></td>`;
+                        html += `<td>${accessIcon} ${crawler.access.charAt(0).toUpperCase() + crawler.access.slice(1)}</td>`;
+                        html += `<td>`;
+                        if (crawler.rules) {
+                            const rulesId = `rules-${index}`;
+                            html += `<span class="collapsible-rules" onclick="toggleRules('${rulesId}')">View rules ▼</span>`;
+                            html += `<div id="${rulesId}" class="rules-detail">${crawler.rules.split(';').join('<br>')}</div>`;
+                        } else {
+                            html += 'Default (all paths allowed)';
+                        }
+                        html += `</td>`;
                         html += '</tr>';
                     });
                     
@@ -537,16 +688,18 @@
                     html += '</div>';
                     
                     if (robots.issues.length > 0) {
-                        html += '<div class="robots-issues">';
-                        html += '<strong>Issues:</strong><ul>';
+                        html += '<div class="robots-issues" style="margin-top: 15px;">';
+                        html += '<strong>⚠️ Configuration Issues:</strong><ul>';
                         robots.issues.forEach(issue => {
                             html += `<li>${issue}</li>`;
                         });
                         html += '</ul></div>';
+                        html += '<div class="impact-box"><strong>Impact:</strong> These issues may cause unexpected bot behavior or misinterpretation of your access rules.</div>';
                     }
                 } else {
-                    html += '<div>❌ robots.txt not found</div>';
-                    html += '<div class="robots-recommendation">Recommendation: Add robots.txt to help search engines and AI crawlers understand your site.</div>';
+                    html += '<div>❌ <strong>robots.txt not found</strong></div>';
+                    html += '<div class="impact-box"><strong>Impact:</strong> Without robots.txt, you can\'t control which bots visit your site or protect sensitive areas. All bots will try to crawl everything, which may waste bandwidth or expose pages you don\'t want indexed.</div>';
+                    html += '<div class="benefit-box" style="margin-top: 10px;"><strong>Recommendation:</strong> Create a robots.txt file to:<br>• List your sitemap(s) so bots find all your content<br>• Block AI bots from private or low-value pages<br>• Invite specific AI assistants to learn from your public content</div>';
                 }
                 
                 html += '<div class="section-footer">Learn about robots.txt at <a href="https://developers.google.com/search/docs/crawling-indexing/robots/intro" target="_blank">Google Search Central →</a> or <a href="https://www.robotstxt.org/" target="_blank">robotstxt.org</a></div>';
@@ -557,40 +710,66 @@
             if (aiReadiness.sitemap) {
                 const sitemap = aiReadiness.sitemap;
                 html += '<div class="sitemap-status">';
-                html += '<h3>🗺️ XML Sitemap</h3>';
+                html += '<h3>🗺️ XML Sitemap Analysis</h3>';
+                
+                html += '<div class="explainer-box">';
+                html += '<p><strong>What is a sitemap?</strong> An XML file that lists all important pages on your website, like a table of contents for a book. Helps search engines and AI bots find all your content efficiently.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> Without a sitemap, bots have to discover your pages by clicking links. They might miss important content, especially new pages or deep content. A sitemap is like handing them a complete map upfront.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Real example:</strong> An e-commerce site with 10,000 products - the sitemap ensures Google and AI bots find every single product page, not just the ones linked from the homepage.</p>';
+                html += '</div>';
                 
                 if (sitemap.found) {
-                    html += `<div><strong>Status:</strong> ✅ Found</div>`;
-                    html += `<div><strong>Type:</strong> ${sitemap.sitemapType === 'index' ? '📑 Sitemap Index' : '📄 Standard Sitemap'}</div>`;
-                    html += `<div><strong>Total URLs:</strong> ${sitemap.urlCount.toLocaleString()}</div>`;
+                    html += `<div><strong>Status:</strong> ✅ Found at <a href="${sitemap.url || (window.location.origin + '/sitemap.xml')}" target="_blank" class="file-link">/sitemap.xml</a></div>`;
+                    html += `<div><strong>Type:</strong> ${sitemap.sitemapType === 'index' ? '📑 Sitemap Index (contains multiple sitemaps)' : '📄 Standard Sitemap'}</div>`;
+                    html += `<div><strong>Total URLs:</strong> ${sitemap.urlCount.toLocaleString()} pages listed</div>`;
                     
                     if (sitemap.lastModified) {
                         html += `<div><strong>Last Modified:</strong> ${sitemap.lastModified}</div>`;
                     }
                     
+                    html += '<div class="benefit-box" style="margin-top: 12px;"><strong>✅ Great!</strong> Your sitemap helps bots find all ' + sitemap.urlCount.toLocaleString() + ' pages efficiently. They don\'t have to waste time clicking through your entire site.</div>';
+                    
                     // Statistics
                     if (sitemap.statistics.totalUrls > 0) {
-                        html += '<div class="sitemap-stats">';
-                        html += '<h4>📊 Statistics</h4>';
+                        html += '<div class="sitemap-stats" style="margin-top: 20px;">';
+                        html += '<h4>📊 Sitemap Quality Metrics</h4>';
+                        html += '<div class="explainer-box">These metrics show how well-structured your sitemap is. More metadata = better guidance for bots.</div>';
                         html += '<table class="sitemap-stats-table">';
-                        html += '<tr><td>URLs with dates</td><td>' + sitemap.statistics.urlsWithLastmod + ' (' + Math.round(sitemap.statistics.urlsWithLastmod / sitemap.statistics.totalUrls * 100) + '%)</td></tr>';
-                        html += '<tr><td>URLs with priority</td><td>' + sitemap.statistics.urlsWithPriority + ' (' + Math.round(sitemap.statistics.urlsWithPriority / sitemap.statistics.totalUrls * 100) + '%)</td></tr>';
-                        if (sitemap.statistics.avgPriority > 0) {
-                            html += '<tr><td>Average priority</td><td>' + sitemap.statistics.avgPriority.toFixed(2) + '</td></tr>';
+                        
+                        const datePercent = Math.round(sitemap.statistics.urlsWithLastmod / sitemap.statistics.totalUrls * 100);
+                        html += '<tr><td><strong>URLs with dates</strong><br><small>Last modified timestamps</small></td><td>' + sitemap.statistics.urlsWithLastmod + ' (' + datePercent + '%)</td></tr>';
+                        if (datePercent < 50) {
+                            html += '<tr><td colspan="2" class="impact-box"><strong>Impact:</strong> Only ' + datePercent + '% of URLs have modification dates. Bots can\'t tell which pages are fresh vs. stale. Add &lt;lastmod&gt; tags to help them prioritize.</td></tr>';
                         }
+                        
+                        const priorityPercent = Math.round(sitemap.statistics.urlsWithPriority / sitemap.statistics.totalUrls * 100);
+                        html += '<tr><td><strong>URLs with priority</strong><br><small>Importance ranking (0.0-1.0)</small></td><td>' + sitemap.statistics.urlsWithPriority + ' (' + priorityPercent + '%)</td></tr>';
+                        if (priorityPercent < 50) {
+                            html += '<tr><td colspan="2" class="impact-box"><strong>Impact:</strong> Only ' + priorityPercent + '% of URLs have priority values. Bots don\'t know which pages are most important. Add &lt;priority&gt; tags (0.8+ for key pages, 0.5 for regular content).</td></tr>';
+                        }
+                        
+                        if (sitemap.statistics.avgPriority > 0) {
+                            html += '<tr><td><strong>Average priority</strong><br><small>Should be around 0.5 (balanced)</small></td><td>' + sitemap.statistics.avgPriority.toFixed(2) + '</td></tr>';
+                            if (sitemap.statistics.avgPriority > 0.8) {
+                                html += '<tr><td colspan="2" class="impact-box"><strong>Warning:</strong> Average priority is very high (' + sitemap.statistics.avgPriority.toFixed(2) + '). When everything is "important", nothing is. Use lower priorities (0.5) for regular pages.</td></tr>';
+                            }
+                        }
+                        
                         html += '</table>';
                         html += '</div>';
                     }
                     
                     // Content type distribution
                     if (sitemap.statistics.contentTypes && Object.keys(sitemap.statistics.contentTypes).length > 0) {
-                        html += '<div class="content-types">';
-                        html += '<h4>📁 Content Types</h4>';
+                        html += '<div class="content-types" style="margin-top: 20px;">';
+                        html += '<h4>📁 Content Type Distribution</h4>';
+                        html += '<div class="explainer-box">We detected what types of pages are in your sitemap by analyzing the URLs. This helps understand your site\'s content structure.</div>';
                         html += '<table class="content-types-table">';
                         const sortedTypes = Object.entries(sitemap.statistics.contentTypes).sort((a, b) => b[1] - a[1]);
                         sortedTypes.forEach(([type, count]) => {
                             const icon = type === 'product' ? '🛍️' : type === 'blog' ? '📝' : type === 'article' ? '📰' : type === 'documentation' ? '📚' : '📄';
-                            html += `<tr><td>${icon} ${type}</td><td>${count.toLocaleString()} URLs</td></tr>`;
+                            const percent = Math.round(count / sitemap.statistics.totalUrls * 100);
+                            html += `<tr><td>${icon} <strong>${type.charAt(0).toUpperCase() + type.slice(1)}</strong></td><td>${count.toLocaleString()} URLs (${percent}%)</td></tr>`;
                         });
                         html += '</table>';
                         html += '</div>';
@@ -598,11 +777,12 @@
                     
                     // Nested sitemaps (for sitemap index)
                     if (sitemap.nestedSitemaps && sitemap.nestedSitemaps.length > 0) {
-                        html += '<div class="nested-sitemaps">';
+                        html += '<div class="nested-sitemaps" style="margin-top: 20px;">';
                         html += '<h4>📑 Nested Sitemaps</h4>';
+                        html += '<div class="explainer-box">Your sitemap is organized into multiple files (a "sitemap index"). This is great for large sites - keeps files small and organized by content type.</div>';
                         html += '<ul class="sitemap-list">';
                         sitemap.nestedSitemaps.forEach(url => {
-                            html += `<li><a href="${url}" target="_blank">${url}</a></li>`;
+                            html += `<li><a href="${url}" target="_blank" class="file-link">${url}</a></li>`;
                         });
                         html += '</ul>';
                         html += '</div>';
@@ -610,8 +790,9 @@
                     
                     // Sample URLs (for standard sitemaps)
                     if (sitemap.sampleUrls && sitemap.sampleUrls.length > 0) {
-                        html += '<div class="sample-urls">';
+                        html += '<div class="sample-urls" style="margin-top: 20px;">';
                         html += '<h4>🔍 Sample URLs (first 10)</h4>';
+                        html += '<div class="explainer-box">A preview of the pages in your sitemap. Check that the most important pages are included with recent dates and appropriate priorities.</div>';
                         html += '<table class="sample-urls-table">';
                         html += '<thead><tr><th>URL</th><th>Last Modified</th><th>Priority</th></tr></thead>';
                         html += '<tbody>';
@@ -619,8 +800,8 @@
                             const shortUrl = url.loc.length > 60 ? url.loc.substring(0, 57) + '...' : url.loc;
                             html += '<tr>';
                             html += `<td><a href="${url.loc}" target="_blank" title="${url.loc}">${shortUrl}</a></td>`;
-                            html += `<td>${url.lastmod || '-'}</td>`;
-                            html += `<td>${url.priority !== null ? url.priority.toFixed(1) : '-'}</td>`;
+                            html += `<td>${url.lastmod || '<span style="color: #999;">-</span>'}</td>`;
+                            html += `<td>${url.priority !== null ? url.priority.toFixed(1) : '<span style="color: #999;">-</span>'}</td>`;
                             html += '</tr>';
                         });
                         html += '</tbody>';
@@ -630,20 +811,21 @@
                     
                     // Issues
                     if (sitemap.issues && sitemap.issues.length > 0) {
-                        html += '<div class="sitemap-issues">';
-                        html += '<h4>⚠️ Issues</h4>';
+                        html += '<div class="sitemap-issues" style="margin-top: 20px;">';
+                        html += '<h4>⚠️ Issues Detected</h4>';
                         html += '<ul>';
                         sitemap.issues.forEach(issue => {
                             html += `<li>${issue}</li>`;
                         });
                         html += '</ul>';
+                        html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent bots from reading your sitemap correctly or cause them to skip some pages.</div>';
                         html += '</div>';
                     }
                     
                     // Recommendations
                     if (sitemap.recommendations && sitemap.recommendations.length > 0) {
-                        html += '<div class="sitemap-recommendations">';
-                        html += '<h4>💡 Recommendations</h4>';
+                        html += '<div class="sitemap-recommendations" style="margin-top: 20px;">';
+                        html += '<h4>💡 Optimization Tips</h4>';
                         html += '<ul>';
                         sitemap.recommendations.forEach(rec => {
                             html += `<li>${rec}</li>`;
@@ -652,11 +834,12 @@
                         html += '</div>';
                     }
                 } else {
-                    html += '<div>❌ Sitemap not found</div>';
-                    html += '<div class="sitemap-recommendation">Recommendation: Create a sitemap.xml file to help search engines and AI crawlers discover all your content efficiently.</div>';
+                    html += '<div>❌ <strong>Sitemap not found</strong></div>';
+                    html += '<div class="impact-box"><strong>Impact:</strong> Search engines and AI bots must discover your pages by clicking links. They might miss important content, especially:<br>• New pages that aren\'t well-linked yet<br>• Deep content (4+ clicks from homepage)<br>• Pages only accessible through search/filters<br>• Dynamically generated pages</div>';
+                    html += '<div class="benefit-box" style="margin-top: 12px;"><strong>Recommendation:</strong> Create a sitemap.xml file to:<br>• Help bots find all your content immediately<br>• Show which pages were recently updated (they crawl those first)<br>• Indicate which pages are most important<br>• Improve SEO and AI discoverability by 30-50% for large sites</div>';
                 }
                 
-                html += '<div class="section-footer">Learn about sitemaps at <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview" target="_blank">Google Search Central →</a></div>';
+                html += '<div class="section-footer">Learn about sitemaps at <a href="https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview" target="_blank">Google Search Central →</a> or use <a href="https://www.xml-sitemaps.com/" target="_blank">sitemap generators</a></div>';
                 html += '</div>';
             }
             
@@ -664,75 +847,116 @@
             if (aiReadiness.semanticHtml) {
                 const semantic = aiReadiness.semanticHtml;
                 html += '<div class="semantic-html-status">';
-                html += '<h3>🏗️ Semantic HTML & ARIA</h3>';
-                html += '<div class="score-description">How well your HTML structure helps AI-enabled browsers understand your content</div>';
+                html += '<h3>🏗️ Semantic HTML & Accessibility</h3>';
+                
+                html += '<div class="explainer-box">';
+                html += '<p><strong>What is Semantic HTML?</strong> Using the right HTML tags that describe what content IS, not just how it looks. Instead of generic &lt;div&gt; tags everywhere, use meaningful tags like &lt;nav&gt; for navigation, &lt;article&gt; for articles, &lt;header&gt; for headers.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> Helps screen readers for visually impaired users navigate your site. Helps AI assistants understand your page structure ("this is the main content, this is navigation"). Improves SEO by making content meaning clear.</p>';
+                html += '<p style="margin-top: 8px;"><strong>Real example:</strong> A screen reader can announce "entering navigation" and let users jump directly to main content, skipping the menu. AI can extract the article content without including navigation links.</p>';
+                html += '</div>';
                 
                 // Landmarks
-                html += '<div class="landmarks-section">';
-                html += '<h4>🗺️ Page Landmarks</h4>';
-                html += '<div class="landmarks-grid">';
-                html += `<div class="landmark-item">${semantic.landmarks.hasMain ? '✅' : '❌'} Main content (<code>&lt;main&gt;</code>)</div>`;
-                html += `<div class="landmark-item">${semantic.landmarks.hasNavigation ? '✅' : '❌'} Navigation (<code>&lt;nav&gt;</code>)</div>`;
-                html += `<div class="landmark-item">${semantic.landmarks.hasHeader ? '✅' : '❌'} Header (<code>&lt;header&gt;</code>)</div>`;
-                html += `<div class="landmark-item">${semantic.landmarks.hasFooter ? '✅' : '❌'} Footer (<code>&lt;footer&gt;</code>)</div>`;
+                html += '<div class="landmarks-section" style="margin-top: 20px;">';
+                html += '<h4>🗺️ Page Landmarks (Navigation Shortcuts)</h4>';
+                html += '<div class="explainer-box">Landmarks are special HTML tags that mark major page sections. Screen reader users can jump between landmarks instantly (like pressing "skip to main content"). AI tools use these to identify page structure.</div>';
+                html += '<div class="landmarks-grid" style="margin-top: 10px;">';
+                html += `<div class="landmark-item">${semantic.landmarks.hasMain ? '✅' : '❌'} <strong>Main content</strong> <code>&lt;main&gt;</code><br><small>${semantic.landmarks.hasMain ? 'Found - marks primary page content' : 'Missing - add &lt;main&gt; around your main content'}</small></div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasNavigation ? '✅' : '❌'} <strong>Navigation</strong> <code>&lt;nav&gt;</code><br><small>${semantic.landmarks.hasNavigation ? 'Found - marks site navigation' : 'Missing - wrap menus in &lt;nav&gt;'}</small></div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasHeader ? '✅' : '❌'} <strong>Header</strong> <code>&lt;header&gt;</code><br><small>${semantic.landmarks.hasHeader ? 'Found - marks page/section header' : 'Missing - use &lt;header&gt; for page top'}</small></div>`;
+                html += `<div class="landmark-item">${semantic.landmarks.hasFooter ? '✅' : '❌'} <strong>Footer</strong> <code>&lt;footer&gt;</code><br><small>${semantic.landmarks.hasFooter ? 'Found - marks page footer' : 'Missing - use &lt;footer&gt; for page bottom'}</small></div>`;
                 if (semantic.landmarks.articleCount > 0) {
-                    html += `<div class="landmark-item">✅ ${semantic.landmarks.articleCount} Article(s)</div>`;
+                    html += `<div class="landmark-item">✅ <strong>${semantic.landmarks.articleCount} Article(s)</strong><br><small>Self-contained content pieces</small></div>`;
                 }
                 html += '</div>';
+                
+                const missingLandmarks = [];
+                if (!semantic.landmarks.hasMain) missingLandmarks.push('&lt;main&gt;');
+                if (!semantic.landmarks.hasNavigation) missingLandmarks.push('&lt;nav&gt;');
+                if (!semantic.landmarks.hasHeader) missingLandmarks.push('&lt;header&gt;');
+                if (!semantic.landmarks.hasFooter) missingLandmarks.push('&lt;footer&gt;');
+                
+                if (missingLandmarks.length > 0) {
+                    html += '<div class="impact-box" style="margin-top: 10px;"><strong>Impact of missing landmarks:</strong> Screen reader users can\'t quickly jump to different sections. AI tools may struggle to identify your main content vs. navigation/ads. Consider adding: ' + missingLandmarks.join(', ') + '</div>';
+                } else {
+                    html += '<div class="benefit-box" style="margin-top: 10px;"><strong>✅ Excellent!</strong> All key landmarks present. Screen readers can navigate efficiently, and AI can clearly identify page structure.</div>';
+                }
                 html += '</div>';
                 
                 // Headings
-                html += '<div class="headings-section">';
-                html += '<h4>📑 Heading Structure</h4>';
-                html += `<div>${semantic.headings.hasSingleH1 ? '✅' : '⚠️'} ${semantic.headings.hasSingleH1 ? 'Single <code>&lt;h1&gt;</code> (good)' : 'Multiple or missing <code>&lt;h1&gt;</code>'}</div>`;
-                html += `<div>${semantic.headings.properHierarchy ? '✅' : '⚠️'} ${semantic.headings.properHierarchy ? 'Proper hierarchy (no skipped levels)' : 'Hierarchy has gaps'}</div>`;
-                html += '<div class="heading-distribution">Distribution: ';
+                html += '<div class="headings-section" style="margin-top: 20px;">';
+                html += '<h4>📑 Heading Structure (Content Outline)</h4>';
+                html += '<div class="explainer-box">Headings (&lt;h1&gt;, &lt;h2&gt;, &lt;h3&gt;...) create an outline of your page, like chapters in a book. They should be in order (h1 → h2 → h3) without skipping levels. Screen readers use this to build a table of contents.</div>';
+                html += `<div style="margin-top: 10px;">${semantic.headings.hasSingleH1 ? '✅' : '⚠️'} <strong>${semantic.headings.hasSingleH1 ? 'Single &lt;h1&gt; (Perfect)' : 'Multiple or Missing &lt;h1&gt;'}</strong><br><small>${semantic.headings.hasSingleH1 ? 'Your page has exactly one main title' : 'Page should have exactly one &lt;h1&gt; (the main title). Multiple h1s confuse hierarchy.'}</small></div>`;
+                html += `<div style="margin-top: 10px;">${semantic.headings.properHierarchy ? '✅' : '⚠️'} <strong>${semantic.headings.properHierarchy ? 'Proper Hierarchy (No Skips)' : 'Hierarchy Has Gaps'}</strong><br><small>${semantic.headings.properHierarchy ? 'Headings follow proper order (no skipped levels)' : 'Don\'t skip levels (e.g., h1 → h3). Go h1 → h2 → h3 in order.'}</small></div>`;
+                html += '<div class="heading-distribution" style="margin-top: 10px;"><strong>Your heading distribution:</strong> ';
                 semantic.headings.distribution.forEach((count, index) => {
                     if (count > 0) {
                         html += `<span class="heading-badge">h${index + 1}: ${count}</span> `;
                     }
                 });
                 html += '</div>';
+                
+                if (!semantic.headings.hasSingleH1 || !semantic.headings.properHierarchy) {
+                    html += '<div class="impact-box" style="margin-top: 10px;"><strong>Impact:</strong> Broken heading hierarchy makes it harder for screen readers to navigate and AI to understand your content structure. Fix by using exactly one h1, then h2s for main sections, h3s for subsections, etc.</div>';
+                } else {
+                    html += '<div class="benefit-box" style="margin-top: 10px;"><strong>✅ Great structure!</strong> Your headings create a clear content hierarchy that both humans and AI can follow easily.</div>';
+                }
                 html += '</div>';
                 
                 // Forms & Images
                 if (semantic.forms.totalInputs > 0 || semantic.images.totalImages > 0) {
-                    html += '<div class="accessibility-section">';
-                    html += '<h4>♿ Accessibility</h4>';
-                    html += '<table class="accessibility-table">';
+                    html += '<div class="accessibility-section" style="margin-top: 20px;">';
+                    html += '<h4>♿ Accessibility for Users with Disabilities</h4>';
+                    html += '<div class="explainer-box">Makes your website usable for people with disabilities (blindness, motor impairments, etc.) and helps AI understand your content better. Alt text describes images for blind users. Labels connect form fields to their descriptions.</div>';
+                    html += '<table class="accessibility-table" style="margin-top: 10px;">';
+                    
                     if (semantic.forms.totalInputs > 0) {
                         const formClass = semantic.forms.labelPercentage >= 90 ? 'good' : semantic.forms.labelPercentage >= 70 ? 'ok' : 'poor';
+                        const formIcon = semantic.forms.labelPercentage >= 90 ? '✅' : semantic.forms.labelPercentage >= 70 ? '⚠️' : '❌';
                         html += '<tr>';
-                        html += '<td>Form Inputs with Labels</td>';
-                        html += `<td class="${formClass}">${semantic.forms.labeledInputs}/${semantic.forms.totalInputs} (${semantic.forms.labelPercentage}%)</td>`;
+                        html += `<td><strong>Form Inputs with Labels</strong><br><small>Labels tell users (and AI) what each form field is for</small></td>`;
+                        html += `<td class="${formClass}">${formIcon} ${semantic.forms.labeledInputs}/${semantic.forms.totalInputs} (${semantic.forms.labelPercentage}%)</td>`;
                         html += '</tr>';
+                        if (semantic.forms.labelPercentage < 90) {
+                            html += '<tr><td colspan="2" class="impact-box"><strong>Impact:</strong> ' + (semantic.forms.totalInputs - semantic.forms.labeledInputs) + ' form field(s) have no label. Screen reader users won\'t know what to enter. Add &lt;label for="fieldId"&gt; tags.</td></tr>';
+                        }
                     }
+                    
                     if (semantic.images.totalImages > 0) {
                         const imgClass = semantic.images.altPercentage >= 90 ? 'good' : semantic.images.altPercentage >= 70 ? 'ok' : 'poor';
+                        const imgIcon = semantic.images.altPercentage >= 90 ? '✅' : semantic.images.altPercentage >= 70 ? '⚠️' : '❌';
                         html += '<tr>';
-                        html += '<td>Images with Alt Text</td>';
-                        html += `<td class="${imgClass}">${semantic.images.imagesWithAlt}/${semantic.images.totalImages} (${semantic.images.altPercentage}%)</td>`;
+                        html += `<td><strong>Images with Alt Text</strong><br><small>Alt text describes images for blind users and AI</small></td>`;
+                        html += `<td class="${imgClass}">${imgIcon} ${semantic.images.imagesWithAlt}/${semantic.images.totalImages} (${semantic.images.altPercentage}%)</td>`;
                         html += '</tr>';
+                        if (semantic.images.altPercentage < 90) {
+                            html += '<tr><td colspan="2" class="impact-box"><strong>Impact:</strong> ' + (semantic.images.totalImages - semantic.images.imagesWithAlt) + ' image(s) have no alt text. Blind users hear "image" with no context. Add alt="description" to all images (use alt="" for decorative images).</td></tr>';
+                        }
                     }
+                    
                     html += '</table>';
+                    if (semantic.forms.labelPercentage >= 90 && semantic.images.altPercentage >= 90) {
+                        html += '<div class="benefit-box" style="margin-top: 10px;"><strong>✅ Excellent accessibility!</strong> Your forms and images are properly labeled, making your site usable for everyone.</div>';
+                    }
                     html += '</div>';
                 }
                 
                 // Issues
                 if (semantic.issues && semantic.issues.length > 0) {
-                    html += '<div class="semantic-issues">';
+                    html += '<div class="semantic-issues" style="margin-top: 20px;">';
                     html += '<h4>⚠️ Issues Found</h4>';
                     html += '<ul>';
                     semantic.issues.forEach(issue => {
                         html += `<li>${issue}</li>`;
                     });
                     html += '</ul>';
+                    html += '<div class="impact-box"><strong>Overall Impact:</strong> These issues make your site harder to use for people with disabilities and harder for AI to understand. Fixing them improves accessibility and SEO.</div>';
                     html += '</div>';
                 }
                 
                 // Recommendations
                 if (semantic.recommendations && semantic.recommendations.length > 0) {
-                    html += '<div class="semantic-recommendations">';
+                    html += '<div class="semantic-recommendations" style="margin-top: 20px;">';
                     html += '<h4>💡 Recommendations</h4>';
                     html += '<ul>';
                     semantic.recommendations.forEach(rec => {
@@ -742,7 +966,7 @@
                     html += '</div>';
                 }
                 
-                html += '<div class="section-footer">Used by AI-enabled browsers • Learn more at <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA" target="_blank">MDN Web Docs →</a></div>';
+                html += '<div class="section-footer">Used by AI-enabled browsers, screen readers, and voice assistants • Learn more at <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA" target="_blank">MDN Web Docs →</a></div>';
                 html += '</div>';
             }
             
@@ -759,6 +983,16 @@
             
             html += '</div>';
             document.getElementById('aiReadinessOutput').innerHTML = html;
+        }
+        
+        // Toggle rules visibility
+        function toggleRules(rulesId) {
+            const rulesEl = document.getElementById(rulesId);
+            if (rulesEl) {
+                rulesEl.classList.toggle('show');
+                const toggleBtn = event.target;
+                toggleBtn.textContent = rulesEl.classList.contains('show') ? 'Hide rules ▲' : 'View rules ▼';
+            }
         }
         
         function renderInsights(data) {
@@ -825,7 +1059,7 @@
             // Recommended
             if (insights.recommended.length > 0) {
                 html += '<div class="insight-section">';
-                html += '<div class="insight-header">🟢 Recommended Improvements</div>';
+                html += '<div class="insight-header">🔵 Recommended Improvements</div>';
                 insights.recommended.forEach(issue => {
                     html += `<div class="insight-card recommended">`;
                     html += `<div class="insight-title">${issue.title}</div>`;
@@ -840,6 +1074,14 @@
             
             html += '</div>';
             document.getElementById('insightsOutput').innerHTML = html;
+            
+            // Add event delegation for AI Readiness tab links
+            document.getElementById('insightsOutput').addEventListener('click', (e) => {
+                if (e.target.classList.contains('switch-to-ai-tab')) {
+                    e.preventDefault();
+                    document.querySelector('[data-tab="ai-readiness"]').click();
+                }
+            });
         }
         
         function analyzeInsights(data) {
@@ -979,7 +1221,8 @@
                             referenceText: 'Google Product Image Guidelines'
                         });
                     } else {
-                        insights.strengths.push('Product image(s) present');
+                        const imageCount = Array.isArray(product.image) ? product.image.length : 1;
+                        insights.strengths.push(`Product image(s): ${imageCount} image${imageCount !== 1 ? 's' : ''}`);
                     }
                     
                     // Check for price/offer - E-COMMERCE EXPANDED
@@ -996,7 +1239,10 @@
                             referenceText: 'Google Product Offer Requirements'
                         });
                     } else {
-                        insights.strengths.push('Pricing information present');
+                        const priceOffer = offerArray.find(o => o.priceCurrency);
+                        const currency = priceOffer?.priceCurrency || '';
+                        const currencyInfo = currency ? ` in ${currency}` : '';
+                        insights.strengths.push(`Pricing information present${currencyInfo}`);
                         
                         // E-COMMERCE: Deep offer analysis
                         offerArray.forEach(offer => {
@@ -1025,7 +1271,9 @@
                             } else {
                                 const availabilityStr = String(offer.availability).toLowerCase();
                                 if (availabilityStr.includes('instock')) {
-                                    insights.strengths.push('Product marked as In Stock');
+                                    const availType = availabilityStr.includes('onlineonly') ? ' (Online Only)' : 
+                                                     availabilityStr.includes('instoreonly') ? ' (In Store Only)' : '';
+                                    insights.strengths.push(`Product availability: In Stock${availType}`);
                                 } else if (availabilityStr.includes('outofstock')) {
                                     insights.recommended.push({
                                         title: 'Product Marked Out of Stock',
@@ -1049,7 +1297,11 @@
                                     referenceText: 'Schema.org Shipping Details'
                                 });
                             } else {
-                                insights.strengths.push('Shipping information included');
+                                const shippingDetails = [];
+                                if (offer.deliveryTime) shippingDetails.push('delivery time specified');
+                                if (offer.shippingRate) shippingDetails.push('shipping rate');
+                                const detailStr = shippingDetails.length > 0 ? ` (${shippingDetails.join(', ')})` : '';
+                                insights.strengths.push(`Shipping information included${detailStr}`);
                             }
                             
                             // E-COMMERCE: Check for return policy
@@ -1063,7 +1315,14 @@
                                     referenceText: 'Schema.org Return Policy'
                                 });
                             } else {
-                                insights.strengths.push('Return policy information included');
+                                const policy = offer.hasMerchantReturnPolicy || product.hasMerchantReturnPolicy;
+                                let policyInfo = '';
+                                if (policy && policy.returnPolicyCategory) {
+                                    policyInfo = ` (${policy.returnPolicyCategory})`;
+                                } else if (policy && policy.merchantReturnDays) {
+                                    policyInfo = ` (${policy.merchantReturnDays} days)`;
+                                }
+                                insights.strengths.push(`Return policy information included${policyInfo}`);
                             }
                             
                             // E-COMMERCE: Check for price validity dates
@@ -1337,7 +1596,11 @@
                             referenceText: 'Schema.org Product Specification'
                         });
                     } else {
-                        insights.strengths.push('Product description present');
+                        const descLength = product.description.length;
+                        const lengthNote = descLength < 100 ? ' (short - consider expanding)' : 
+                                         descLength > 500 ? ' (detailed)' : 
+                                         ' (good length)';
+                        insights.strengths.push(`Product description present${lengthNote}`);
                     }
                     
                     // Check for brand
@@ -1376,7 +1639,14 @@
                     
                     // E-COMMERCE: Check for warranty information
                     if (product.warranty) {
-                        insights.strengths.push('Warranty information included');
+                        const warranty = product.warranty;
+                        let warrantyInfo = '';
+                        if (warranty.durationOfWarranty) {
+                            warrantyInfo = ` (${warranty.durationOfWarranty})`;
+                        } else if (warranty.warrantyDuration) {
+                            warrantyInfo = ` (${warranty.warrantyDuration})`;
+                        }
+                        insights.strengths.push(`Warranty information included${warrantyInfo}`);
                     }
                 });
                 
@@ -1465,7 +1735,17 @@
             
             // Organization checks
             if (hasOrganization) {
-                insights.strengths.push('Organization data present');
+                const orgs = findItemsByType(data.jsonld, 'Organization');
+                if (orgs.length > 0) {
+                    const org = orgs[0];
+                    const orgDetails = [];
+                    if (org.name) orgDetails.push(`name: "${org.name}"`);
+                    if (org.logo) orgDetails.push('logo');
+                    if (org.url) orgDetails.push('website');
+                    if (org.sameAs) orgDetails.push(`${Array.isArray(org.sameAs) ? org.sameAs.length : 1} social profile(s)`);
+                    const detailStr = orgDetails.length > 0 ? ` (${orgDetails.join(', ')})` : '';
+                    insights.strengths.push(`Organization data present${detailStr}`);
+                }
             } else {
                 insights.recommended.push({
                     title: 'Add Organization Structured Data',
@@ -1480,7 +1760,14 @@
             // Breadcrumb checks
             if (hasBreadcrumb) {
                 insights.richResults.push({ name: 'Breadcrumbs', status: 'eligible', icon: '✅' });
-                insights.strengths.push('Breadcrumb navigation structured data present');
+                const breadcrumbs = findItemsByType(data.jsonld, 'BreadcrumbList');
+                if (breadcrumbs.length > 0) {
+                    const bc = breadcrumbs[0];
+                    const itemCount = bc.itemListElement ? (Array.isArray(bc.itemListElement) ? bc.itemListElement.length : 1) : 0;
+                    insights.strengths.push(`Breadcrumb navigation: ${itemCount} level${itemCount !== 1 ? 's' : ''} of hierarchy`);
+                } else {
+                    insights.strengths.push('Breadcrumb navigation structured data present');
+                }
             } else {
                 insights.recommended.push({
                     title: 'Add Breadcrumb Structured Data',
@@ -1516,6 +1803,168 @@
                         reference: 'https://schema.org/Car',
                         referenceText: 'Schema.org Vehicle Types'
                     });
+                }
+            }
+            
+            // AI Readiness Integration
+            if (data.aiReadiness) {
+                const ar = data.aiReadiness;
+                
+                // Check .well-known files (it's an object, not an array)
+                if (ar.wellKnown) {
+                    const wk = ar.wellKnown;
+                    
+                    // Map technical field names to user-friendly descriptions
+                    const fileDescriptions = {
+                        'aiPluginJson': { name: 'ai-plugin.json', desc: 'AI Plugin manifest (ChatGPT/Claude integration ready)' },
+                        'mcpJson': { name: 'mcp.json', desc: 'Model Context Protocol (MCP) server available' },
+                        'openidConfiguration': { name: 'openid-configuration', desc: 'OpenID Connect authentication configured' },
+                        'securityTxt': { name: 'security.txt', desc: 'Security contact information available' },
+                        'appleAppSiteAssociation': { name: 'apple-app-site-association', desc: 'Apple Universal Links configured' },
+                        'assetlinks': { name: 'assetlinks.json', desc: 'Android App Links configured' }
+                    };
+                    
+                    // Check each .well-known file
+                    for (const [fieldName, info] of Object.entries(fileDescriptions)) {
+                        const fileStatus = wk[fieldName];
+                        if (fileStatus && fileStatus.found && fileStatus.valid !== false) {
+                            insights.strengths.push(info.desc);
+                        }
+                    }
+                    
+                    // Check for missing important AI readiness files
+                    const hasAiPlugin = wk.aiPluginJson?.found && wk.aiPluginJson?.valid !== false;
+                    const hasMcpJson = wk.mcpJson?.found && wk.mcpJson?.valid !== false;
+                    const hasSecurityTxt = wk.securityTxt?.found && wk.securityTxt?.valid !== false;
+                    
+                    if (!hasAiPlugin) {
+                        insights.recommended.push({
+                            title: 'Add AI Plugin Manifest',
+                            why: 'An ai-plugin.json file enables ChatGPT and Claude to discover and interact with your API or services. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                            fix: 'Create /.well-known/ai-plugin.json with API description, authentication, and endpoint information.',
+                            impact: 'Enables AI assistant integration',
+                            reference: 'https://platform.openai.com/docs/plugins/introduction',
+                            referenceText: 'OpenAI Plugin Documentation'
+                        });
+                    }
+                    
+                    if (!hasMcpJson) {
+                        insights.recommended.push({
+                            title: 'Add Model Context Protocol Server',
+                            why: 'MCP enables AI assistants to access your content and services in a standardized way. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                            fix: 'Create /.well-known/mcp.json defining your MCP server endpoints and capabilities.',
+                            impact: 'Enables standardized AI integration',
+                            reference: 'https://modelcontextprotocol.io/',
+                            referenceText: 'Model Context Protocol Documentation'
+                        });
+                    }
+                    
+                    if (!hasSecurityTxt) {
+                        insights.recommended.push({
+                            title: 'Add Security Contact Information',
+                            why: 'security.txt provides a standard way for security researchers to contact you about vulnerabilities. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                            fix: 'Create /.well-known/security.txt with Contact, Expires, and optionally Preferred-Languages fields.',
+                            impact: 'Improves security posture and responsible disclosure',
+                            reference: 'https://securitytxt.org/',
+                            referenceText: 'Security.txt Standard'
+                        });
+                    }
+                }
+                
+                // Check AI Plugin
+                if (ar.aiPlugin && ar.aiPlugin.valid) {
+                    insights.strengths.push(`AI Plugin: "${ar.aiPlugin.name}" - ${ar.aiPlugin.description}`);
+                }
+                
+                // Check MCP
+                if (ar.mcp && ar.mcp.valid) {
+                    const capabilities = [];
+                    if (ar.mcp.hasResourcesCapability) capabilities.push('resources');
+                    if (ar.mcp.hasToolsCapability) capabilities.push('tools');
+                    if (ar.mcp.hasPromptsCapability) capabilities.push('prompts');
+                    const capStr = capabilities.length > 0 ? ` (${capabilities.join(', ')})` : '';
+                    insights.strengths.push(`MCP Server: "${ar.mcp.name}"${capStr}`);
+                }
+                
+                // Check OpenAPI
+                if (ar.openapi && ar.openapi.valid) {
+                    insights.strengths.push(`OpenAPI Specification: ${ar.openapi.operationCount} endpoint(s) documented`);
+                } else if (!ar.openapi) {
+                    insights.recommended.push({
+                        title: 'Add OpenAPI Specification',
+                        why: 'OpenAPI specs enable automatic API documentation, client generation, and AI integration. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                        fix: 'Create an OpenAPI 3.0+ specification and link it via <link rel="service-desc"> in HTML head or document it in ai-plugin.json.',
+                        impact: 'Enables API discovery and integration',
+                        reference: 'https://swagger.io/specification/',
+                        referenceText: 'OpenAPI Specification'
+                    });
+                }
+                
+                // Check robots.txt
+                if (ar.robotsTxt && ar.robotsTxt.found) {
+                    const sitemapInfo = ar.robotsTxt.sitemapCount > 0 ? ` with ${ar.robotsTxt.sitemapCount} sitemap(s)` : '';
+                    insights.strengths.push(`robots.txt: Provides crawling guidance${sitemapInfo}`);
+                } else if (!ar.robotsTxt || !ar.robotsTxt.found) {
+                    insights.recommended.push({
+                        title: 'Add robots.txt File',
+                        why: 'robots.txt tells search engines and AI crawlers which parts of your site to access. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                        fix: 'Create /robots.txt with User-agent rules and optionally a Sitemap reference.',
+                        impact: 'Controls crawler behavior',
+                        reference: 'https://developers.google.com/search/docs/crawling-indexing/robots/intro',
+                        referenceText: 'Google Robots.txt Guide'
+                    });
+                }
+                
+                // Check sitemap
+                if (ar.sitemap && ar.sitemap.found) {
+                    const urlInfo = ar.sitemap.urlCount > 0 ? ` (${ar.sitemap.urlCount} URL${ar.sitemap.urlCount !== 1 ? 's' : ''})` : '';
+                    insights.strengths.push(`XML Sitemap: Helps search engines discover content${urlInfo}`);
+                } else if (!ar.sitemap || !ar.sitemap.found) {
+                    insights.recommended.push({
+                        title: 'Add XML Sitemap',
+                        why: 'XML sitemaps help search engines discover and index all your important pages. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                        fix: 'Generate an XML sitemap and reference it in robots.txt or submit it via Google Search Console.',
+                        impact: 'Improves indexing coverage',
+                        reference: 'https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview',
+                        referenceText: 'Google Sitemap Guide'
+                    });
+                }
+                
+                // Check semantic HTML
+                if (ar.semanticHtml) {
+                    const sh = ar.semanticHtml;
+                    const hasLandmarks = sh.landmarks && (sh.landmarks.hasMain || sh.landmarks.hasNavigation || sh.landmarks.hasHeader || sh.landmarks.hasFooter);
+                    const hasGoodHeadings = sh.headings && sh.headings.hasSingleH1 && sh.headings.properHierarchy;
+                    const hasGoodImages = sh.images && sh.images.totalImages > 0 && sh.images.altPercentage > 80;
+                    
+                    if (hasLandmarks) {
+                        const landmarkDetails = [];
+                        if (sh.landmarks.hasMain) landmarkDetails.push('main');
+                        if (sh.landmarks.hasNavigation) landmarkDetails.push('nav');
+                        if (sh.landmarks.hasHeader) landmarkDetails.push('header');
+                        if (sh.landmarks.hasFooter) landmarkDetails.push('footer');
+                        if (sh.landmarks.articleCount > 0) landmarkDetails.push(`${sh.landmarks.articleCount} article${sh.landmarks.articleCount !== 1 ? 's' : ''}`);
+                        insights.strengths.push(`Semantic HTML: Using ${landmarkDetails.join(', ')} elements`);
+                    }
+                    
+                    if (hasGoodHeadings) {
+                        insights.strengths.push('Heading Structure: Single H1 with proper hierarchy');
+                    }
+                    
+                    if (hasGoodImages) {
+                        insights.strengths.push(`Image Accessibility: ${sh.images.altPercentage}% have alt text`);
+                    }
+                    
+                    if (!hasLandmarks) {
+                        insights.recommended.push({
+                            title: 'Use Semantic HTML5 Landmark Elements',
+                            why: 'Semantic landmarks help search engines and AI understand your content structure. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                            fix: 'Replace generic <div> tags with semantic elements like <main>, <nav>, <header>, <footer>, <article>, <section>, <aside>.',
+                            impact: 'Improves content understanding and accessibility',
+                            reference: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element',
+                            referenceText: 'MDN HTML Elements Reference'
+                        });
+                    }
                 }
             }
             
