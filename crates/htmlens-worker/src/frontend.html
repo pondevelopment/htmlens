@@ -372,18 +372,31 @@
         .file-check { 
             padding: 14px; 
             margin: 10px 0; 
-            background: rgba(126,231,135,0.08);
+            background: rgba(255,255,255,0.03);
             border-radius: 8px; 
             font-size: 14px; 
-            border-left: 3px solid #7ee787;
+            border-left: 3px solid rgba(255,255,255,0.08);
+            color: #c7c9d3;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+
+        .file-check.found {
+            background: rgba(126,231,135,0.08);
+            border-left-color: #7ee787;
             color: #7ee787;
+        }
+
+        .file-check.missing {
+            background: rgba(255,107,107,0.08);
+            border-left-color: #ff6b6b;
+            color: #ff6b6b;
         }
         
         .file-check.critical-missing { 
-            background: rgba(255,166,87,0.08);
-            border-left: 4px solid #ffa657; 
-            color: #ffa657;
-            font-weight: 500; 
+            background: rgba(255,255,255,0.02);
+            border-left: 4px solid #ff3366; 
+            color: #ff6f91;
+            font-weight: 600; 
         }
         
         .invalid { color: #ff6b6b; font-weight: bold; font-size: 12px; }
@@ -786,7 +799,7 @@
                     key: 'aiPluginJson', 
                     label: '🤖 ai-plugin.json (ChatGPT)', 
                     critical: true,
-                    docs: 'https://platform.openai.com/docs/plugins/getting-started/plugin-manifest',
+                    docs: 'https://platform.openai.com/docs/gpts/actions',
                     description: 'ChatGPT plugin manifest for AI integration',
                     explainer: 'Tells ChatGPT how to interact with your website as a plugin. Think of it like an instruction manual for AI assistants.',
                     benefit: 'Your website can become a ChatGPT plugin, allowing millions of users to access your data/services directly through ChatGPT conversations.',
@@ -845,11 +858,15 @@
             ];
             
             checks.forEach(check => {
-                const file = aiReadiness.wellKnown[check.key];
+                const file = aiReadiness.wellKnown?.[check.key] || { found: false, status: 'Not checked', valid: null };
                 const icon = file.found ? '✅' : '❌';
                 const statusText = file.found ? `Found (${file.status})` : `Not found (${file.status})`;
-                const criticalClass = check.critical && !file.found ? 'critical-missing' : '';
-                html += `<div class="file-check ${criticalClass}">`;
+                const stateClass = file.found ? 'found' : 'missing';
+                const classList = ['file-check', stateClass];
+                if (check.critical && !file.found) {
+                    classList.push('critical-missing');
+                }
+                html += `<div class="${classList.join(' ')}">`;
                 html += `<div>${icon} <strong>${check.label}</strong>: ${statusText}`;
                 if (file.valid === false) html += ' <span class="invalid">(Invalid JSON)</span>';
                 html += '</div>';
@@ -879,7 +896,7 @@
             if (aiReadiness.aiPlugin) {
                 const plugin = aiReadiness.aiPlugin;
                 html += '<div class="ai-plugin-status">';
-                html += '<h4>🎯 AI Plugin Manifest (OpenAI) <a href="https://platform.openai.com/docs/plugins" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                html += '<h4>🎯 AI Plugin Manifest (OpenAI) <a href="https://platform.openai.com/docs/gpts/actions" target="_blank" class="docs-link">📚 Docs</a></h4>';
                 
                 html += '<div class="explainer-box">';
                 html += '<p><strong>What is this?</strong> Your website has a ChatGPT plugin configuration file! This means ChatGPT can interact with your website\'s API directly.</p>';
@@ -897,7 +914,7 @@
                     html += '<div class="plugin-issues"><strong>⚠️ Configuration Issues:</strong> ' + plugin.issues.join(', ') + '</div>';
                     html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent ChatGPT from properly connecting to your API. Fix them to ensure smooth integration.</div>';
                 }
-                html += '<div class="section-footer">Learn how to create ChatGPT plugins at <a href="https://platform.openai.com/docs/plugins/getting-started" target="_blank">OpenAI Platform →</a></div>';
+                html += '<div class="section-footer">Learn how to create ChatGPT plugins at <a href="https://platform.openai.com/docs/gpts/actions" target="_blank">OpenAI Platform →</a></div>';
                 html += '</div>';
             }
             
@@ -2208,7 +2225,7 @@
                             why: 'An ai-plugin.json file enables ChatGPT and Claude to discover and interact with your API or services. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
                             fix: 'Create /.well-known/ai-plugin.json with API description, authentication, and endpoint information.',
                             impact: 'Enables AI assistant integration',
-                            reference: 'https://platform.openai.com/docs/plugins/introduction',
+                            reference: 'https://platform.openai.com/docs/gpts/actions',
                             referenceText: 'OpenAI Plugin Documentation'
                         });
                     }

@@ -1,7 +1,7 @@
 //! AI Plugin Manifest validation
 //!
 //! Validates ChatGPT plugin manifests according to the specification.
-//! See: https://platform.openai.com/docs/plugins
+//! See: https://platform.openai.com/docs/gpts/actions
 
 #[cfg(feature = "ai-readiness")]
 use anyhow::Result;
