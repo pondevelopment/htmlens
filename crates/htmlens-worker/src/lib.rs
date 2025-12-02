@@ -332,8 +332,11 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
 }
 
 async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
-    console_log!("[AI Readiness] Checking .well-known files for: {}", base_url);
-    
+    console_log!(
+        "[AI Readiness] Checking .well-known files for: {}",
+        base_url
+    );
+
     let files = vec![
         ("ai-plugin.json", "aiPluginJson"),
         ("mcp.json", "mcpJson"),
@@ -379,30 +382,57 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
     for (filename, _) in files {
         let url = format!("{}/.well-known/{}", base_url, filename);
         console_log!("[.well-known] Checking: {}", url);
-        
+
         // Create request with redirect set to "manual" to prevent following redirects
         let mut init = RequestInit::new();
         init.with_redirect(RequestRedirect::Manual);
-        
+
         if let Ok(request) = Request::new_with_init(&url, &init)
             && let Ok(mut response) = Fetch::Request(request).send().await
         {
-                let status = response.status_code();
-                
-                // For JSON files, validate the content even if status is 200
-                // (some servers return 200 with HTML error pages)
-                let (found, valid) = if filename.ends_with(".json") 
+            let status = response.status_code();
+
+            // First check: HTTP status must be 200 (success)
+            // A 404/403/etc should never be considered "found" even if valid JSON
+            if status != 200 {
+                console_log!("[.well-known] {} - Not found (HTTP {})", filename, status);
+                let file_status = FileStatus {
+                    found: false,
+                    status,
+                    valid: None,
+                };
+                match filename {
+                    "ai-plugin.json" => results.ai_plugin_json = file_status,
+                    "mcp.json" => results.mcp_json = file_status,
+                    "openid-configuration" => results.openid_configuration = file_status,
+                    "security.txt" => results.security_txt = file_status,
+                    "apple-app-site-association" => {
+                        results.apple_app_site_association = file_status
+                    }
+                    "assetlinks.json" => results.assetlinks = file_status,
+                    _ => {}
+                }
+                continue;
+            }
+
+            // For JSON files, validate the content
+            // (some servers return 200 with HTML error pages)
+            let (found, valid) = if filename.ends_with(".json") 
                     || filename == "openid-configuration"  // OpenID config is JSON even without .json extension
-                    || filename == "apple-app-site-association"  // Apple Universal Links config is JSON
-                {
-                    if let Ok(text) = response.text().await {
-                        // Check if it's actually valid JSON
+                    || filename == "apple-app-site-association"
+            // Apple Universal Links config is JSON
+            {
+                if let Ok(text) = response.text().await {
+                    // Check if it's actually valid JSON
                     if serde_json::from_str::<serde_json::Value>(&text).is_ok() {
                         console_log!("[.well-known] {} - Valid JSON found", filename);
                         (true, Some(true))
                     } else {
                         // Status was 200 but content is not valid JSON (likely error page)
-                        console_log!("[.well-known] {} - Invalid JSON (likely redirected to error page)", filename);
+                        console_log!(
+                            "[.well-known] {} - Invalid JSON (likely redirected to error page)",
+                            filename
+                        );
                         (false, Some(false))
                     }
                 } else {
@@ -410,9 +440,8 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
                     (false, None)
                 }
             } else {
-                // For non-JSON files (like security.txt), just check status
-                let found = status == 200;
-                (found, None)
+                // For non-JSON files (like security.txt), status 200 means found
+                (true, None)
             };
 
             console_log!(
@@ -743,23 +772,25 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
                 let mut urls_with_priority = 0;
                 let mut priority_sum = 0.0;
                 let mut all_sample_urls = Vec::new();
-                
+
                 for nested_url in &analysis.nested_sitemaps {
                     if let Ok(nested_parsed) = Url::parse(nested_url)
                         && let Ok(mut nested_response) = Fetch::Url(nested_parsed).send().await
                         && nested_response.status_code() == 200
                         && let Ok(nested_xml) = nested_response.text().await
-                        && let Ok(nested_analysis) = sitemap::parse_sitemap(&nested_xml, &root_origin)
+                        && let Ok(nested_analysis) =
+                            sitemap::parse_sitemap(&nested_xml, &root_origin)
                     {
                         total_urls += nested_analysis.url_count;
                         urls_with_lastmod += nested_analysis.statistics.urls_with_lastmod;
                         urls_with_priority += nested_analysis.statistics.urls_with_priority;
-                        priority_sum += nested_analysis.statistics.avg_priority * nested_analysis.statistics.urls_with_priority as f32;
+                        priority_sum += nested_analysis.statistics.avg_priority
+                            * nested_analysis.statistics.urls_with_priority as f32;
                         // Collect some sample URLs from nested sitemaps
                         all_sample_urls.extend(nested_analysis.url_entries.iter().take(3).cloned());
                     }
                 }
-                
+
                 // Update analysis with aggregated data
                 if total_urls > 0 {
                     analysis.url_count = total_urls;
@@ -774,7 +805,7 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
                     analysis.url_entries = all_sample_urls;
                 }
             }
-            
+
             // Convert to Worker's SitemapStatus format
             let sitemap_type = match analysis.sitemap_type {
                 sitemap::SitemapType::Standard => "standard",
@@ -830,7 +861,7 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
             let mut urls_with_priority = 0;
             let mut priority_sum = 0.0;
             let mut all_sample_urls = Vec::new();
-            
+
             for nested_url in &analysis.nested_sitemaps {
                 if let Ok(nested_parsed) = Url::parse(nested_url)
                     && let Ok(mut nested_response) = Fetch::Url(nested_parsed).send().await
@@ -841,12 +872,13 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
                     total_urls += nested_analysis.url_count;
                     urls_with_lastmod += nested_analysis.statistics.urls_with_lastmod;
                     urls_with_priority += nested_analysis.statistics.urls_with_priority;
-                    priority_sum += nested_analysis.statistics.avg_priority * nested_analysis.statistics.urls_with_priority as f32;
+                    priority_sum += nested_analysis.statistics.avg_priority
+                        * nested_analysis.statistics.urls_with_priority as f32;
                     // Collect some sample URLs from nested sitemaps
                     all_sample_urls.extend(nested_analysis.url_entries.iter().take(3).cloned());
                 }
             }
-            
+
             // Update analysis with aggregated data
             if total_urls > 0 {
                 analysis.url_count = total_urls;
@@ -861,7 +893,7 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
                 analysis.url_entries = all_sample_urls;
             }
         }
-        
+
         let sitemap_type = match analysis.sitemap_type {
             sitemap::SitemapType::Standard => "standard",
             sitemap::SitemapType::Index => "index",
