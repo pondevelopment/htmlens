@@ -1125,28 +1125,79 @@ fn format_cli_style_markdown(
     }
 
     md.push_str(&format!("**URL**: {}\n", url));
-    md.push_str(&format!("**JSON-LD Blocks**: {}\n\n", jsonld_blocks.len()));
 
     // Extract different entity types
     let mut organizations = Vec::new();
     let mut product_groups = Vec::new();
     let mut products = Vec::new();
     let mut breadcrumbs = Vec::new();
+    let mut webpages = Vec::new();
+    let mut websites = Vec::new();
+    let mut images = Vec::new();
+    let mut articles = Vec::new();
+    let mut news_articles = Vec::new();
+    let mut reviews = Vec::new();
+    let mut local_businesses = Vec::new();
+    let mut events = Vec::new();
+    let mut videos = Vec::new();
     let mut other_entities = Vec::new();
 
+    // First, flatten any @graph structures into individual entities
+    let mut all_entities: Vec<&serde_json::Value> = Vec::new();
     for block in jsonld_blocks {
-        let entity_type = block
+        // Check if this block contains a @graph array
+        if let Some(graph) = block.get("@graph").and_then(|g| g.as_array()) {
+            // Add each item from the graph
+            for item in graph {
+                all_entities.push(item);
+            }
+        } else {
+            // Direct entity (no @graph wrapper)
+            all_entities.push(block);
+        }
+    }
+
+    for entity in all_entities {
+        let entity_type = entity
             .get("@type")
             .and_then(|t| t.as_str())
             .unwrap_or("Unknown");
         match entity_type {
-            "Organization" => organizations.push(block),
-            "ProductGroup" => product_groups.push(block),
-            "Product" => products.push(block),
-            "BreadcrumbList" => breadcrumbs.push(block),
-            _ => other_entities.push((entity_type, block)),
+            "Organization" => organizations.push(entity),
+            "ProductGroup" => product_groups.push(entity),
+            "Product" => products.push(entity),
+            "BreadcrumbList" => breadcrumbs.push(entity),
+            "WebPage" => webpages.push(entity),
+            "WebSite" => websites.push(entity),
+            "ImageObject" => images.push(entity),
+            "Article" | "BlogPosting" => articles.push(entity),
+            "NewsArticle" => news_articles.push(entity),
+            "Review" => reviews.push(entity),
+            "AggregateRating" => reviews.push(entity),
+            "LocalBusiness" | "Restaurant" | "Store" => local_businesses.push(entity),
+            "Event" => events.push(entity),
+            "VideoObject" => videos.push(entity),
+            _ => other_entities.push((entity_type, entity)),
         }
     }
+
+    // Count total entities
+    let total_entities = organizations.len()
+        + product_groups.len()
+        + products.len()
+        + breadcrumbs.len()
+        + webpages.len()
+        + websites.len()
+        + images.len()
+        + articles.len()
+        + news_articles.len()
+        + reviews.len()
+        + local_businesses.len()
+        + events.len()
+        + videos.len()
+        + other_entities.len();
+
+    md.push_str(&format!("**Structured Data Entities Found**: {}\n\n", total_entities));
 
     // Render Organizations
     if !organizations.is_empty() {
@@ -1390,6 +1441,69 @@ fn format_cli_style_markdown(
         md.push('\n');
     }
 
+    // Render WebSite info
+    if !websites.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("🌐 WebSite\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for site in &websites {
+            if let Some(name) = site.get("name").and_then(|n| n.as_str()) {
+                md.push_str(&format!("• Name             : {}\n", name));
+            }
+            if let Some(url) = site.get("url").and_then(|u| u.as_str()) {
+                md.push_str(&format!("• URL              : {}\n", url));
+            }
+            if let Some(desc) = site.get("description").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Description      : {}\n", desc));
+            }
+            if let Some(lang) = site.get("inLanguage").and_then(|l| l.as_str()) {
+                md.push_str(&format!("• Language         : {}\n", lang));
+            }
+            // Check for search action
+            if let Some(actions) = site.get("potentialAction").and_then(|a| a.as_array()) {
+                for action in actions {
+                    if action.get("@type").and_then(|t| t.as_str()) == Some("SearchAction") {
+                        md.push_str("• Search           : ✅ Site search enabled\n");
+                    }
+                }
+            }
+        }
+        md.push('\n');
+    }
+
+    // Render WebPage info
+    if !webpages.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("📄 WebPage\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for page in &webpages {
+            if let Some(name) = page.get("name").and_then(|n| n.as_str()) {
+                md.push_str(&format!("• Name             : {}\n", name));
+            }
+            if let Some(url) = page.get("url").and_then(|u| u.as_str()) {
+                md.push_str(&format!("• URL              : {}\n", url));
+            }
+            if let Some(desc) = page.get("description").and_then(|d| d.as_str()) {
+                let truncated = if desc.len() > 100 {
+                    format!("{}...", &desc[..100])
+                } else {
+                    desc.to_string()
+                };
+                md.push_str(&format!("• Description      : {}\n", truncated));
+            }
+            if let Some(lang) = page.get("inLanguage").and_then(|l| l.as_str()) {
+                md.push_str(&format!("• Language         : {}\n", lang));
+            }
+            if let Some(published) = page.get("datePublished").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Published        : {}\n", published));
+            }
+            if let Some(modified) = page.get("dateModified").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Modified         : {}\n", modified));
+            }
+        }
+        md.push('\n');
+    }
+
     // Render other entities
     if !other_entities.is_empty() {
         md.push_str("─────────────────────────────────────────────────────────────\n");
@@ -1410,10 +1524,170 @@ fn format_cli_style_markdown(
         md.push('\n');
     }
 
+    // Render Articles & BlogPosts
+    if !articles.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("📝 Article / BlogPost\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for article in articles {
+            if let Some(headline) = article.get("headline").and_then(|h| h.as_str()) {
+                md.push_str(&format!("• Title            : {}\n", headline));
+            }
+            if let Some(author) = article.get("author") {
+                if let Some(name) = author.get("name").and_then(|n| n.as_str()) {
+                    md.push_str(&format!("• Author           : {}\n", name));
+                } else if let Some(author_str) = author.as_str() {
+                    md.push_str(&format!("• Author           : {}\n", author_str));
+                }
+            }
+            if let Some(published) = article.get("datePublished").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Published        : {}\n", published));
+            }
+            if let Some(modified) = article.get("dateModified").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Modified         : {}\n", modified));
+            }
+            if let Some(desc) = article.get("description").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Description      : {}\n", desc.trim_end()));
+            }
+        }
+        md.push('\n');
+    }
+
+    // Render News Articles
+    if !news_articles.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("📰 News Article\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for article in news_articles {
+            if let Some(headline) = article.get("headline").and_then(|h| h.as_str()) {
+                md.push_str(&format!("• Title            : {}\n", headline));
+            }
+            if let Some(author) = article.get("author") {
+                if let Some(name) = author.get("name").and_then(|n| n.as_str()) {
+                    md.push_str(&format!("• Author           : {}\n", name));
+                } else if let Some(author_str) = author.as_str() {
+                    md.push_str(&format!("• Author           : {}\n", author_str));
+                }
+            }
+            if let Some(published) = article.get("datePublished").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Published        : {}\n", published));
+            }
+            if let Some(image) = article.get("image") {
+                if let Some(url) = image.get("url").and_then(|u| u.as_str()) {
+                    md.push_str(&format!("• Image            : {}\n", url));
+                } else if let Some(url) = image.as_str() {
+                    md.push_str(&format!("• Image            : {}\n", url));
+                }
+            }
+        }
+        md.push('\n');
+    }
+
+    // Render Reviews & Ratings
+    if !reviews.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("⭐ Reviews & Ratings\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for review in reviews {
+            if let Some(name) = review.get("name").and_then(|n| n.as_str()) {
+                md.push_str(&format!("• Name             : {}\n", name));
+            }
+            if let Some(rating) = review.get("ratingValue").and_then(|r| r.as_f64()) {
+                if let Some(best) = review.get("bestRating").and_then(|b| b.as_f64()) {
+                    let stars = "★".repeat(rating as usize) + &"☆".repeat((best as usize) - (rating as usize));
+                    md.push_str(&format!("• Rating           : {} ({}/{})\n", stars, rating, best));
+                } else {
+                    md.push_str(&format!("• Rating           : {}\n", rating));
+                }
+            }
+            if let Some(count) = review.get("reviewCount").and_then(|c| c.as_u64()) {
+                md.push_str(&format!("• Review Count     : {}\n", count));
+            }
+        }
+        md.push('\n');
+    }
+
+    // Render LocalBusiness
+    if !local_businesses.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("🏪 Local Business\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for business in local_businesses {
+            if let Some(name) = business.get("name").and_then(|n| n.as_str()) {
+                md.push_str(&format!("• Name             : {}\n", name));
+            }
+            if let Some(address) = business.get("address") {
+                if let Some(street) = address.get("streetAddress").and_then(|s| s.as_str()) {
+                    md.push_str(&format!("• Address          : {}", street));
+                    if let Some(city) = address.get("addressLocality").and_then(|c| c.as_str()) {
+                        md.push_str(&format!(", {}", city));
+                    }
+                    md.push('\n');
+                }
+            }
+            if let Some(phone) = business.get("telephone").and_then(|p| p.as_str()) {
+                md.push_str(&format!("• Phone            : {}\n", phone));
+            }
+            if let Some(price) = business.get("priceRange").and_then(|p| p.as_str()) {
+                md.push_str(&format!("• Price Range      : {}\n", price));
+            }
+        }
+        md.push('\n');
+    }
+
+    // Render Events
+    if !events.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("🎯 Events\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for event in events {
+            if let Some(name) = event.get("name").and_then(|n| n.as_str()) {
+                md.push_str(&format!("• Name             : {}\n", name));
+            }
+            if let Some(start) = event.get("startDate").and_then(|s| s.as_str()) {
+                md.push_str(&format!("• Start Date       : {}\n", start));
+            }
+            if let Some(end) = event.get("endDate").and_then(|e| e.as_str()) {
+                md.push_str(&format!("• End Date         : {}\n", end));
+            }
+            if let Some(location) = event.get("location") {
+                if let Some(name) = location.get("name").and_then(|n| n.as_str()) {
+                    md.push_str(&format!("• Location         : {}\n", name));
+                }
+            }
+            if let Some(status) = event.get("eventStatus").and_then(|s| s.as_str()) {
+                md.push_str(&format!("• Status           : {}\n", status));
+            }
+        }
+        md.push('\n');
+    }
+
+    // Render Videos
+    if !videos.is_empty() {
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        md.push_str("🎬 Videos\n");
+        md.push_str("─────────────────────────────────────────────────────────────\n");
+        for video in videos {
+            if let Some(name) = video.get("name").and_then(|n| n.as_str()) {
+                md.push_str(&format!("• Title            : {}\n", name));
+            }
+            if let Some(duration) = video.get("duration").and_then(|d| d.as_str()) {
+                md.push_str(&format!("• Duration         : {}\n", duration));
+            }
+            if let Some(uploaded) = video.get("uploadDate").and_then(|u| u.as_str()) {
+                md.push_str(&format!("• Uploaded         : {}\n", uploaded));
+            }
+            if let Some(url) = video.get("contentUrl").and_then(|u| u.as_str()) {
+                md.push_str(&format!("• Content URL      : {}\n", url));
+            }
+        }
+        md.push('\n');
+    }
+
     md.push_str("─────────────────────────────────────────────────────────────\n");
     md.push_str(&format!(
-        "📊 Total: {} JSON-LD blocks\n",
-        jsonld_blocks.len()
+        "📊 Total: {} Structured Data Entities\n",
+        total_entities
     ));
 
     md

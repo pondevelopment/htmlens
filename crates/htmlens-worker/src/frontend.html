@@ -679,6 +679,12 @@
         });
         
         document.getElementById('analyzeBtn').addEventListener('click', analyze);
+        document.getElementById('urlInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                analyze();
+            }
+        });
         document.getElementById('clearBtn').addEventListener('click', () => {
             document.getElementById('urlInput').value = '';
             document.getElementById('results').classList.remove('active');
@@ -806,7 +812,30 @@
                 
                 // Technical Insights
                 summary += '📋 Technical Insights\n\n';
-                summary += `Structured Data Blocks: ${data.meta.jsonldCount}\n`;
+                
+                // Count total entities (including nested in @graph)
+                let entityCount = 0;
+                if (data.jsonld && Array.isArray(data.jsonld)) {
+                    function countEntities(items) {
+                        let count = 0;
+                        items.forEach(item => {
+                            if (item && typeof item === 'object') {
+                                // Count this entity if it has a @type
+                                if (item['@type']) {
+                                    count++;
+                                }
+                                // Recursively count entities in @graph
+                                if (item['@graph'] && Array.isArray(item['@graph'])) {
+                                    count += countEntities(item['@graph']);
+                                }
+                            }
+                        });
+                        return count;
+                    }
+                    entityCount = countEntities(data.jsonld);
+                }
+                
+                summary += `Structured Data Entities Found: ${entityCount}\n`;
                 summary += `Page Size: ${data.meta.htmlLength.toLocaleString()} characters\n`;
                 summary += `SEO Optimization: ✅ Yes (JSON-LD present)\n`;
                 
@@ -1561,12 +1590,34 @@
                 ? [...new Set(data.graph.nodes.flatMap(n => n.types || []))]
                 : [];
             
-            const entityTypesFromJsonLd = data.jsonld 
-                ? [...new Set(data.jsonld.flatMap(item => {
-                    const type = item['@type'];
-                    return Array.isArray(type) ? type : (type ? [type] : []);
-                }))]
-                : [];
+            // Extract types from jsonld, including nested @graph structures
+            const extractTypesFromJsonLd = (jsonld) => {
+                const types = new Set();
+                
+                function extractType(item) {
+                    if (!item || typeof item !== 'object') return;
+                    
+                    // Extract @type from current item
+                    const itemType = item['@type'];
+                    if (itemType) {
+                        const typeArray = Array.isArray(itemType) ? itemType : [itemType];
+                        typeArray.forEach(t => types.add(t));
+                    }
+                    
+                    // Recursively search @graph if present
+                    if (item['@graph'] && Array.isArray(item['@graph'])) {
+                        item['@graph'].forEach(extractType);
+                    }
+                }
+                
+                if (Array.isArray(jsonld)) {
+                    jsonld.forEach(extractType);
+                }
+                
+                return [...types];
+            };
+            
+            const entityTypesFromJsonLd = data.jsonld ? extractTypesFromJsonLd(data.jsonld) : [];
             
             const entityTypes = [...new Set([...entityTypesFromGraph, ...entityTypesFromJsonLd])];
             

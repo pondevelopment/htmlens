@@ -162,6 +162,163 @@ mod worker_tests {
         assert!(markdown.contains("**URL**: https://example.com"));
     }
 
+    /// Test @graph parsing - ensures nested @graph arrays are flattened and parsed correctly
+    #[test]
+    fn test_format_cli_style_markdown_with_graph() {
+        let url = "https://example.com";
+        let title = "Test Page";
+        let description = "A test page with @graph";
+        let jsonld_blocks = vec![serde_json::json!({
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "WebSite",
+                    "name": "Example Site",
+                    "url": "https://example.com",
+                    "description": "An example website"
+                },
+                {
+                    "@type": "Organization",
+                    "name": "Example Corp",
+                    "url": "https://example.com",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": "https://example.com/logo.png"
+                    }
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Home"
+                        }
+                    ]
+                }
+            ]
+        })];
+
+        let markdown = format_cli_style_markdown(url, title, description, &jsonld_blocks);
+
+        // Should parse @graph and extract all entity types
+        assert!(markdown.contains("🌐 WebSite"));
+        assert!(markdown.contains("Example Site"));
+        assert!(markdown.contains("🏢 Organization"));
+        assert!(markdown.contains("Example Corp"));
+        assert!(markdown.contains("🍞 Breadcrumb Navigation"));
+        assert!(markdown.contains("Home"));
+    }
+
+    /// Test high/medium priority schema types (Article, Review, LocalBusiness, Event, NewsArticle, VideoObject)
+    #[test]
+    fn test_format_cli_style_markdown_with_article_types() {
+        let url = "https://example.com";
+        let title = "Schema Types Test";
+        let description = "Testing article, review, business, event, news, and video types";
+        let jsonld_blocks = vec![
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "BlogPosting",
+                "headline": "How to Build Great Products",
+                "author": {
+                    "@type": "Person",
+                    "name": "John Doe"
+                },
+                "datePublished": "2025-12-05T10:00:00Z",
+                "dateModified": "2025-12-05T14:00:00Z",
+                "description": "A comprehensive guide to product development"
+            }),
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "NewsArticle",
+                "headline": "Tech Industry News",
+                "author": {
+                    "@type": "Person",
+                    "name": "Jane Smith"
+                },
+                "datePublished": "2025-12-05T08:30:00Z",
+                "image": {
+                    "@type": "ImageObject",
+                    "url": "https://example.com/news-image.jpg"
+                }
+            }),
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "AggregateRating",
+                "ratingValue": 4.5,
+                "bestRating": 5.0,
+                "reviewCount": 128,
+                "name": "Product Rating"
+            }),
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "LocalBusiness",
+                "name": "Tech Café",
+                "address": {
+                    "@type": "PostalAddress",
+                    "streetAddress": "123 Tech Street",
+                    "addressLocality": "San Francisco"
+                },
+                "telephone": "+1-555-0123",
+                "priceRange": "$$"
+            }),
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "Event",
+                "name": "Tech Conference 2025",
+                "startDate": "2025-06-15T09:00:00Z",
+                "endDate": "2025-06-17T18:00:00Z",
+                "location": {
+                    "@type": "Place",
+                    "name": "Convention Center"
+                },
+                "eventStatus": "SCHEDULED"
+            }),
+            serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "VideoObject",
+                "name": "Product Demo Video",
+                "duration": "PT5M30S",
+                "uploadDate": "2025-12-01T10:00:00Z",
+                "contentUrl": "https://example.com/video.mp4"
+            }),
+        ];
+
+        let markdown = format_cli_style_markdown(url, title, description, &jsonld_blocks);
+
+        // Verify all article types are rendered
+        assert!(markdown.contains("📝 Article / BlogPost"));
+        assert!(markdown.contains("How to Build Great Products"));
+        assert!(markdown.contains("John Doe"));
+        
+        // Verify news articles are rendered
+        assert!(markdown.contains("📰 News Article"));
+        assert!(markdown.contains("Tech Industry News"));
+        assert!(markdown.contains("Jane Smith"));
+        
+        // Verify reviews/ratings are rendered with star ratings
+        assert!(markdown.contains("⭐ Reviews & Ratings"));
+        assert!(markdown.contains("4.5"));
+        assert!(markdown.contains("128"));
+        
+        // Verify local business is rendered
+        assert!(markdown.contains("🏪 Local Business"));
+        assert!(markdown.contains("Tech Café"));
+        assert!(markdown.contains("123 Tech Street"));
+        assert!(markdown.contains("San Francisco"));
+        
+        // Verify events are rendered
+        assert!(markdown.contains("🎯 Events"));
+        assert!(markdown.contains("Tech Conference 2025"));
+        assert!(markdown.contains("SCHEDULED"));
+        
+        // Verify videos are rendered
+        assert!(markdown.contains("🎬 Videos"));
+        assert!(markdown.contains("Product Demo Video"));
+        assert!(markdown.contains("PT5M30S"));
+    }
+
     /// Test defense against common malicious URL patterns that could be used for attacks
     #[test]
     fn test_malicious_url_defense() {
