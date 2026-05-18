@@ -291,28 +291,28 @@ mod worker_tests {
         assert!(markdown.contains("📝 Article / BlogPost"));
         assert!(markdown.contains("How to Build Great Products"));
         assert!(markdown.contains("John Doe"));
-        
+
         // Verify news articles are rendered
         assert!(markdown.contains("📰 News Article"));
         assert!(markdown.contains("Tech Industry News"));
         assert!(markdown.contains("Jane Smith"));
-        
+
         // Verify reviews/ratings are rendered with star ratings
         assert!(markdown.contains("⭐ Reviews & Ratings"));
         assert!(markdown.contains("4.5"));
         assert!(markdown.contains("128"));
-        
+
         // Verify local business is rendered
         assert!(markdown.contains("🏪 Local Business"));
         assert!(markdown.contains("Tech Café"));
         assert!(markdown.contains("123 Tech Street"));
         assert!(markdown.contains("San Francisco"));
-        
+
         // Verify events are rendered
         assert!(markdown.contains("🎯 Events"));
         assert!(markdown.contains("Tech Conference 2025"));
         assert!(markdown.contains("SCHEDULED"));
-        
+
         // Verify videos are rendered
         assert!(markdown.contains("🎬 Videos"));
         assert!(markdown.contains("Product Demo Video"));

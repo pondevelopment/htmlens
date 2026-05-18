@@ -19,9 +19,12 @@ serde_json.workspace = true
 url.workspace = true
 
 # Cloudflare Workers SDK
-worker = "0.6"
+worker = "=0.7.4"
 console_error_panic_hook = "0.1"
 urlencoding = "2.1"
+
+# Concurrency helpers (join_all) — already a transitive dep of `worker`
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
 
 # WASM-specific: getrandom is pulled in by ahash (from scraper via htmlens-core)
 # We need to enable the wasm_js feature for WASM targets

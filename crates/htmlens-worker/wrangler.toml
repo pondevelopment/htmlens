@@ -4,7 +4,7 @@ compatibility_date = "2025-10-16"
 workers_dev = true
 
 [build]
-command = "which worker-build >/dev/null 2>&1 || cargo install -q worker-build && worker-build --release"
+command = "cargo install -q --version 0.7.4 worker-build && worker-build --release"
 
 [vars]
 # Environment variables available to the Worker

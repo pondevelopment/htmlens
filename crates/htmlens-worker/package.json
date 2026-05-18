@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "build": "cargo install -q worker-build && worker-build --release",
+    "build": "cargo install -q --version 0.7.4 worker-build && worker-build --release",
     "check": "cargo check"
   },
   "devDependencies": {

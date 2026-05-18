@@ -165,28 +165,22 @@ pub fn parse_robots_txt(content: &str) -> RobotsTxtAnalysis {
                     blocks_all: false,
                 };
             }
-            "disallow" => {
-                if !value.is_empty() {
-                    current_rules.disallow.push(value.to_string());
-                    if value == "/" {
-                        current_rules.blocks_all = true;
-                    }
+            "disallow" if !value.is_empty() => {
+                current_rules.disallow.push(value.to_string());
+                if value == "/" {
+                    current_rules.blocks_all = true;
                 }
             }
-            "allow" => {
-                if !value.is_empty() {
-                    current_rules.allow.push(value.to_string());
-                }
+            "allow" if !value.is_empty() => {
+                current_rules.allow.push(value.to_string());
             }
             "crawl-delay" => {
                 if let Ok(delay) = value.parse::<u32>() {
                     current_rules.crawl_delay = Some(delay);
                 }
             }
-            "sitemap" => {
-                if !value.is_empty() {
-                    analysis.sitemaps.push(value.to_string());
-                }
+            "sitemap" if !value.is_empty() => {
+                analysis.sitemaps.push(value.to_string());
             }
             _ => {
                 // Unknown directive - could add to issues

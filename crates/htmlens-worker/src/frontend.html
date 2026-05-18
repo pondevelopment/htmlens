@@ -106,7 +106,33 @@
             transform: translateY(-1px); 
         }
         
-        .button-group { display: flex; gap: 12px; margin-top: 24px; }
+        .button-group { display: flex; gap: 12px; margin-top: 24px; align-items: center; flex-wrap: wrap; }
+        .bypass-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9em; color: #555; cursor: pointer; user-select: none; }
+        .bypass-toggle input { cursor: pointer; }
+        .bypass-inline { display: flex; justify-content: flex-end; margin-top: 6px; color: #8b92a7; }
+        .stats-strip { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; margin: 0 0 18px; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+        .stat { display: flex; flex-direction: column; line-height: 1.15; min-width: 60px; }
+        .stat.muted .stat-num { color: #666; }
+        .stat-num { font-size: 1.35em; font-weight: 600; }
+        .stat-lbl { font-size: 0.72em; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; white-space: nowrap; }
+        .stat-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+        .stat-chips.empty { color: #888; font-style: italic; font-size: 0.85em; }
+        .stat-chip { display: inline-block; padding: 2px 8px; background: rgba(102,126,234,0.15); color: #667eea; border-radius: 10px; font-size: 0.78em; font-weight: 500; }
+        .stat-chip.more { background: rgba(255,255,255,0.08); color: #aaa; }
+        .emerging-standards { margin: 28px 0; padding: 16px 20px; background: rgba(102,126,234,0.06); border: 1px solid rgba(102,126,234,0.25); border-radius: 8px; color: #e5e7ee; }
+        .emerging-standards h4 { margin: 0 0 6px; color: #fff; }
+        .emerging-standards > p { color: #a8b0c2 !important; }
+        .es-block { margin: 12px 0; padding: 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 0.9em; }
+        .es-block > summary > strong { color: #fff; }
+        .es-preview { color: #a8b0c2; font-size: 0.9em; margin-left: 4px; }
+        .es-spec { margin-left: auto; font-size: 0.8em; color: #8ab4ff; text-decoration: none; padding: 2px 8px; border: 1px solid rgba(138,180,255,0.3); border-radius: 4px; }
+        .es-spec:hover { background: rgba(138,180,255,0.1); }
+        .es-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 3px 0; line-height: 1.4; }
+        .es-row .es-label { color: #a8b0c2; font-weight: 500; }
+        .es-row .es-val { word-break: break-word; color: #e5e7ee; }
+        .es-row .es-val code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+        .es-row .es-val a { color: #8ab4ff; }
+        .es-row .es-hint { grid-column: 2; color: #7d8599; font-size: 0.85em; }
         
         button { 
             flex: 1; 
@@ -351,7 +377,7 @@
         .ai-readiness-container h2 { color: #00d4ff; margin-bottom: 12px; font-weight: 700; }
         .ai-readiness-container p { color: #8b92a7; line-height: 1.7; }
         
-        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status, .robots-txt-status { 
+        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status, .robots-txt-status, .llms-txt-status, .security-txt-status { 
             background: rgba(255,255,255,0.03);
             padding: 24px; 
             border-radius: 12px; 
@@ -359,7 +385,7 @@
             border: 1px solid rgba(255,255,255,0.08);
         }
         
-        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4, .robots-txt-status h4 { 
+        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4, .robots-txt-status h4, .llms-txt-status h4, .security-txt-status h4 { 
             margin-top: 0; 
             color: #e4e6eb; 
             font-size: 18px; 
@@ -370,15 +396,89 @@
         .file-checks { margin-top: 12px; }
         
         .file-check { 
-            padding: 14px; 
+            padding: 0; 
             margin: 10px 0; 
             background: rgba(255,255,255,0.03);
             border-radius: 8px; 
             font-size: 14px; 
+            border: 1px solid rgba(255,255,255,0.08);
             border-left: 3px solid rgba(255,255,255,0.08);
             color: #c7c9d3;
             transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
+
+        /* Collapsible <details> styling — closed when OK, open when there's something to investigate. */
+        details.file-check > summary,
+        details.es-block > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+        details.file-check > summary::-webkit-details-marker,
+        details.es-block > summary::-webkit-details-marker { display: none; }
+        details.file-check > summary::before,
+        details.es-block > summary::before {
+            content: '▸';
+            display: inline-block;
+            font-size: 0.8em;
+            opacity: 0.6;
+            transition: transform 0.15s ease;
+            width: 12px;
+        }
+        details.file-check[open] > summary::before,
+        details.es-block[open] > summary::before { transform: rotate(90deg); }
+        details.file-check > summary:hover,
+        details.es-block > summary:hover { background: rgba(255,255,255,0.04); border-radius: 8px; }
+        details.file-check > *:not(summary) { padding: 0 14px 14px 14px; }
+        details.es-block > *:not(summary) { padding: 0 12px 10px 12px; }
+
+        /* Top-level status cards converted to <details> by JS. */
+        details.card-collapsible > summary {
+            list-style: none;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 12px;
+        }
+        details.card-collapsible > summary::-webkit-details-marker { display: none; }
+        details.card-collapsible > summary > h3,
+        details.card-collapsible > summary > h4 { margin: 0; flex: 1; }
+        details.card-collapsible > summary::before {
+            content: '▸';
+            font-size: 0.85em;
+            opacity: 0.6;
+            transition: transform 0.15s ease;
+            width: 14px;
+            display: inline-block;
+        }
+        details.card-collapsible[open] > summary::before { transform: rotate(90deg); }
+        details.card-collapsible > summary:hover::before { opacity: 1; }
+
+        /* At-a-glance status pill on collapsed cards. */
+        .card-status { margin-left: auto; display: inline-flex; align-items: center; }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 0.78em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .status-pill.good { background: rgba(126,231,135,0.12); color: #7ee787; border: 1px solid rgba(126,231,135,0.25); }
+        .status-pill.bad  { background: rgba(255,107,107,0.12); color: #ff8a8a; border: 1px solid rgba(255,107,107,0.30); }
+        .status-pill .pill-ok + .pill-bad { padding-left: 8px; border-left: 1px solid currentColor; }
+
+        /* Left accent on the card itself so the row is scannable in the list. */
+        details.card-collapsible.is-ok    { border-left: 3px solid rgba(126,231,135,0.55); }
+        details.card-collapsible.has-issue { border-left: 3px solid rgba(255,107,107,0.65); }
 
         .file-check.found {
             background: rgba(126,231,135,0.08);
@@ -411,7 +511,7 @@
             border-left: 3px solid #ff6b6b;
         }
         
-        .ai-plugin-status div, .mcp-status div, .openapi-status div, .robots-txt-status div { 
+        .ai-plugin-status div, .mcp-status div, .openapi-status div, .robots-txt-status div, .llms-txt-status div, .security-txt-status div { 
             margin: 10px 0; 
             padding: 10px; 
             background: rgba(0,0,0,0.2);
@@ -615,6 +715,10 @@
             <div class="input-section">
                 <label for="urlInput">Enter a URL to analyze:</label>
                 <input type="url" id="urlInput" placeholder="https://example.com" value="https://schema.org" />
+                <label class="bypass-toggle bypass-inline" title="Results are cached at the Cloudflare edge for 5–15 minutes to reduce load on the target site. Tick this to force a fresh fetch of every file.">
+                    <input type="checkbox" id="bypassCache" />
+                    <span>Bypass cache</span>
+                </label>
             </div>
             <div class="examples-section">
                 <label>Try these examples:</label>
@@ -627,6 +731,7 @@
             <div class="button-group">
                 <button class="btn-primary" id="analyzeBtn">🚀 Analyze</button>
                 <button class="btn-secondary" id="shareBtn">🔗 Share</button>
+                <button class="btn-secondary" id="downloadBtn" disabled title="Run an analysis first">⬇️ Download report</button>
                 <button class="btn-secondary" id="clearBtn">🗑️ Clear</button>
             </div>
             <div class="loading" id="loading"><div class="spinner"></div><p>Analyzing webpage...</p></div>
@@ -634,7 +739,6 @@
                 <div class="tabs">
                     <button class="tab active" data-tab="insights">🎯<span class="tab-text"> Insights</span></button>
                     <button class="tab" data-tab="ai-readiness">🤖<span class="tab-text"> AI Readiness</span></button>
-                    <button class="tab" data-tab="summary">📊<span class="tab-text"> Summary</span></button>
                     <button class="tab" data-tab="jsonld">🗂️<span class="tab-text"> JSON-LD</span></button>
                     <button class="tab" data-tab="structured">🧱<span class="tab-text"> Structured Data</span></button>
                     <button class="tab" data-tab="page">📄<span class="tab-text"> Page Content</span></button>
@@ -644,9 +748,6 @@
                 </div>
                 <div class="tab-content" id="ai-readiness-content">
                     <div id="aiReadinessOutput"></div>
-                </div>
-                <div class="tab-content" id="summary-content">
-                    <div class="json-output" id="summaryOutput"></div>
                 </div>
                 <div class="tab-content" id="jsonld-content">
                     <div class="json-output" id="jsonldOutput"></div>
@@ -689,6 +790,10 @@
             document.getElementById('urlInput').value = '';
             document.getElementById('results').classList.remove('active');
             document.getElementById('error').style.display = 'none';
+            window.__lastAnalysis = null;
+            const dlBtn = document.getElementById('downloadBtn');
+            dlBtn.disabled = true;
+            dlBtn.title = 'Run an analysis first';
         });
         document.getElementById('shareBtn').addEventListener('click', () => {
             const url = document.getElementById('urlInput').value.trim();
@@ -718,7 +823,135 @@
                 showError('Failed to copy to clipboard: ' + err.message);
             });
         });
-        
+
+        // Download full report as Markdown ----------------------------------
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const data = window.__lastAnalysis;
+            if (!data) { showError('Run an analysis first'); return; }
+            const md = buildReportMarkdown(data);
+            const slug = (data.url || 'report')
+                .replace(/^https?:\/\//, '')
+                .replace(/[^a-z0-9]+/gi, '_')
+                .replace(/^_+|_+$/g, '')
+                .slice(0, 80) || 'report';
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `htmlens_${slug}_${stamp}.md`;
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 0);
+        });
+
+        // Convert rendered DOM to readable plain-text markdown. Preserves
+        // headings, list items, and table-like row structure with reasonable
+        // fidelity by walking the node tree.
+        function domToMarkdown(root) {
+            if (!root) return '';
+            const out = [];
+            const walk = (node, depth) => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const t = node.textContent.replace(/\s+/g, ' ');
+                    if (t.trim()) out.push(t);
+                    return;
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+                const tag = node.tagName.toLowerCase();
+                if (tag === 'script' || tag === 'style') return;
+
+                const block = ['div','section','article','header','footer','p','li','tr','summary','details','h1','h2','h3','h4','h5','h6'].includes(tag);
+                const startLen = out.length;
+
+                if (/^h[1-6]$/.test(tag)) {
+                    out.push('\n\n' + '#'.repeat(parseInt(tag[1], 10) + 1) + ' ');
+                } else if (tag === 'li') {
+                    out.push('\n- ');
+                } else if (tag === 'strong' || tag === 'b') {
+                    out.push('**');
+                } else if (tag === 'em' || tag === 'i') {
+                    out.push('_');
+                } else if (tag === 'code') {
+                    out.push('`');
+                } else if (tag === 'br') {
+                    out.push('\n');
+                    return;
+                } else if (tag === 'a') {
+                    const href = node.getAttribute('href');
+                    if (href && !href.startsWith('#')) {
+                        const txt = node.textContent.trim();
+                        out.push(`[${txt}](${href})`);
+                        return;
+                    }
+                }
+
+                node.childNodes.forEach(c => walk(c, depth + 1));
+
+                if (tag === 'strong' || tag === 'b') out.push('**');
+                else if (tag === 'em' || tag === 'i') out.push('_');
+                else if (tag === 'code') out.push('`');
+
+                if (block && out.length > startLen) out.push('\n');
+            };
+            walk(root, 0);
+            return out.join('')
+                .replace(/[ \t]+\n/g, '\n')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+        }
+
+        function buildReportMarkdown(data) {
+            const lines = [];
+            const now = new Date().toISOString();
+            lines.push(`# htmlens report`);
+            lines.push('');
+            lines.push(`- **URL:** ${data.url || '(unknown)'}`);
+            lines.push(`- **Generated:** ${now}`);
+            if (data._stats) {
+                lines.push(`- **Entities:** ${data._stats.entityCount} · **JSON-LD blocks:** ${data._stats.jsonldCount} · **HTML chars:** ${data._stats.htmlLength.toLocaleString()}`);
+            }
+            lines.push('');
+
+            // Insights
+            lines.push('## Insights');
+            lines.push('');
+            lines.push(domToMarkdown(document.getElementById('insightsOutput')) || '_No insights rendered._');
+            lines.push('');
+
+            // AI Readiness
+            lines.push('## AI Readiness');
+            lines.push('');
+            lines.push(domToMarkdown(document.getElementById('aiReadinessOutput')) || '_No AI readiness data._');
+            lines.push('');
+
+            // JSON-LD (raw graph)
+            lines.push('## JSON-LD');
+            lines.push('');
+            lines.push('```json');
+            try {
+                lines.push(JSON.stringify(data.jsonldGraph ?? data.jsonld ?? {}, null, 2));
+            } catch (_) {
+                lines.push('// (failed to serialize JSON-LD)');
+            }
+            lines.push('```');
+            lines.push('');
+
+            // Structured Data (server-rendered markdown tables)
+            lines.push('## Structured Data');
+            lines.push('');
+            lines.push((data.markdown || '').trim() || '_No structured data found._');
+            lines.push('');
+
+            // Page Content
+            lines.push('## Page Content');
+            lines.push('');
+            lines.push((data.pageMarkdown || '').trim() || '_No page content extracted._');
+            lines.push('');
+
+            return lines.join('\n');
+        }
+        // ------------------------------------------------------------------
+
         // Handle example button clicks
         document.querySelectorAll('.example-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -748,8 +981,9 @@
             document.getElementById('analyzeBtn').disabled = true;
             
             try {
-                console.log('Fetching:', API_BASE + '/api?url=' + encodeURIComponent(url));
-                const response = await fetch(API_BASE + '/api?url=' + encodeURIComponent(url));
+                const bypass = document.getElementById('bypassCache')?.checked ? '&nocache=1' : '';
+                console.log('Fetching:', API_BASE + '/api?url=' + encodeURIComponent(url) + bypass);
+                const response = await fetch(API_BASE + '/api?url=' + encodeURIComponent(url) + bypass);
                 console.log('Response status:', response.status, response.statusText);
                 
                 if (!response.ok) {
@@ -774,72 +1008,29 @@
                     throw new Error('Invalid response structure from API');
                 }
                 
-                // Build Business Summary similar to TypeScript version
-                let summary = '📊 Business Summary\n\n';
-                summary += `Page: ${data.url}\n\n`;
-                
-                // Extract entity types with null checks
-                const entityTypes = data.graph.nodes ? [...new Set(data.graph.nodes.flatMap(n => n.types || []))] : [];
-                summary += `Content Type: ${entityTypes.join(', ') || 'None detected'}\n\n`;
-                
-                // Product Information
-                const products = data.jsonld.filter(item => 
-                    item['@type'] === 'Product' || item['@type'] === 'ProductGroup'
-                );
-                if (products.length > 0) {
-                    const product = products[0];
-                    summary += '📦 Product Information\n\n';
-                    if (product.name) summary += `${product.name}\n\n`;
-                    if (product.brand && product.brand.name) {
-                        summary += `Brand: ${product.brand.name}\n`;
-                    }
-                    if (product.hasVariant) {
-                        const variantCount = Array.isArray(product.hasVariant) ? product.hasVariant.length : 1;
-                        summary += `Variants Available: ${variantCount}\n`;
-                    }
-                    summary += '\n';
-                }
-                
-                // Organization
-                const orgs = data.jsonld.filter(item => item['@type'] === 'Organization');
-                if (orgs.length > 0) {
-                    const org = orgs[0];
-                    summary += '🏢 Organization\n\n';
-                    if (org.name) summary += `${org.name}\n`;
-                    if (org.url) summary += `${org.url}\n`;
-                    summary += '\n';
-                }
-                
-                // Technical Insights
-                summary += '📋 Technical Insights\n\n';
-                
-                // Count total entities (including nested in @graph)
-                let entityCount = 0;
-                if (data.jsonld && Array.isArray(data.jsonld)) {
-                    function countEntities(items) {
-                        let count = 0;
-                        items.forEach(item => {
-                            if (item && typeof item === 'object') {
-                                // Count this entity if it has a @type
-                                if (item['@type']) {
-                                    count++;
-                                }
-                                // Recursively count entities in @graph
-                                if (item['@graph'] && Array.isArray(item['@graph'])) {
-                                    count += countEntities(item['@graph']);
-                                }
+                // Compute lightweight stats once and attach to data for renderInsights.
+                const entityTypes = data.graph.nodes
+                    ? [...new Set(data.graph.nodes.flatMap(n => n.types || []))]
+                    : [];
+                function countEntities(items) {
+                    let count = 0;
+                    if (!Array.isArray(items)) return 0;
+                    items.forEach(item => {
+                        if (item && typeof item === 'object') {
+                            if (item['@type']) count++;
+                            if (Array.isArray(item['@graph'])) {
+                                count += countEntities(item['@graph']);
                             }
-                        });
-                        return count;
-                    }
-                    entityCount = countEntities(data.jsonld);
+                        }
+                    });
+                    return count;
                 }
-                
-                summary += `Structured Data Entities Found: ${entityCount}\n`;
-                summary += `Page Size: ${data.meta.htmlLength.toLocaleString()} characters\n`;
-                summary += `SEO Optimization: ✅ Yes (JSON-LD present)\n`;
-                
-                document.getElementById('summaryOutput').textContent = summary;
+                data._stats = {
+                    entityTypes,
+                    entityCount: countEntities(data.jsonld),
+                    htmlLength: data.meta?.htmlLength || 0,
+                    jsonldCount: Array.isArray(data.jsonld) ? data.jsonld.length : 0,
+                };
                 
                     // Update JSON-LD tab with combined @graph structure and syntax highlighting
                     document.getElementById('jsonldOutput').innerHTML = syntaxHighlight(data.jsonldGraph);
@@ -865,6 +1056,12 @@
                 }
                 
                 document.getElementById('results').classList.add('active');
+
+                // Stash for download report + enable the button.
+                window.__lastAnalysis = data;
+                const dlBtn = document.getElementById('downloadBtn');
+                dlBtn.disabled = false;
+                dlBtn.title = 'Download full report as Markdown';
             } catch (error) {
                 console.error('Analysis error:', error);
                 showError(error.message || 'An unexpected error occurred');
@@ -954,6 +1151,7 @@
                     benefit: 'Android users clicking your links go directly to your app. Creates a unified experience across web and mobile.',
                     impact: 'Links open in Chrome browser instead of your Android app. Fragmented user experience between web and mobile.'
                 }
+                // llms.txt rendered as its own top-level card below (peer of robots.txt / sitemap).
             ];
             
             checks.forEach(check => {
@@ -965,15 +1163,23 @@
                 if (check.critical && !file.found) {
                     classList.push('critical-missing');
                 }
-                html += `<div class="${classList.join(' ')}">`;
-                html += `<div>${icon} <strong>${check.label}</strong>: ${statusText}`;
-                if (file.valid === false) html += ' <span class="invalid">(Invalid JSON)</span>';
-                html += '</div>';
+                // Open by default when there's something to investigate: missing or invalid.
+                const shouldOpen = !file.found || file.valid === false;
+                const openAttr = shouldOpen ? ' open' : '';
+                let summary = `${icon} <strong>${check.label}</strong>: ${statusText}`;
+                if (file.valid === false) summary += ' <span class="invalid">(Invalid JSON)</span>';
+                html += `<details class="${classList.join(' ')}"${openAttr}>`;
+                html += `<summary>${summary}</summary>`;
                 
                 // Add link to the actual file if found
                 if (file.found) {
-                    const wellKnownUrl = url.replace(/\/$/, '') + '/.well-known/' + check.key.replace('Json', '.json').replace('Configuration', '-configuration').replace('Txt', '.txt').replace('Association', '-association');
-                    html += `<div class="file-link">🔗 <a href="${wellKnownUrl}" target="_blank">View file</a></div>`;
+                    let fileUrl;
+                    if (check.rootPath) {
+                        fileUrl = url.replace(/\/$/, '') + '/' + check.key.replace('Txt', '.txt');
+                    } else {
+                        fileUrl = url.replace(/\/$/, '') + '/.well-known/' + check.key.replace('Json', '.json').replace('Configuration', '-configuration').replace('Txt', '.txt').replace('Association', '-association');
+                    }
+                    html += `<div class="file-link">🔗 <a href="${fileUrl}" target="_blank">View file</a></div>`;
                 }
                 
                 html += `<div class="file-check-description"><strong>What it does:</strong> ${check.explainer}</div>`;
@@ -986,7 +1192,7 @@
                 }
                 
                 html += `<div class="file-check-description" style="font-size: 12px; margin-top: 4px;">Technical: ${check.description} - <a href="${check.docs}" target="_blank">Learn more →</a></div>`;
-                html += '</div>';
+                html += '</details>';
             });
             
             html += '</div></div>';
@@ -1063,6 +1269,105 @@
                     html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent AI assistants from connecting properly. Review your MCP configuration.</div>';
                 }
                 html += '<div class="section-footer">Learn about MCP at <a href="https://modelcontextprotocol.io/" target="_blank">MCP Documentation →</a> or <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic Announcement</a></div>';
+                html += '</div>';
+            }
+            
+            // llms.txt status
+            // llms.txt status — always rendered as its own top-level card (peer of robots.txt / sitemap)
+            if (aiReadiness.llmsTxt) {
+                const llms = aiReadiness.llmsTxt;
+                html += '<div class="llms-txt-status">';
+                html += '<h4>📄 llms.txt (LLM Documentation) <a href="https://llmstxt.org/" target="_blank" class="docs-link">📚 Docs</a></h4>';
+
+                if (llms.found) {
+                    html += '<div class="explainer-box">';
+                    html += '<p><strong>What is this?</strong> Your website provides an llms.txt file - a curated, markdown-based overview designed specifically for language models to understand your content.</p>';
+                    html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> Instead of AI assistants guessing about your site by crawling HTML pages, llms.txt gives them a concise, expert-level summary with links to detailed information.</p>';
+                    html += '<p style="margin-top: 8px;"><strong>Real example:</strong> A developer asks an AI coding assistant "how does this API work?" and the AI reads your llms.txt to quickly find the right documentation page.</p>';
+                    html += '</div>';
+
+                    if (llms.title) {
+                        html += `<div><strong>Title:</strong> ${escapeHtml(llms.title)}</div>`;
+                    }
+                    if (llms.description) {
+                        html += `<div><strong>Description:</strong> ${escapeHtml(llms.description)}</div>`;
+                    }
+                    html += `<div><strong>Sections:</strong> ${llms.sectionCount}`;
+                    if (llms.sections && llms.sections.length > 0) {
+                        html += ` (${llms.sections.map(s => escapeHtml(s)).join(', ')})`;
+                    }
+                    html += '</div>';
+                    html += `<div><strong>Links to Resources:</strong> ${llms.linkCount}</div>`;
+                    html += `<div><strong>Optional Section:</strong> ${llms.hasOptionalSection ? '✅ Present (allows shorter context)' : '❌ Not present'}</div>`;
+
+                    html += '<div class="benefit-box"><strong>✅ Benefits:</strong> AI assistants can quickly understand your site structure, find relevant documentation, and provide accurate answers about your products and services. Works with ChatGPT, Claude, Gemini, and any LLM-powered tool.</div>';
+                    html += '<div class="section-footer">Learn about llms.txt at <a href="https://llmstxt.org/" target="_blank">llmstxt.org →</a></div>';
+                } else {
+                    html += '<div class="llms-issues">';
+                    html += `<div><strong>Status:</strong> ❌ Not found (${llms.status || 'HTTP 404'})</div>`;
+                    html += '<div style="margin-top:8px;"><strong>What it does:</strong> Provides a curated, concise overview of your website for language models. Like a table of contents designed specifically for AI assistants.</div>';
+                    html += '<div style="margin-top:8px;"><strong>Impact of not having this:</strong> AI assistants have to crawl and parse your full website to understand it, often getting incomplete or incorrect information. You miss the opportunity to control how AI represents your content.</div>';
+                    html += '<div style="margin-top:8px;"><strong>How to fix:</strong> Create <code>/llms.txt</code> at the root of your site with a markdown file containing a title, description, and links to key documentation pages.</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            
+            // security.txt detail status
+            if (aiReadiness.securityTxt) {
+                const sec = aiReadiness.securityTxt;
+                html += '<div class="security-txt-status">';
+                html += '<h4>🔒 security.txt Details <a href="https://securitytxt.org/" target="_blank" class="docs-link">📚 Docs</a></h4>';
+                
+                if (sec.contacts && sec.contacts.length > 0) {
+                    html += '<div><strong>Contact(s):</strong>';
+                    html += '<ul>';
+                    sec.contacts.forEach(c => {
+                        const display = escapeHtml(c);
+                        if (c.startsWith('mailto:')) {
+                            html += `<li><a href="${display}">${display.replace('mailto:', '')}</a></li>`;
+                        } else if (c.startsWith('https://')) {
+                            html += `<li><a href="${display}" target="_blank">${display}</a></li>`;
+                        } else {
+                            html += `<li>${display}</li>`;
+                        }
+                    });
+                    html += '</ul></div>';
+                }
+                if (sec.expires) {
+                    const expiryStatus = sec.isExpired ? ' <span style="color: #e53e3e; font-weight: bold;">⚠️ EXPIRED</span>' : ' <span style="color: #38a169;">✅ Valid</span>';
+                    html += `<div><strong>Expires:</strong> ${escapeHtml(sec.expires)}${expiryStatus}</div>`;
+                }
+                if (sec.preferredLanguages) {
+                    html += `<div><strong>Preferred Languages:</strong> ${escapeHtml(sec.preferredLanguages)}</div>`;
+                }
+                if (sec.policy && sec.policy.length > 0) {
+                    html += '<div><strong>Disclosure Policy:</strong> ';
+                    sec.policy.forEach(p => {
+                        if (p.startsWith('https://')) {
+                            html += `<a href="${escapeHtml(p)}" target="_blank">${escapeHtml(p)}</a> `;
+                        } else {
+                            html += escapeHtml(p) + ' ';
+                        }
+                    });
+                    html += '</div>';
+                }
+                if (sec.encryption && sec.encryption.length > 0) {
+                    html += `<div><strong>Encryption Keys:</strong> ${sec.encryption.length} PGP key(s) available</div>`;
+                }
+                if (sec.hiring && sec.hiring.length > 0) {
+                    html += '<div><strong>Security Hiring:</strong>';
+                    html += '<ul>';
+                    sec.hiring.forEach(h => {
+                        if (h.startsWith('https://')) {
+                            html += `<li><a href="${escapeHtml(h)}" target="_blank">${escapeHtml(h)}</a></li>`;
+                        } else {
+                            html += `<li>${escapeHtml(h)}</li>`;
+                        }
+                    });
+                    html += '</ul></div>';
+                }
+                
                 html += '</div>';
             }
             
@@ -1451,6 +1756,9 @@
                 html += '</div>';
             }
             
+            // Emerging agent standards (informational)
+            html += renderEmergingStandards(aiReadiness);
+
             // General resources section
             html += '<div class="ai-resources">';
             html += '<h4>📚 Additional Resources</h4>';
@@ -1464,6 +1772,215 @@
             
             html += '</div>';
             document.getElementById('aiReadinessOutput').innerHTML = html;
+            makeStatusCardsCollapsible(document.getElementById('aiReadinessOutput'));
+        }
+
+        // Wrap each top-level AI-readiness status card in a <details> so users
+        // can collapse sections that are OK. Defaults to open when the card
+        // contains anything worth investigating (missing/invalid/issues).
+        function makeStatusCardsCollapsible(root) {
+            if (!root) return;
+            const selectors = [
+                '.well-known-checks',
+                '.ai-plugin-status', '.mcp-status', '.openapi-status',
+                '.robots-txt-status', '.sitemap-status', '.semantic-html-status',
+                '.llms-txt-status', '.security-txt-status', '.emerging-standards'
+            ];
+            const issueSelector = '.critical-missing, .invalid, .plugin-issues, .mcp-issues, .api-issues, .robots-issues, .sitemap-issues, .llms-issues, .file-check.missing';
+            root.querySelectorAll(selectors.join(', ')).forEach(card => {
+                const heading = card.querySelector(':scope > h3, :scope > h4');
+                if (!heading) return;
+                const issueNodes = card.querySelectorAll(issueSelector);
+                const hasIssue = issueNodes.length > 0;
+
+                // Build a status badge for at-a-glance reading on the collapsed card.
+                // For container cards (e.g. .well-known-checks with multiple file-checks)
+                // we show counts of OK vs issues. Otherwise just a single ✅ / ❌ pill.
+                const fileChecks = card.querySelectorAll(':scope .file-check');
+                let badgeHtml = '';
+                if (fileChecks.length > 0) {
+                    const okCount = card.querySelectorAll(':scope .file-check.found').length;
+                    const issueCount = card.querySelectorAll(':scope .file-check.missing, :scope .file-check.critical-missing').length;
+                    badgeHtml = `<span class="status-pill ${issueCount > 0 ? 'bad' : 'good'}">`
+                        + (okCount > 0 ? `<span class="pill-ok">✅ ${okCount}</span>` : '')
+                        + (issueCount > 0 ? `<span class="pill-bad">❌ ${issueCount}</span>` : '')
+                        + '</span>';
+                } else {
+                    badgeHtml = hasIssue
+                        ? '<span class="status-pill bad">❌ Issues</span>'
+                        : '<span class="status-pill good">✅ OK</span>';
+                }
+
+                const details = document.createElement('details');
+                details.className = card.className + ' card-collapsible' + (hasIssue ? ' has-issue' : ' is-ok');
+                if (hasIssue) details.open = true;
+                const summary = document.createElement('summary');
+                summary.appendChild(heading); // move the h3/h4 into the summary
+                const badge = document.createElement('span');
+                badge.className = 'card-status';
+                badge.innerHTML = badgeHtml;
+                summary.appendChild(badge);
+                details.appendChild(summary);
+                while (card.firstChild) details.appendChild(card.firstChild);
+                card.replaceWith(details);
+            });
+        }
+        
+        function renderEmergingStandards(ai) {
+            if (!ai) return '';
+            const yn = (b) => b ? '✅' : '❌';
+            const row = (label, value, hint) => `<div class="es-row"><span class="es-label">${label}</span><span class="es-val">${value}</span>${hint ? `<span class="es-hint">${hint}</span>` : ''}</div>`;
+            // Open an es-block when there's something noteworthy worth inspecting.
+            // `preview` shows a quick status next to the title (visible when collapsed).
+            // `spec` is a small inline link to the relevant standard.
+            const block = (title, open, body, preview, spec) => {
+                const previewHtml = preview ? `<span class="es-preview">${preview}</span>` : '';
+                const specHtml = spec ? `<a class="es-spec" href="${spec.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${spec.label} ↗</a>` : '';
+                return `<details class="es-block"${open ? ' open' : ''}><summary><strong>${title}</strong>${previewHtml}${specHtml}</summary>${body}</details>`;
+            };
+
+            let html = '<div class="emerging-standards"><h4>🧪 Emerging Agent Standards (informational)</h4>';
+            html += '<p style="color:#666;font-size:0.9em;margin:-4px 0 12px;">These checks surface newer agent / commerce standards. They do not affect the readiness score.</p>';
+
+            // Link headers
+            if (ai.linkHeaders) {
+                const useful = ai.linkHeaders.agentUseful || [];
+                let body = row('Total links', String((ai.linkHeaders.links || []).length));
+                body += row('Agent-useful', useful.length === 0 ? '—' :
+                    useful.map(l => `<code>${l.rel}</code> → <a href="${l.target}" target="_blank">${l.target}</a>`).join(', '));
+                html += block('🔗 Link headers (RFC 8288)', useful.length > 0, body,
+                    `${(ai.linkHeaders.links || []).length} links${useful.length ? ` · ${useful.length} agent-useful` : ''}`,
+                    { url: 'https://www.rfc-editor.org/rfc/rfc8288', label: 'RFC 8288' });
+            }
+
+            // Markdown negotiation
+            if (ai.markdownNegotiation) {
+                const m = ai.markdownNegotiation;
+                const body = row('Supported', `${yn(m.supported)} (HTTP ${m.status})`, m.contentType || '');
+                const ct = m.contentType ? ` · ${m.contentType}` : '';
+                html += block('📝 Markdown negotiation', !m.supported, body,
+                    `${yn(m.supported)} HTTP ${m.status}${ct}`,
+                    { url: 'https://datatracker.ietf.org/doc/draft-ietf-httpbis-content-negotiation-history/', label: 'spec' });
+            }
+
+            // Robots Content-Signal
+            const cs = ai.robotsTxt?.contentSignals;
+            if (cs && cs.found) {
+                let body = row('ai-train', cs.aiTrain || '—');
+                body += row('search', cs.search || '—');
+                body += row('ai-input', cs.aiInput || '—');
+                html += block('📡 robots.txt Content-Signal', false, body,
+                    [cs.aiTrain, cs.search, cs.aiInput].filter(Boolean).length + ' signals',
+                    { url: 'https://github.com/ai-robots-txt/ai.robots.txt', label: 'proposal' });
+            }
+
+            // OAuth AS
+            if (ai.oauthAuthorizationServer) {
+                const o = ai.oauthAuthorizationServer;
+                let body = row('Issuer', o.issuer || '—');
+                body += row('Authorization', o.authorizationEndpoint || '—');
+                body += row('Token', o.tokenEndpoint || '—');
+                if (o.scopesSupported?.length) body += row('Scopes', o.scopesSupported.join(', '));
+                html += block('🔐 OAuth Authorization Server (RFC 8414)', true, body,
+                    o.issuer ? `issuer: ${o.issuer}` : '✅ found',
+                    { url: 'https://www.rfc-editor.org/rfc/rfc8414', label: 'RFC 8414' });
+            }
+
+            // OAuth PR
+            if (ai.oauthProtectedResource) {
+                const o = ai.oauthProtectedResource;
+                let body = row('Found', yn(o.found));
+                if (o.resource) body += row('Resource', o.resource);
+                if (o.authorizationServers?.length) body += row('Auth servers', o.authorizationServers.join(', '));
+                if (o.wwwAuthenticate) body += row('WWW-Authenticate', `<code>${o.wwwAuthenticate}</code>`);
+                html += block('🛡️ OAuth Protected Resource', !!o.wwwAuthenticate, body,
+                    `${yn(o.found)}${o.authorizationServers?.length ? ` · ${o.authorizationServers.length} AS` : ''}`,
+                    { url: 'https://datatracker.ietf.org/doc/draft-ietf-oauth-resource-metadata/', label: 'draft' });
+            }
+
+            // API catalog
+            if (ai.apiCatalog) {
+                const a = ai.apiCatalog;
+                let body = row('Valid', yn(a.valid));
+                body += row('Entries', String(a.entryCount));
+                if (a.entries?.length) {
+                    const sample = a.entries.slice(0, 5)
+                        .map(e => `<code>${e.anchor || '(no anchor)'}</code> [${e.relations.join(', ')}]`)
+                        .join('<br>');
+                    body += row('Sample', sample);
+                }
+                if (a.issues?.length) body += row('Issues', a.issues.join('; '));
+                html += block('📇 API Catalog (RFC 9264 linkset)', !a.valid || (a.issues?.length > 0), body,
+                    `${yn(a.valid)} · ${a.entryCount} entries`,
+                    { url: 'https://www.rfc-editor.org/rfc/rfc9264', label: 'RFC 9264' });
+            }
+
+            // MCP server card
+            if (ai.mcpServerCard) {
+                const m = ai.mcpServerCard;
+                let body = row('Path', `<code>${m.path}</code>`);
+                if (m.name) body += row('Name', m.name);
+                if (m.version) body += row('Version', m.version);
+                if (m.transport) body += row('Transport', m.transport);
+                if (m.endpoint) body += row('Endpoint', `<code>${m.endpoint}</code>`);
+                html += block('🧰 MCP Server Card', true, body,
+                    m.name ? `${m.name}${m.version ? ' v' + m.version : ''}` : `✅ ${m.path}`,
+                    { url: 'https://modelcontextprotocol.io/', label: 'MCP' });
+            }
+
+            // Agent skills
+            if (ai.agentSkills) {
+                const s = ai.agentSkills;
+                let body = row('Path', `<code>${s.path}</code>`);
+                body += row('Skills', String(s.skillCount));
+                if (s.skills?.length) {
+                    const sample = s.skills.slice(0, 5)
+                        .map(sk => `<code>${sk.name}</code>${sk.description ? ` — ${sk.description}` : ''}`)
+                        .join('<br>');
+                    body += row('Sample', sample);
+                }
+                html += block('🎯 Agent Skills Index', true, body,
+                    `${s.skillCount} skill${s.skillCount === 1 ? '' : 's'}`,
+                    { url: 'https://www.anthropic.com/news/agent-skills', label: 'about' });
+            }
+
+            // Web Bot Auth
+            if (ai.webBotAuth) {
+                const w = ai.webBotAuth;
+                const body = row('Found', `${yn(w.found)} (HTTP ${w.status})`, w.contentType || '');
+                html += block('🤖 Web Bot Auth (HTTP Message Signatures Directory)', false, body,
+                    `${yn(w.found)} HTTP ${w.status}${w.contentType ? ' · ' + w.contentType : ''}`,
+                    { url: 'https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/', label: 'draft' });
+            }
+
+            // Commerce
+            const c = ai.commerce || {};
+            const hasCommerce = c.ucp || c.acp || c.mpp || (c.x402 && c.x402.detected);
+            if (hasCommerce) {
+                let body = '';
+                if (c.ucp) {
+                    body += row('UCP', yn(c.ucp.found),
+                        `${c.ucp.version ? 'v' + c.ucp.version : ''} ${c.ucp.services?.length ? '· ' + c.ucp.services.join(', ') : ''}`);
+                }
+                if (c.acp) {
+                    body += row('ACP', yn(c.acp.found),
+                        `${c.acp.version ? 'v' + c.acp.version : ''} ${c.acp.apiBaseUrl ? '· ' + c.acp.apiBaseUrl : ''}`);
+                }
+                if (c.x402) {
+                    const probes = (c.x402.probes || []).map(p => `${p.path}: ${p.status}`).join(', ');
+                    body += row('x402', yn(c.x402.detected), probes);
+                }
+                const parts = [];
+                if (c.ucp) parts.push('UCP ' + yn(c.ucp.found));
+                if (c.acp) parts.push('ACP ' + yn(c.acp.found));
+                if (c.x402) parts.push('x402 ' + yn(c.x402.detected));
+                html += block('🛒 Agent Commerce', true, body,
+                    parts.join(' · '),
+                    { url: 'https://www.x402.org/', label: 'x402' });
+            }
+
+            html += '</div>';
+            return html;
         }
         
         // Toggle rules visibility
@@ -1479,6 +1996,21 @@
         function renderInsights(data) {
             const insights = analyzeInsights(data);
             let html = '<div class="insights-container">';
+            
+            // Stats strip (replaces the old Summary tab).
+            const stats = data._stats || {};
+            const chips = (stats.entityTypes || []).slice(0, 8)
+                .map(t => `<span class="stat-chip">${t}</span>`).join('');
+            const entityCount = stats.entityCount ?? 0;
+            const jsonldCount = stats.jsonldCount ?? 0;
+            html += '<div class="stats-strip">';
+            html += `<div class="stat${entityCount === 0 ? ' muted' : ''}"><span class="stat-num">${entityCount}</span><span class="stat-lbl">entities</span></div>`;
+            html += `<div class="stat${jsonldCount === 0 ? ' muted' : ''}"><span class="stat-num">${jsonldCount}</span><span class="stat-lbl">JSON-LD blocks</span></div>`;
+            html += `<div class="stat"><span class="stat-num">${(stats.htmlLength || 0).toLocaleString()}</span><span class="stat-lbl">chars</span></div>`;
+            if (chips) {
+                html += `<div class="stat-chips" title="Entity types">${chips}${(stats.entityTypes || []).length > 8 ? ` <span class="stat-chip more">+${stats.entityTypes.length - 8}</span>` : ''}</div>`;
+            }
+            html += '</div>';
             
             // Overall status
             html += `<div class="status-badge ${insights.overallStatus}">${insights.statusText}</div>`;
@@ -1608,6 +2140,17 @@
                     if (item['@graph'] && Array.isArray(item['@graph'])) {
                         item['@graph'].forEach(extractType);
                     }
+                    
+                    // Recursively search nested objects (e.g., offers inside Product)
+                    Object.values(item).forEach(value => {
+                        if (value && typeof value === 'object' && value !== item) {
+                            if (Array.isArray(value)) {
+                                value.forEach(extractType);
+                            } else {
+                                extractType(value);
+                            }
+                        }
+                    });
                 }
                 
                 if (Array.isArray(jsonld)) {
@@ -1645,7 +2188,8 @@
                 });
                 insights.overallStatus = 'status-critical';
                 insights.statusText = 'Critical Issues Found';
-                return insights;
+                // Do NOT return early — continue so AI Readiness positives
+                // still populate `strengths` and the user can see what IS working.
             }
             
             // Helper function to find all items of a type (handles nested @graph)
@@ -1659,7 +2203,7 @@
                     const itemType = item['@type'];
                     if (itemType) {
                         const types = Array.isArray(itemType) ? itemType : [itemType];
-                        if (types.some(t => String(t).includes(type))) {
+                        if (types.some(t => String(t) === type)) {
                             items.push(item);
                         }
                     }
@@ -1688,6 +2232,7 @@
                 // Find both Product and Vehicle types
                 const products = [
                     ...findItemsByType(data.jsonld, 'Product'),
+                    ...findItemsByType(data.jsonld, 'ProductGroup'),
                     ...findItemsByType(data.jsonld, 'Vehicle'),
                     ...findItemsByType(data.jsonld, 'Car')
                 ];
@@ -1700,6 +2245,9 @@
                 }
                 
                 products.forEach(product => {
+                    const productType = Array.isArray(product['@type']) ? product['@type'] : [product['@type']];
+                    const isProductGroupItem = productType.includes('ProductGroup');
+
                     // Check required fields for Product Rich Results
                     if (!product.name) {
                         insights.critical.push({
@@ -1714,7 +2262,7 @@
                         insights.strengths.push(`Product name present: "${product.name}"`);
                     }
                     
-                    if (!product.image && !product.images) {
+                    if (!product.image && !product.images && !isProductGroupItem) {
                         insights.high.push({
                             title: 'Product Missing "image" Property',
                             why: 'Product images significantly improve click-through rates in search results. Google strongly recommends including images for Product Rich Results.',
@@ -1723,7 +2271,7 @@
                             reference: 'https://developers.google.com/search/docs/appearance/structured-data/product',
                             referenceText: 'Google Product Image Guidelines'
                         });
-                    } else {
+                    } else if (product.image || product.images) {
                         const imageCount = Array.isArray(product.image) ? product.image.length : 1;
                         insights.strengths.push(`Product image(s): ${imageCount} image${imageCount !== 1 ? 's' : ''}`);
                     }
@@ -1732,7 +2280,7 @@
                     const offers = product.offers || product.offer;
                     const offerArray = Array.isArray(offers) ? offers : (offers ? [offers] : []);
                     
-                    if (!hasOffer && offerArray.length === 0) {
+                    if (!hasOffer && offerArray.length === 0 && !isProductGroupItem) {
                         insights.high.push({
                             title: 'Product Missing Pricing Information',
                             why: 'Price is a required field for Product Rich Results. Without it, Google cannot display your product in enhanced search listings with pricing.',
@@ -2324,7 +2872,8 @@
                         'openidConfiguration': { name: 'openid-configuration', desc: 'OpenID Connect authentication configured' },
                         'securityTxt': { name: 'security.txt', desc: 'Security contact information available' },
                         'appleAppSiteAssociation': { name: 'apple-app-site-association', desc: 'Apple Universal Links configured' },
-                        'assetlinks': { name: 'assetlinks.json', desc: 'Android App Links configured' }
+                        'assetlinks': { name: 'assetlinks.json', desc: 'Android App Links configured' },
+                        'llmsTxt': { name: 'llms.txt', desc: 'LLM-friendly documentation index available' }
                     };
                     
                     // Check each .well-known file
@@ -2371,6 +2920,38 @@
                             reference: 'https://securitytxt.org/',
                             referenceText: 'Security.txt Standard'
                         });
+                    }
+                    
+                    // Check for expired security.txt
+                    if (hasSecurityTxt && ar.securityTxt && ar.securityTxt.isExpired) {
+                        insights.high.push({
+                            title: 'security.txt Has Expired',
+                            why: 'Your security.txt file has an expired date. Security researchers may not trust the information in an expired file.',
+                            fix: 'Update the "Expires" field in your security.txt to a future date in ISO 8601 format.',
+                            impact: 'Security researchers may ignore your contact information',
+                            reference: 'https://www.rfc-editor.org/rfc/rfc9116#section-2.5.5',
+                            referenceText: 'RFC 9116 - Expires Field'
+                        });
+                    }
+                    
+                    const hasLlmsTxt = wk.llmsTxt?.found && wk.llmsTxt?.valid !== false;
+                    
+                    if (!hasLlmsTxt) {
+                        insights.recommended.push({
+                            title: 'Add LLM Documentation (llms.txt)',
+                            why: 'llms.txt provides a curated, LLM-friendly overview of your website content. AI assistants can use it to quickly understand your products and services. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
+                            fix: 'Create /llms.txt at the root of your site with a markdown file containing a title, description, and links to key documentation pages.',
+                            impact: 'Better AI representation of your content',
+                            reference: 'https://llmstxt.org/',
+                            referenceText: 'llms.txt Specification'
+                        });
+                    } else if (ar.llmsTxt) {
+                        const llms = ar.llmsTxt;
+                        let desc = 'llms.txt available';
+                        if (llms.title) desc += ` - "${llms.title}"`;
+                        if (llms.sectionCount > 0) desc += ` with ${llms.sectionCount} section(s)`;
+                        if (llms.linkCount > 0) desc += ` and ${llms.linkCount} link(s)`;
+                        insights.strengths.push(desc);
                     }
                 }
                 

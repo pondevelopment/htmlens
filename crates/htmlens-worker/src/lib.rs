@@ -53,6 +53,181 @@ struct AiReadinessData {
     sitemap: Option<SitemapStatus>,
     #[serde(rename = "semanticHtml")]
     semantic_html: Option<SemanticHtmlStatus>,
+    #[serde(rename = "securityTxt")]
+    security_txt: Option<SecurityTxtInfo>,
+    #[serde(rename = "llmsTxt")]
+    llms_txt: Option<LlmsTxtStatus>,
+    // New informational checks (no score impact).
+    #[serde(rename = "linkHeaders")]
+    link_headers: Option<LinkHeaderInfo>,
+    #[serde(rename = "markdownNegotiation")]
+    markdown_negotiation: Option<MarkdownNegotiationInfo>,
+    #[serde(rename = "oauthAuthorizationServer")]
+    oauth_authorization_server: Option<OauthMetadataInfo>,
+    #[serde(rename = "oauthProtectedResource")]
+    oauth_protected_resource: Option<OauthProtectedResourceInfo>,
+    #[serde(rename = "apiCatalog")]
+    api_catalog: Option<ApiCatalogInfo>,
+    #[serde(rename = "mcpServerCard")]
+    mcp_server_card: Option<McpServerCardInfo>,
+    #[serde(rename = "webBotAuth")]
+    web_bot_auth: Option<WebBotAuthInfo>,
+    #[serde(rename = "agentSkills")]
+    agent_skills: Option<AgentSkillsInfo>,
+    commerce: CommerceChecks,
+}
+
+/// Homepage-derived signals captured from the main page fetch so we don't
+/// have to re-fetch the homepage for every check that needs it.
+#[allow(dead_code)]
+struct HomepageSignals<'a> {
+    link_header: String,
+    www_authenticate: String,
+    content_type: String,
+    html: &'a str,
+}
+
+#[derive(Serialize)]
+struct LinkHeaderInfo {
+    raw: String,
+    links: Vec<ParsedLink>,
+    /// Subset of links whose `rel` matches an agent-useful relation type.
+    #[serde(rename = "agentUseful")]
+    agent_useful: Vec<ParsedLink>,
+}
+
+#[derive(Serialize, Clone)]
+struct ParsedLink {
+    target: String,
+    rel: String,
+}
+
+#[derive(Serialize)]
+struct MarkdownNegotiationInfo {
+    supported: bool,
+    status: u16,
+    #[serde(rename = "contentType")]
+    content_type: String,
+}
+
+#[derive(Serialize)]
+struct OauthMetadataInfo {
+    valid: bool,
+    issuer: Option<String>,
+    #[serde(rename = "authorizationEndpoint")]
+    authorization_endpoint: Option<String>,
+    #[serde(rename = "tokenEndpoint")]
+    token_endpoint: Option<String>,
+    #[serde(rename = "scopesSupported")]
+    scopes_supported: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct OauthProtectedResourceInfo {
+    found: bool,
+    resource: Option<String>,
+    #[serde(rename = "authorizationServers")]
+    authorization_servers: Vec<String>,
+    #[serde(rename = "scopesSupported")]
+    scopes_supported: Vec<String>,
+    /// `WWW-Authenticate` header value captured from the homepage fetch.
+    #[serde(rename = "wwwAuthenticate")]
+    www_authenticate: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ApiCatalogInfo {
+    valid: bool,
+    #[serde(rename = "entryCount")]
+    entry_count: usize,
+    entries: Vec<ApiCatalogEntry>,
+    issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ApiCatalogEntry {
+    anchor: String,
+    relations: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct McpServerCardInfo {
+    found: bool,
+    path: String,
+    name: Option<String>,
+    version: Option<String>,
+    transport: Option<String>,
+    endpoint: Option<String>,
+}
+
+#[derive(Serialize)]
+struct WebBotAuthInfo {
+    found: bool,
+    status: u16,
+    #[serde(rename = "contentType")]
+    content_type: String,
+}
+
+#[derive(Serialize)]
+struct AgentSkillsInfo {
+    found: bool,
+    path: String,
+    #[serde(rename = "skillCount")]
+    skill_count: usize,
+    skills: Vec<AgentSkillEntry>,
+}
+
+#[derive(Serialize)]
+struct AgentSkillEntry {
+    name: String,
+    #[serde(rename = "type")]
+    skill_type: Option<String>,
+    description: Option<String>,
+    url: Option<String>,
+}
+
+#[derive(Serialize, Default)]
+struct CommerceChecks {
+    ucp: Option<UcpInfo>,
+    acp: Option<AcpInfo>,
+    mpp: Option<MppInfo>,
+    x402: Option<X402Info>,
+}
+
+#[derive(Serialize)]
+struct UcpInfo {
+    found: bool,
+    version: Option<String>,
+    services: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct AcpInfo {
+    found: bool,
+    version: Option<String>,
+    #[serde(rename = "apiBaseUrl")]
+    api_base_url: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MppInfo {
+    found: bool,
+    #[serde(rename = "operationCount")]
+    operation_count: usize,
+    #[serde(rename = "payableOperations")]
+    payable_operations: usize,
+}
+
+#[derive(Serialize)]
+struct X402Info {
+    detected: bool,
+    probes: Vec<X402Probe>,
+}
+
+#[derive(Serialize)]
+struct X402Probe {
+    path: String,
+    status: u16,
 }
 
 #[derive(Serialize)]
@@ -68,6 +243,28 @@ struct WellKnownChecks {
     #[serde(rename = "appleAppSiteAssociation")]
     apple_app_site_association: FileStatus,
     assetlinks: FileStatus,
+    #[serde(rename = "llmsTxt")]
+    llms_txt: FileStatus,
+    // New entries (informational only, no scoring impact).
+    #[serde(rename = "oauthAuthorizationServer")]
+    oauth_authorization_server: FileStatus,
+    #[serde(rename = "oauthProtectedResource")]
+    oauth_protected_resource: FileStatus,
+    #[serde(rename = "httpMessageSignaturesDirectory")]
+    http_message_signatures_directory: FileStatus,
+    #[serde(rename = "apiCatalog")]
+    api_catalog: FileStatus,
+    #[serde(rename = "mcpServerCard")]
+    mcp_server_card: FileStatus,
+    #[serde(rename = "mcpServerCards")]
+    mcp_server_cards: FileStatus,
+    #[serde(rename = "agentSkillsIndex")]
+    agent_skills_index: FileStatus,
+    #[serde(rename = "agentSkillsLegacy")]
+    agent_skills_legacy: FileStatus,
+    ucp: FileStatus,
+    #[serde(rename = "acpJson")]
+    acp_json: FileStatus,
 }
 
 #[derive(Serialize)]
@@ -140,6 +337,21 @@ struct RobotsTxtStatus {
     #[serde(rename = "blocksAllBots")]
     blocks_all_bots: bool,
     issues: Vec<String>,
+    /// Content Signals (contentsignals.org / IETF draft) parsed from
+    /// `Content-Signal:` directives in robots.txt. Informational.
+    #[serde(rename = "contentSignals")]
+    content_signals: ContentSignals,
+}
+
+#[derive(Serialize, Default)]
+struct ContentSignals {
+    found: bool,
+    #[serde(rename = "aiTrain")]
+    ai_train: Option<String>,
+    search: Option<String>,
+    #[serde(rename = "aiInput")]
+    ai_input: Option<String>,
+    raw: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -242,6 +454,35 @@ struct ImagesInfo {
     alt_percentage: u32,
 }
 
+#[derive(Serialize)]
+struct SecurityTxtInfo {
+    contacts: Vec<String>,
+    expires: Option<String>,
+    encryption: Vec<String>,
+    acknowledgments: Vec<String>,
+    #[serde(rename = "preferredLanguages")]
+    preferred_languages: Option<String>,
+    policy: Vec<String>,
+    hiring: Vec<String>,
+    canonical: Vec<String>,
+    #[serde(rename = "isExpired")]
+    is_expired: bool,
+}
+
+#[derive(Serialize)]
+struct LlmsTxtStatus {
+    found: bool,
+    title: Option<String>,
+    description: Option<String>,
+    #[serde(rename = "sectionCount")]
+    section_count: usize,
+    #[serde(rename = "linkCount")]
+    link_count: usize,
+    #[serde(rename = "hasOptionalSection")]
+    has_optional_section: bool,
+    sections: Vec<String>,
+}
+
 // Frontend HTML will be included as a separate file
 const FRONTEND_HTML: &str = include_str!("frontend.html");
 
@@ -274,8 +515,114 @@ fn extract_description(html: &str) -> String {
     String::new()
 }
 
-async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
+/// Browser-like User-Agent used for all AI readiness sub-fetches.
+/// Many sites (Shopify, Cloudflare-fronted, Akamai) return 403 to the default
+/// Cloudflare Workers User-Agent, so we present as a normal crawler.
+const FETCH_UA: &str =
+    "Mozilla/5.0 (compatible; HTMLens/0.4.0; +https://github.com/pondevelopment/htmlens)";
+
+/// Default cache TTL in seconds for `.well-known`, robots.txt, llms.txt, OAuth
+/// metadata, etc. Short-lived since these files do change occasionally.
+const CACHE_TTL_DEFAULT: u32 = 300; // 5 minutes
+/// Longer TTL for sitemaps (XML files rarely change between scans).
+#[allow(dead_code)]
+const CACHE_TTL_SITEMAP: u32 = 900; // 15 minutes
+/// Short TTL for x402 probes (status code may flip when site adds payments).
+const CACHE_TTL_X402: u32 = 60; // 1 minute
+
+// Per-request flag: when true, sub-fetches bypass the edge cache. Set by the
+// main handler from the `?nocache=1` query parameter. Workers are single-
+// threaded so a thread-local Cell is safe.
+thread_local! {
+    static BYPASS_CACHE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn set_bypass_cache(bypass: bool) {
+    BYPASS_CACHE.with(|b| b.set(bypass));
+}
+
+fn is_bypass_cache() -> bool {
+    BYPASS_CACHE.with(|b| b.get())
+}
+
+/// Fetch a URL with a browser-like User-Agent and (optionally) an Accept
+/// header, going through the Cloudflare edge Cache API.
+///
+/// Behaviour:
+/// - On cache HIT: returns the cached response without contacting the origin.
+/// - On cache MISS or bypass: fetches the origin, and on HTTP 200 stores the
+///   response with `Cache-Control: public, max-age=<ttl>`.
+/// - Non-200 responses are NEVER cached (avoids locking in transient 403/5xx).
+async fn fetch_with_ua_opts(url: &str, accept: Option<&str>, ttl: u32) -> Option<Response> {
+    let bypass = is_bypass_cache();
+    let cache = Cache::default();
+
+    // Compose a cache key URL. Distinguish by Accept by appending a synthetic
+    // query parameter — Cloudflare's Cache API keys on the request URL, and
+    // separating variants by URL is the simplest correct way to do this.
+    let cache_key_url = match accept {
+        Some(_) => format!(
+            "{}{}_hcache_accept={}",
+            url,
+            if url.contains('?') { "&" } else { "?" },
+            urlencoding::encode(accept.unwrap_or(""))
+        ),
+        None => url.to_string(),
+    };
+
+    if !bypass {
+        if let Ok(Some(hit)) = cache.get(cache_key_url.as_str(), false).await {
+            console_log!("[Cache] HIT {}", url);
+            return Some(hit);
+        }
+    } else {
+        let _ = cache.delete(cache_key_url.as_str(), false).await;
+    }
+
+    let mut req = Request::new(url, Method::Get).ok()?;
+    {
+        let headers = req.headers_mut().ok()?;
+        headers.set("User-Agent", FETCH_UA).ok()?;
+        if let Some(a) = accept {
+            headers.set("Accept", a).ok()?;
+        }
+    }
+    let mut response = Fetch::Request(req).send().await.ok()?;
+
+    let status = response.status_code();
+    if status == 200 {
+        // Clone, attach Cache-Control + Vary, and store.
+        if let Ok(mut cacheable) = response.cloned() {
+            {
+                let headers = cacheable.headers_mut();
+                let _ = headers.set("Cache-Control", &format!("public, max-age={}", ttl));
+                if accept.is_some() {
+                    let _ = headers.set("Vary", "Accept");
+                }
+            }
+            let _ = cache.put(cache_key_url.as_str(), cacheable).await;
+        }
+    }
+    Some(response)
+}
+
+/// Convenience wrapper: default TTL, no custom Accept header.
+async fn fetch_with_ua(url: &str) -> Option<Response> {
+    fetch_with_ua_opts(url, None, CACHE_TTL_DEFAULT).await
+}
+
+async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiReadinessData {
     let origin = normalize_origin(base_url);
+
+    // Parse Link header from the homepage fetch (no extra HTTP).
+    let link_headers = if signals.link_header.is_empty() {
+        None
+    } else {
+        Some(parse_link_header(&signals.link_header))
+    };
+
+    // Markdown negotiation: re-fetch homepage with Accept: text/markdown.
+    let markdown_negotiation = check_markdown_negotiation(base_url).await;
 
     // Check .well-known files
     let well_known = check_well_known_files(&origin).await;
@@ -320,6 +667,61 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
     // Check semantic HTML
     let semantic_html = check_semantic_html(base_url).await;
 
+    // Parse security.txt content if found
+    let security_txt = if well_known.security_txt.found {
+        parse_security_txt(&origin).await
+    } else {
+        None
+    };
+
+    // Check llms.txt
+    let llms_txt = check_llms_txt(&origin).await;
+
+    // ---- New informational deep validators (no scoring impact) ----
+    let oauth_authorization_server = if well_known.oauth_authorization_server.found {
+        check_oauth_authorization_server(&origin).await
+    } else {
+        None
+    };
+    let oauth_protected_resource =
+        if well_known.oauth_protected_resource.found || !signals.www_authenticate.is_empty() {
+            check_oauth_protected_resource(&origin, &signals.www_authenticate).await
+        } else {
+            None
+        };
+    let api_catalog = if well_known.api_catalog.found {
+        check_api_catalog(&origin).await
+    } else {
+        None
+    };
+    let mcp_server_card = if well_known.mcp_server_card.found || well_known.mcp_server_cards.found {
+        check_mcp_server_card(&origin).await
+    } else {
+        None
+    };
+    let agent_skills =
+        if well_known.agent_skills_index.found || well_known.agent_skills_legacy.found {
+            check_agent_skills(&origin).await
+        } else {
+            None
+        };
+    let web_bot_auth = check_web_bot_auth(&origin).await;
+
+    let commerce = CommerceChecks {
+        ucp: if well_known.ucp.found {
+            check_ucp(&origin).await
+        } else {
+            None
+        },
+        acp: if well_known.acp_json.found {
+            check_acp(&origin).await
+        } else {
+            None
+        },
+        mpp: None, // MPP discovery not yet defined; placeholder slot.
+        x402: check_x402(&origin).await,
+    };
+
     AiReadinessData {
         well_known,
         ai_plugin,
@@ -328,6 +730,17 @@ async fn check_ai_readiness(base_url: &str) -> AiReadinessData {
         robots_txt,
         sitemap,
         semantic_html,
+        security_txt,
+        llms_txt,
+        link_headers,
+        markdown_negotiation,
+        oauth_authorization_server,
+        oauth_protected_resource,
+        api_catalog,
+        mcp_server_card,
+        web_bot_auth,
+        agent_skills,
+        commerce,
     }
 }
 
@@ -377,6 +790,61 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
             status: 0,
             valid: None,
         },
+        llms_txt: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        oauth_authorization_server: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        oauth_protected_resource: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        http_message_signatures_directory: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        api_catalog: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        mcp_server_card: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        mcp_server_cards: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        agent_skills_index: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        agent_skills_legacy: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        ucp: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
+        acp_json: FileStatus {
+            found: false,
+            status: 0,
+            valid: None,
+        },
     };
 
     for (filename, _) in files {
@@ -387,7 +855,12 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
         let mut init = RequestInit::new();
         init.with_redirect(RequestRedirect::Manual);
 
-        if let Ok(request) = Request::new_with_init(&url, &init)
+        let request_result = Request::new_with_init(&url, &init).and_then(|mut r| {
+            r.headers_mut()?.set("User-Agent", FETCH_UA)?;
+            Ok(r)
+        });
+
+        if let Ok(request) = request_result
             && let Ok(mut response) = Fetch::Request(request).send().await
         {
             let status = response.status_code();
@@ -470,13 +943,146 @@ async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
         }
     }
 
+    // Check /llms.txt (at root, not .well-known)
+    {
+        let url = format!("{}/llms.txt", base_url);
+        console_log!("[AI Readiness] Checking: {}", url);
+
+        let mut init = RequestInit::new();
+        init.with_redirect(RequestRedirect::Manual);
+
+        if let Ok(request) = Request::new_with_init(&url, &init)
+            && let Ok(mut response) = Fetch::Request(request).send().await
+        {
+            let status = response.status_code();
+            if status == 200 {
+                if let Ok(text) = response.text().await {
+                    // Validate: llms.txt should be markdown starting with # heading
+                    let is_valid = text.trim().starts_with('#');
+                    console_log!(
+                        "[AI Readiness] llms.txt - Found (valid markdown: {})",
+                        is_valid
+                    );
+                    results.llms_txt = FileStatus {
+                        found: true,
+                        status,
+                        valid: Some(is_valid),
+                    };
+                }
+            } else {
+                console_log!("[AI Readiness] llms.txt - Not found (HTTP {})", status);
+                results.llms_txt = FileStatus {
+                    found: false,
+                    status,
+                    valid: None,
+                };
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Additional informational .well-known probes (no scoring impact).
+    // These all flow through the cached fetch helper.
+    // ------------------------------------------------------------------
+    let new_entries: Vec<(&str, &str, Option<&str>, bool)> = vec![
+        // (path, slot, accept, json_validated)
+        (
+            "/.well-known/oauth-authorization-server",
+            "oauth-as",
+            None,
+            true,
+        ),
+        (
+            "/.well-known/oauth-protected-resource",
+            "oauth-pr",
+            None,
+            true,
+        ),
+        (
+            "/.well-known/http-message-signatures-directory",
+            "hmsd",
+            None,
+            true,
+        ),
+        (
+            "/.well-known/api-catalog",
+            "api-catalog",
+            Some("application/linkset+json, application/json"),
+            true,
+        ),
+        ("/.well-known/mcp/server-card.json", "mcp-card", None, true),
+        (
+            "/.well-known/mcp/server-cards.json",
+            "mcp-cards",
+            None,
+            true,
+        ),
+        (
+            "/.well-known/agent-skills/index.json",
+            "skills-new",
+            None,
+            true,
+        ),
+        (
+            "/.well-known/skills/index.json",
+            "skills-legacy",
+            None,
+            true,
+        ),
+        ("/.well-known/ucp", "ucp", None, false),
+        ("/.well-known/acp.json", "acp", None, true),
+    ];
+    for (path, slot, accept, json_validated) in new_entries {
+        let url = format!("{}{}", base_url, path);
+        console_log!("[.well-known] Checking (extra): {}", url);
+        let mut status: u16 = 0;
+        let mut found = false;
+        let mut valid: Option<bool> = None;
+        if let Some(mut response) = fetch_with_ua_opts(&url, accept, CACHE_TTL_DEFAULT).await {
+            status = response.status_code();
+            if status == 200 {
+                if json_validated {
+                    if let Ok(text) = response.text().await {
+                        if serde_json::from_str::<serde_json::Value>(&text).is_ok() {
+                            found = true;
+                            valid = Some(true);
+                        } else {
+                            found = false;
+                            valid = Some(false);
+                        }
+                    }
+                } else {
+                    found = true;
+                }
+            }
+        }
+        let fs = FileStatus {
+            found,
+            status,
+            valid,
+        };
+        match slot {
+            "oauth-as" => results.oauth_authorization_server = fs,
+            "oauth-pr" => results.oauth_protected_resource = fs,
+            "hmsd" => results.http_message_signatures_directory = fs,
+            "api-catalog" => results.api_catalog = fs,
+            "mcp-card" => results.mcp_server_card = fs,
+            "mcp-cards" => results.mcp_server_cards = fs,
+            "skills-new" => results.agent_skills_index = fs,
+            "skills-legacy" => results.agent_skills_legacy = fs,
+            "ucp" => results.ucp = fs,
+            "acp" => results.acp_json = fs,
+            _ => {}
+        }
+    }
+
     results
 }
 
 async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
     let url = format!("{}/.well-known/ai-plugin.json", base_url);
-    if let Ok(parsed) = Url::parse(&url)
-        && let Ok(mut response) = Fetch::Url(parsed).send().await
+    if Url::parse(&url).is_ok()
+        && let Some(mut response) = fetch_with_ua(&url).await
         && let Ok(text) = response.text().await
         && let Ok(plugin) = serde_json::from_str::<serde_json::Value>(&text)
     {
@@ -525,8 +1131,8 @@ async fn check_ai_plugin(base_url: &str) -> Option<AiPluginStatus> {
 
 async fn check_mcp(base_url: &str) -> Option<McpStatus> {
     let url = format!("{}/.well-known/mcp.json", base_url);
-    if let Ok(parsed) = Url::parse(&url)
-        && let Ok(mut response) = Fetch::Url(parsed).send().await
+    if Url::parse(&url).is_ok()
+        && let Some(mut response) = fetch_with_ua(&url).await
         && let Ok(text) = response.text().await
         && let Ok(mcp) = serde_json::from_str::<serde_json::Value>(&text)
     {
@@ -619,8 +1225,8 @@ async fn check_mcp(base_url: &str) -> Option<McpStatus> {
 }
 
 async fn check_openapi(api_url: &str) -> Option<OpenApiStatus> {
-    if let Ok(parsed) = Url::parse(api_url)
-        && let Ok(mut response) = Fetch::Url(parsed).send().await
+    if Url::parse(api_url).is_ok()
+        && let Some(mut response) = fetch_with_ua(api_url).await
         && let Ok(text) = response.text().await
         && let Ok(spec) = serde_json::from_str::<serde_json::Value>(&text)
     {
@@ -662,82 +1268,115 @@ async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
     // robots.txt must be located at the origin
     let origin = normalize_origin(base_url);
     let robots_url = format!("{}/robots.txt", origin);
-    let parsed = Url::parse(&robots_url).ok()?;
+    console_log!("[AI Readiness] Checking robots.txt: {}", robots_url);
+    Url::parse(&robots_url).ok()?;
 
-    if let Ok(mut response) = Fetch::Url(parsed).send().await
-        && response.status_code() == 200
-        && let Ok(text) = response.text().await
-    {
-        // Parse robots.txt content
-        let lines: Vec<&str> = text.lines().collect();
-        let mut sitemaps = Vec::new();
-        let mut ai_crawlers = Vec::new();
-        let mut blocks_all_bots = false;
-        let mut issues = Vec::new();
+    if let Some(mut response) = fetch_with_ua(&robots_url).await {
+        let status = response.status_code();
+        if status == 200
+            && let Ok(text) = response.text().await
+        {
+            console_log!("[AI Readiness] robots.txt - Found ({} bytes)", text.len());
+            // Parse robots.txt content
+            let lines: Vec<&str> = text.lines().collect();
+            let mut sitemaps = Vec::new();
+            let mut ai_crawlers = Vec::new();
+            let mut blocks_all_bots = false;
+            let mut issues = Vec::new();
 
-        // Extract sitemaps
-        for line in &lines {
-            let line = line.trim();
-            if line.to_lowercase().starts_with("sitemap:") {
-                // Split only on first colon to preserve URL scheme (https:)
-                if let Some(colon_pos) = line.find(':') {
-                    let sitemap_url = &line[colon_pos + 1..];
-                    sitemaps.push(sitemap_url.trim().to_string());
+            // Extract sitemaps
+            for line in &lines {
+                let line = line.trim();
+                if line.to_lowercase().starts_with("sitemap:") {
+                    // Split only on first colon to preserve URL scheme (https:)
+                    if let Some(colon_pos) = line.find(':') {
+                        let sitemap_url = &line[colon_pos + 1..];
+                        sitemaps.push(sitemap_url.trim().to_string());
+                    }
                 }
             }
-        }
 
-        // Check for wildcard block
-        let mut in_wildcard = false;
-        for line in &lines {
-            let line = line.trim().to_lowercase();
-            if line.starts_with("user-agent:") {
-                in_wildcard = line.contains("*");
-            } else if in_wildcard && line == "disallow: /" {
-                blocks_all_bots = true;
-                issues.push("Warning: All bots blocked with 'Disallow: /'".to_string());
+            // Check for wildcard block
+            let mut in_wildcard = false;
+            for line in &lines {
+                let line = line.trim().to_lowercase();
+                if line.starts_with("user-agent:") {
+                    in_wildcard = line.contains("*");
+                } else if in_wildcard && line == "disallow: /" {
+                    blocks_all_bots = true;
+                    issues.push("Warning: All bots blocked with 'Disallow: /'".to_string());
+                }
             }
-        }
 
-        // Check AI crawlers
-        let ai_crawler_names = vec![
-            "GPTBot",
-            "ChatGPT-User",
-            "ClaudeBot",
-            "Claude-Web",
-            "Google-Extended",
-            "Bingbot",
-            "Applebot",
-            "PerplexityBot",
-        ];
+            // Check AI crawlers
+            let ai_crawler_names = vec![
+                "GPTBot",
+                "ChatGPT-User",
+                "ClaudeBot",
+                "Claude-Web",
+                "Google-Extended",
+                "Bingbot",
+                "Applebot",
+                "PerplexityBot",
+            ];
 
-        for crawler in ai_crawler_names {
-            let access = check_crawler_access(&text, crawler);
-            let rules = get_crawler_rules(&text, crawler);
+            for crawler in ai_crawler_names {
+                let access = check_crawler_access(&text, crawler);
+                let rules = get_crawler_rules(&text, crawler);
 
-            ai_crawlers.push(AiCrawlerInfo {
-                name: crawler.to_string(),
-                access: access.clone(),
-                rules,
+                ai_crawlers.push(AiCrawlerInfo {
+                    name: crawler.to_string(),
+                    access: access.clone(),
+                    rules,
+                });
+
+                if access == "blocked" {
+                    issues.push(format!("{} is blocked from accessing the site", crawler));
+                }
+            }
+
+            if sitemaps.is_empty() {
+                issues.push("No sitemap URLs found in robots.txt".to_string());
+            }
+
+            // Parse Content-Signal: directives (contentsignals.org / IETF draft).
+            // Lines look like `Content-Signal: ai-train=no, search=yes`.
+            let mut content_signals = ContentSignals::default();
+            for line in &lines {
+                let raw_line = line.trim();
+                let lower = raw_line.to_lowercase();
+                if let Some(rest) = lower.strip_prefix("content-signal:") {
+                    content_signals.found = true;
+                    content_signals.raw.push(raw_line.to_string());
+                    for token in rest.split(',') {
+                        let token = token.trim();
+                        if let Some((k, v)) = token.split_once('=') {
+                            let v = v.trim().to_string();
+                            match k.trim() {
+                                "ai-train" => content_signals.ai_train = Some(v),
+                                "search" => content_signals.search = Some(v),
+                                "ai-input" => content_signals.ai_input = Some(v),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+
+            return Some(RobotsTxtStatus {
+                found: true,
+                sitemap_count: sitemaps.len(),
+                sitemaps,
+                ai_crawlers,
+                blocks_all_bots,
+                issues,
+                content_signals,
             });
-
-            if access == "blocked" {
-                issues.push(format!("{} is blocked from accessing the site", crawler));
-            }
+        } else {
+            console_log!("[AI Readiness] robots.txt - Not found (HTTP {})", status);
         }
-
-        if sitemaps.is_empty() {
-            issues.push("No sitemap URLs found in robots.txt".to_string());
-        }
-
-        return Some(RobotsTxtStatus {
-            found: true,
-            sitemap_count: sitemaps.len(),
-            sitemaps,
-            ai_crawlers,
-            blocks_all_bots,
-            issues,
-        });
+    } else {
+        console_log!("[AI Readiness] robots.txt - Fetch failed");
     }
 
     Some(RobotsTxtStatus {
@@ -747,6 +1386,7 @@ async fn check_robots_txt(base_url: &str) -> Option<RobotsTxtStatus> {
         ai_crawlers: Vec::new(),
         blocks_all_bots: false,
         issues: vec!["robots.txt not found".to_string()],
+        content_signals: ContentSignals::default(),
     })
 }
 
@@ -757,10 +1397,16 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
     let root_origin = normalize_origin(base_url);
     Url::parse(&root_origin).ok()?;
 
+    console_log!(
+        "[AI Readiness] Checking sitemap ({} URL(s) from robots.txt)",
+        sitemap_urls.len()
+    );
+
     // Try sitemap URLs from robots.txt first
     for sitemap_url in &sitemap_urls {
-        if let Ok(parsed) = Url::parse(sitemap_url)
-            && let Ok(mut response) = Fetch::Url(parsed).send().await
+        console_log!("[Sitemap] Trying: {}", sitemap_url);
+        if Url::parse(sitemap_url).is_ok()
+            && let Some(mut response) = fetch_with_ua(sitemap_url).await
             && response.status_code() == 200
             && let Ok(xml_content) = response.text().await
             && let Ok(mut analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
@@ -774,8 +1420,8 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
                 let mut all_sample_urls = Vec::new();
 
                 for nested_url in &analysis.nested_sitemaps {
-                    if let Ok(nested_parsed) = Url::parse(nested_url)
-                        && let Ok(mut nested_response) = Fetch::Url(nested_parsed).send().await
+                    if Url::parse(nested_url).is_ok()
+                        && let Some(mut nested_response) = fetch_with_ua(nested_url).await
                         && nested_response.status_code() == 200
                         && let Ok(nested_xml) = nested_response.text().await
                         && let Ok(nested_analysis) =
@@ -848,8 +1494,9 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
 
     // If no sitemap from robots.txt, try default location
     let default_sitemap = format!("{}/sitemap.xml", root_origin);
-    if let Ok(parsed) = Url::parse(&default_sitemap)
-        && let Ok(mut response) = Fetch::Url(parsed).send().await
+    console_log!("[Sitemap] Trying default location: {}", default_sitemap);
+    if Url::parse(&default_sitemap).is_ok()
+        && let Some(mut response) = fetch_with_ua(&default_sitemap).await
         && response.status_code() == 200
         && let Ok(xml_content) = response.text().await
         && let Ok(mut analysis) = sitemap::parse_sitemap(&xml_content, &root_origin)
@@ -863,8 +1510,8 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
             let mut all_sample_urls = Vec::new();
 
             for nested_url in &analysis.nested_sitemaps {
-                if let Ok(nested_parsed) = Url::parse(nested_url)
-                    && let Ok(mut nested_response) = Fetch::Url(nested_parsed).send().await
+                if Url::parse(nested_url).is_ok()
+                    && let Some(mut nested_response) = fetch_with_ua(nested_url).await
                     && nested_response.status_code() == 200
                     && let Ok(nested_xml) = nested_response.text().await
                     && let Ok(nested_analysis) = sitemap::parse_sitemap(&nested_xml, &root_origin)
@@ -953,14 +1600,174 @@ async fn check_sitemap(base_url: &str, sitemap_urls: Vec<String>) -> Option<Site
     })
 }
 
+async fn parse_security_txt(base_url: &str) -> Option<SecurityTxtInfo> {
+    let url = format!("{}/.well-known/security.txt", base_url);
+    Url::parse(&url).ok()?;
+    let mut response = fetch_with_ua(&url).await?;
+
+    if response.status_code() != 200 {
+        return None;
+    }
+
+    let content = match response.text().await {
+        Ok(text) => text,
+        Err(_) => return None,
+    };
+
+    let mut contacts = Vec::new();
+    let mut expires = None;
+    let mut encryption = Vec::new();
+    let mut acknowledgments = Vec::new();
+    let mut preferred_languages = None;
+    let mut policy = Vec::new();
+    let mut hiring = Vec::new();
+    let mut canonical = Vec::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim().to_string();
+            if value.is_empty() {
+                continue;
+            }
+            match key.to_lowercase().as_str() {
+                "contact" => contacts.push(value),
+                "expires" => expires = Some(value),
+                "encryption" => encryption.push(value),
+                "acknowledgments" | "acknowledgements" => acknowledgments.push(value),
+                "preferred-languages" => preferred_languages = Some(value),
+                "policy" => policy.push(value),
+                "hiring" => hiring.push(value),
+                "canonical" => canonical.push(value),
+                _ => {}
+            }
+        }
+    }
+
+    // Check if expired
+    let is_expired = expires.as_ref().is_some_and(|exp| {
+        // Try to parse ISO 8601 date
+        if let Some(date_part) = exp.split('T').next() {
+            // Simple comparison: if date string is before current date
+            date_part < "2026-04-01"
+        } else {
+            false
+        }
+    });
+
+    Some(SecurityTxtInfo {
+        contacts,
+        expires,
+        encryption,
+        acknowledgments,
+        preferred_languages,
+        policy,
+        hiring,
+        canonical,
+        is_expired,
+    })
+}
+
+async fn check_llms_txt(base_url: &str) -> Option<LlmsTxtStatus> {
+    let url = format!("{}/llms.txt", base_url);
+    console_log!("[AI Readiness] Checking llms.txt: {}", url);
+
+    Url::parse(&url).ok()?;
+    let mut response = fetch_with_ua(&url).await?;
+
+    if response.status_code() != 200 {
+        return Some(LlmsTxtStatus {
+            found: false,
+            title: None,
+            description: None,
+            section_count: 0,
+            link_count: 0,
+            has_optional_section: false,
+            sections: Vec::new(),
+        });
+    }
+
+    let content = match response.text().await {
+        Ok(text) => text,
+        Err(_) => return None,
+    };
+
+    // Parse the markdown structure
+    let mut title = None;
+    let mut description = None;
+    let mut sections = Vec::new();
+    let mut link_count = 0;
+    let mut has_optional_section = false;
+    let mut in_blockquote = false;
+    let mut blockquote_lines = Vec::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // H1 = title (first one only)
+        if trimmed.starts_with("# ") && title.is_none() {
+            title = Some(trimmed.trim_start_matches("# ").to_string());
+            continue;
+        }
+
+        // H2 = section header
+        if trimmed.starts_with("## ") {
+            let section_name = trimmed.trim_start_matches("## ").to_string();
+            if section_name.to_lowercase() == "optional" {
+                has_optional_section = true;
+            }
+            sections.push(section_name);
+            continue;
+        }
+
+        // Blockquote = description (first one only)
+        if trimmed.starts_with('>') {
+            in_blockquote = true;
+            blockquote_lines.push(trimmed.trim_start_matches('>').trim().to_string());
+            continue;
+        } else if in_blockquote {
+            in_blockquote = false;
+            if description.is_none() {
+                description = Some(blockquote_lines.join(" "));
+            }
+            blockquote_lines.clear();
+        }
+
+        // Count markdown links
+        let mut remaining = trimmed;
+        while let Some(start) = remaining.find("](") {
+            if remaining[..start].rfind('[').is_some() {
+                link_count += 1;
+            }
+            remaining = &remaining[start + 2..];
+        }
+    }
+
+    // Handle blockquote at end of file
+    if in_blockquote && description.is_none() && !blockquote_lines.is_empty() {
+        description = Some(blockquote_lines.join(" "));
+    }
+
+    Some(LlmsTxtStatus {
+        found: true,
+        title,
+        description,
+        section_count: sections.len(),
+        link_count,
+        has_optional_section,
+        sections,
+    })
+}
+
 async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
     // Fetch the HTML page
     let url = base_url.trim_end_matches('/');
-    let parsed = Url::parse(url).ok()?;
-    let mut response = match Fetch::Url(parsed).send().await {
-        Ok(r) => r,
-        Err(_) => return None,
-    };
+    Url::parse(url).ok()?;
+    let mut response = fetch_with_ua(url).await?;
 
     if response.status_code() != 200 {
         return None;
@@ -1015,6 +1822,493 @@ async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
         issues: analysis.issues,
         recommendations: analysis.recommendations,
     })
+}
+
+// ============================================================
+// New informational helpers (Phases 2, 4, 5)
+// All purely informational — no scoring/issues mutation.
+// ============================================================
+
+/// Parse an RFC 8288 Link header. Multiple links may appear comma-separated;
+/// each entry is `<target>; rel="..."`. Relation values may be
+/// space-separated; we expand them so each (target, rel) pair is its own row.
+fn parse_link_header(raw: &str) -> LinkHeaderInfo {
+    let mut links: Vec<ParsedLink> = Vec::new();
+    // Naive split on commas that are not inside <>. Good enough since
+    // targets are always wrapped in <...>.
+    let mut depth = 0;
+    let mut buf = String::new();
+    let mut entries: Vec<String> = Vec::new();
+    for ch in raw.chars() {
+        match ch {
+            '<' => {
+                depth += 1;
+                buf.push(ch);
+            }
+            '>' => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+                buf.push(ch);
+            }
+            ',' if depth == 0 => {
+                entries.push(std::mem::take(&mut buf));
+            }
+            _ => buf.push(ch),
+        }
+    }
+    if !buf.trim().is_empty() {
+        entries.push(buf);
+    }
+    for entry in entries {
+        let entry = entry.trim();
+        let target_start = entry.find('<');
+        let target_end = entry.find('>');
+        if let (Some(s), Some(e)) = (target_start, target_end) {
+            if e <= s {
+                continue;
+            }
+            let target = entry[s + 1..e].trim().to_string();
+            let rest = &entry[e + 1..];
+            // Find rel= parameter (case-insensitive).
+            let mut rel_value: Option<String> = None;
+            for param in rest.split(';') {
+                let p = param.trim();
+                let pl = p.to_lowercase();
+                if let Some(v) = pl.strip_prefix("rel=") {
+                    let v = v.trim().trim_matches('"').to_string();
+                    rel_value = Some(v);
+                    break;
+                }
+            }
+            let rels = rel_value.unwrap_or_default();
+            if rels.is_empty() {
+                links.push(ParsedLink {
+                    target: target.clone(),
+                    rel: String::new(),
+                });
+            } else {
+                for r in rels.split_whitespace() {
+                    links.push(ParsedLink {
+                        target: target.clone(),
+                        rel: r.to_string(),
+                    });
+                }
+            }
+        }
+    }
+    let agent_useful_rels = [
+        "api-catalog",
+        "service-doc",
+        "service-desc",
+        "service-meta",
+        "status",
+        "terms-of-service",
+        "describedby",
+        "license",
+        "author",
+    ];
+    let agent_useful = links
+        .iter()
+        .filter(|l| {
+            agent_useful_rels
+                .iter()
+                .any(|r| l.rel.eq_ignore_ascii_case(r))
+        })
+        .cloned()
+        .collect();
+    LinkHeaderInfo {
+        raw: raw.to_string(),
+        links,
+        agent_useful,
+    }
+}
+
+/// Fetch the homepage with `Accept: text/markdown` and inspect the response.
+async fn check_markdown_negotiation(url: &str) -> Option<MarkdownNegotiationInfo> {
+    let response = fetch_with_ua_opts(url, Some("text/markdown"), CACHE_TTL_DEFAULT).await?;
+    let status = response.status_code();
+    let content_type = response
+        .headers()
+        .get("Content-Type")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let supported = status == 200 && content_type.to_lowercase().contains("text/markdown");
+    Some(MarkdownNegotiationInfo {
+        supported,
+        status,
+        content_type,
+    })
+}
+
+/// Parse `/.well-known/oauth-authorization-server` (RFC 8414).
+async fn check_oauth_authorization_server(base_url: &str) -> Option<OauthMetadataInfo> {
+    let url = format!("{}/.well-known/oauth-authorization-server", base_url);
+    let mut response = fetch_with_ua(&url).await?;
+    let text = response.text().await.ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let issuer = json
+        .get("issuer")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let authorization_endpoint = json
+        .get("authorization_endpoint")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let token_endpoint = json
+        .get("token_endpoint")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let scopes_supported = json
+        .get("scopes_supported")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(OauthMetadataInfo {
+        valid: true,
+        issuer,
+        authorization_endpoint,
+        token_endpoint,
+        scopes_supported,
+    })
+}
+
+/// Parse `/.well-known/oauth-protected-resource` (RFC 9728 draft) and merge
+/// with the `WWW-Authenticate` header captured from the homepage.
+async fn check_oauth_protected_resource(
+    base_url: &str,
+    www_authenticate: &str,
+) -> Option<OauthProtectedResourceInfo> {
+    let url = format!("{}/.well-known/oauth-protected-resource", base_url);
+    let www_auth_opt = if www_authenticate.is_empty() {
+        None
+    } else {
+        Some(www_authenticate.to_string())
+    };
+    if let Some(mut response) = fetch_with_ua(&url).await
+        && response.status_code() == 200
+            && let Ok(text) = response.text().await
+                && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                    let resource = json
+                        .get("resource")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let authorization_servers = json
+                        .get("authorization_servers")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let scopes_supported = json
+                        .get("scopes_supported")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    return Some(OauthProtectedResourceInfo {
+                        found: true,
+                        resource,
+                        authorization_servers,
+                        scopes_supported,
+                        www_authenticate: www_auth_opt,
+                    });
+                }
+    // Fall back to header-only signal.
+    www_auth_opt.as_ref()?;
+    Some(OauthProtectedResourceInfo {
+        found: false,
+        resource: None,
+        authorization_servers: Vec::new(),
+        scopes_supported: Vec::new(),
+        www_authenticate: www_auth_opt,
+    })
+}
+
+/// Validate `/.well-known/api-catalog` (Linkset, RFC 9264).
+async fn check_api_catalog(base_url: &str) -> Option<ApiCatalogInfo> {
+    let url = format!("{}/.well-known/api-catalog", base_url);
+    let mut response = fetch_with_ua_opts(
+        &url,
+        Some("application/linkset+json, application/json"),
+        CACHE_TTL_DEFAULT,
+    )
+    .await?;
+    let text = response.text().await.ok()?;
+    let mut issues = Vec::new();
+    let json: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(v) => v,
+        Err(e) => {
+            issues.push(format!("Invalid JSON: {}", e));
+            return Some(ApiCatalogInfo {
+                valid: false,
+                entry_count: 0,
+                entries: Vec::new(),
+                issues,
+            });
+        }
+    };
+    let linkset = json
+        .get("linkset")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut entries: Vec<ApiCatalogEntry> = Vec::new();
+    for item in &linkset {
+        let anchor = item
+            .get("anchor")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let mut relations: Vec<String> = Vec::new();
+        if let Some(obj) = item.as_object() {
+            for key in obj.keys() {
+                if key != "anchor" {
+                    relations.push(key.clone());
+                }
+            }
+        }
+        entries.push(ApiCatalogEntry { anchor, relations });
+    }
+    if entries.is_empty() {
+        issues.push("Linkset is empty".to_string());
+    }
+    Some(ApiCatalogInfo {
+        valid: issues.is_empty(),
+        entry_count: entries.len(),
+        entries,
+        issues,
+    })
+}
+
+/// Parse an MCP server card. Tries both `server-card.json` and
+/// `server-cards.json`.
+async fn check_mcp_server_card(base_url: &str) -> Option<McpServerCardInfo> {
+    for path in [
+        "/.well-known/mcp/server-card.json",
+        "/.well-known/mcp/server-cards.json",
+    ] {
+        let url = format!("{}{}", base_url, path);
+        if let Some(mut response) = fetch_with_ua(&url).await
+            && response.status_code() == 200
+                && let Ok(text) = response.text().await
+                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                        // server-cards.json is typically an array; flatten to first entry.
+                        let node = if json.is_array() {
+                            json.as_array()
+                                .and_then(|a| a.first().cloned())
+                                .unwrap_or(json)
+                        } else {
+                            json
+                        };
+                        let name = node.get("name").and_then(|v| v.as_str()).map(String::from);
+                        let version = node
+                            .get("version")
+                            .and_then(|v| v.as_str())
+                            .map(String::from);
+                        let transport = node
+                            .get("transport")
+                            .and_then(|v| v.as_str())
+                            .map(String::from)
+                            .or_else(|| {
+                                node.get("transports")
+                                    .and_then(|v| v.as_array())
+                                    .and_then(|a| a.first())
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from)
+                            });
+                        let endpoint = node
+                            .get("endpoint")
+                            .and_then(|v| v.as_str())
+                            .map(String::from)
+                            .or_else(|| node.get("url").and_then(|v| v.as_str()).map(String::from));
+                        return Some(McpServerCardInfo {
+                            found: true,
+                            path: path.to_string(),
+                            name,
+                            version,
+                            transport,
+                            endpoint,
+                        });
+                    }
+    }
+    None
+}
+
+/// Probe for the http-message-signatures-directory presence (Cloudflare's
+/// Web Bot Auth scheme). Just records found / status; the directory itself
+/// is JSON and already validated by `check_well_known_files`.
+async fn check_web_bot_auth(base_url: &str) -> Option<WebBotAuthInfo> {
+    let url = format!("{}/.well-known/http-message-signatures-directory", base_url);
+    let response = fetch_with_ua(&url).await?;
+    let status = response.status_code();
+    let content_type = response
+        .headers()
+        .get("Content-Type")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    Some(WebBotAuthInfo {
+        found: status == 200,
+        status,
+        content_type,
+    })
+}
+
+/// Parse agent skills index. Tries new (`/.well-known/agent-skills/index.json`)
+/// then legacy (`/.well-known/skills/index.json`).
+async fn check_agent_skills(base_url: &str) -> Option<AgentSkillsInfo> {
+    for path in [
+        "/.well-known/agent-skills/index.json",
+        "/.well-known/skills/index.json",
+    ] {
+        let url = format!("{}{}", base_url, path);
+        if let Some(mut response) = fetch_with_ua(&url).await
+            && response.status_code() == 200
+                && let Ok(text) = response.text().await
+                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                        let arr = json
+                            .get("skills")
+                            .and_then(|v| v.as_array())
+                            .cloned()
+                            .or_else(|| json.as_array().cloned())
+                            .unwrap_or_default();
+                        let skills: Vec<AgentSkillEntry> = arr
+                            .iter()
+                            .filter_map(|s| {
+                                let name = s
+                                    .get("name")
+                                    .or_else(|| s.get("id"))
+                                    .and_then(|v| v.as_str())?
+                                    .to_string();
+                                Some(AgentSkillEntry {
+                                    name,
+                                    skill_type: s
+                                        .get("type")
+                                        .and_then(|v| v.as_str())
+                                        .map(String::from),
+                                    description: s
+                                        .get("description")
+                                        .and_then(|v| v.as_str())
+                                        .map(String::from),
+                                    url: s.get("url").and_then(|v| v.as_str()).map(String::from),
+                                })
+                            })
+                            .collect();
+                        return Some(AgentSkillsInfo {
+                            found: true,
+                            path: path.to_string(),
+                            skill_count: skills.len(),
+                            skills,
+                        });
+                    }
+    }
+    None
+}
+
+/// Parse `/.well-known/ucp` (Universal Commerce Protocol).
+async fn check_ucp(base_url: &str) -> Option<UcpInfo> {
+    let url = format!("{}/.well-known/ucp", base_url);
+    let mut response = fetch_with_ua(&url).await?;
+    if response.status_code() != 200 {
+        return None;
+    }
+    let text = response.text().await.ok()?;
+    // UCP is typically JSON; tolerate other text forms.
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+        let version = json
+            .get("version")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let services = json
+            .get("services")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| {
+                        x.get("name")
+                            .or_else(|| x.get("type"))
+                            .and_then(|v| v.as_str())
+                            .map(String::from)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        return Some(UcpInfo {
+            found: true,
+            version,
+            services,
+        });
+    }
+    Some(UcpInfo {
+        found: true,
+        version: None,
+        services: Vec::new(),
+    })
+}
+
+/// Parse `/.well-known/acp.json` (Agentic Commerce Protocol).
+async fn check_acp(base_url: &str) -> Option<AcpInfo> {
+    let url = format!("{}/.well-known/acp.json", base_url);
+    let mut response = fetch_with_ua(&url).await?;
+    if response.status_code() != 200 {
+        return None;
+    }
+    let text = response.text().await.ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let version = json
+        .get("version")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let api_base_url = json
+        .get("apiBaseUrl")
+        .or_else(|| json.get("api_base_url"))
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    Some(AcpInfo {
+        found: true,
+        version,
+        api_base_url,
+    })
+}
+
+/// Probe a handful of common paywall paths for an x402 (HTTP 402 Payment
+/// Required) signal. Cached with a short TTL so we don't hammer the origin.
+async fn check_x402(base_url: &str) -> Option<X402Info> {
+    let probes = ["/", "/api", "/api/agent"];
+    let mut results: Vec<X402Probe> = Vec::new();
+    let mut detected = false;
+    for path in probes {
+        let url = format!("{}{}", base_url, path);
+        if let Some(response) = fetch_with_ua_opts(&url, None, CACHE_TTL_X402).await {
+            let status = response.status_code();
+            if status == 402 {
+                detected = true;
+            }
+            results.push(X402Probe {
+                path: path.to_string(),
+                status,
+            });
+        }
+    }
+    if results.is_empty() {
+        None
+    } else {
+        Some(X402Info {
+            detected,
+            probes: results,
+        })
+    }
 }
 
 fn check_crawler_access(robots_txt: &str, crawler: &str) -> String {
@@ -1197,7 +2491,10 @@ fn format_cli_style_markdown(
         + videos.len()
         + other_entities.len();
 
-    md.push_str(&format!("**Structured Data Entities Found**: {}\n\n", total_entities));
+    md.push_str(&format!(
+        "**Structured Data Entities Found**: {}\n\n",
+        total_entities
+    ));
 
     // Render Organizations
     if !organizations.is_empty() {
@@ -1594,8 +2891,12 @@ fn format_cli_style_markdown(
             }
             if let Some(rating) = review.get("ratingValue").and_then(|r| r.as_f64()) {
                 if let Some(best) = review.get("bestRating").and_then(|b| b.as_f64()) {
-                    let stars = "★".repeat(rating as usize) + &"☆".repeat((best as usize) - (rating as usize));
-                    md.push_str(&format!("• Rating           : {} ({}/{})\n", stars, rating, best));
+                    let stars = "★".repeat(rating as usize)
+                        + &"☆".repeat((best as usize) - (rating as usize));
+                    md.push_str(&format!(
+                        "• Rating           : {} ({}/{})\n",
+                        stars, rating, best
+                    ));
                 } else {
                     md.push_str(&format!("• Rating           : {}\n", rating));
                 }
@@ -1616,15 +2917,14 @@ fn format_cli_style_markdown(
             if let Some(name) = business.get("name").and_then(|n| n.as_str()) {
                 md.push_str(&format!("• Name             : {}\n", name));
             }
-            if let Some(address) = business.get("address") {
-                if let Some(street) = address.get("streetAddress").and_then(|s| s.as_str()) {
+            if let Some(address) = business.get("address")
+                && let Some(street) = address.get("streetAddress").and_then(|s| s.as_str()) {
                     md.push_str(&format!("• Address          : {}", street));
                     if let Some(city) = address.get("addressLocality").and_then(|c| c.as_str()) {
                         md.push_str(&format!(", {}", city));
                     }
                     md.push('\n');
                 }
-            }
             if let Some(phone) = business.get("telephone").and_then(|p| p.as_str()) {
                 md.push_str(&format!("• Phone            : {}\n", phone));
             }
@@ -1650,11 +2950,10 @@ fn format_cli_style_markdown(
             if let Some(end) = event.get("endDate").and_then(|e| e.as_str()) {
                 md.push_str(&format!("• End Date         : {}\n", end));
             }
-            if let Some(location) = event.get("location") {
-                if let Some(name) = location.get("name").and_then(|n| n.as_str()) {
+            if let Some(location) = event.get("location")
+                && let Some(name) = location.get("name").and_then(|n| n.as_str()) {
                     md.push_str(&format!("• Location         : {}\n", name));
                 }
-            }
             if let Some(status) = event.get("eventStatus").and_then(|s| s.as_str()) {
                 md.push_str(&format!("• Status           : {}\n", status));
             }
@@ -1713,13 +3012,31 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
 
     // Handle API endpoint
     if url.path() == "/api" {
-        // Check for URL query parameter
-        if let Some(query) = url.query()
-            && let Some(target_url_encoded) = query.strip_prefix("url=")
-        {
-            let target_url = urlencoding::decode(target_url_encoded)
-                .unwrap_or_default()
-                .to_string();
+        // Parse query parameters: url= (required) and nocache=1 (optional)
+        let mut target_url_opt: Option<String> = None;
+        let mut bypass_cache = false;
+        // Also accept Cache-Control: no-cache request header as bypass signal.
+        if let Ok(Some(cc)) = req.headers().get("Cache-Control")
+            && cc.to_lowercase().contains("no-cache") {
+                bypass_cache = true;
+            }
+        for (k, v) in url.query_pairs() {
+            match k.as_ref() {
+                "url" => target_url_opt = Some(v.to_string()),
+                "nocache" => {
+                    if matches!(v.as_ref(), "1" | "true" | "yes") {
+                        bypass_cache = true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(target_url) = target_url_opt {
+            set_bypass_cache(bypass_cache);
+            if bypass_cache {
+                console_log!("[Worker] Cache bypass requested (nocache=1)");
+            }
 
             // Validate URL for security - only allow HTTP/HTTPS
             let parsed_url = match url::Url::parse(&target_url) {
@@ -1795,6 +3112,27 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                         .map(|r| r.with_headers(headers).with_status(500));
                 }
             };
+
+            // Capture response headers that several AI-readiness checks reuse,
+            // so we don't have to re-fetch the homepage.
+            let homepage_link_header = fetch_response
+                .headers()
+                .get("Link")
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            let homepage_www_auth = fetch_response
+                .headers()
+                .get("WWW-Authenticate")
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            let homepage_content_type = fetch_response
+                .headers()
+                .get("Content-Type")
+                .ok()
+                .flatten()
+                .unwrap_or_default();
 
             let html = fetch_response.text().await?;
             console_log!("[Worker] Fetched {} bytes", html.len());
@@ -1873,7 +3211,16 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                 format_cli_style_markdown(&target_url, &title, &description, &jsonld_blocks);
 
             // Check AI readiness
-            let ai_readiness = check_ai_readiness(&target_url).await;
+            let ai_readiness = check_ai_readiness(
+                &target_url,
+                HomepageSignals {
+                    link_header: homepage_link_header,
+                    www_authenticate: homepage_www_auth,
+                    content_type: homepage_content_type,
+                    html: &html,
+                },
+            )
+            .await;
 
             let response_data = ApiResponse {
                 url: target_url,
@@ -1986,6 +3333,61 @@ mod integration_tests {
                         status: 404,
                         valid: None,
                     },
+                    llms_txt: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    oauth_authorization_server: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    oauth_protected_resource: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    http_message_signatures_directory: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    api_catalog: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    mcp_server_card: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    mcp_server_cards: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    agent_skills_index: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    agent_skills_legacy: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    ucp: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
+                    acp_json: FileStatus {
+                        found: false,
+                        status: 404,
+                        valid: None,
+                    },
                 },
                 ai_plugin: None,
                 mcp: None,
@@ -1993,6 +3395,17 @@ mod integration_tests {
                 robots_txt: None,
                 sitemap: None,
                 semantic_html: None,
+                security_txt: None,
+                llms_txt: None,
+                link_headers: None,
+                markdown_negotiation: None,
+                oauth_authorization_server: None,
+                oauth_protected_resource: None,
+                api_catalog: None,
+                mcp_server_card: None,
+                web_bot_auth: None,
+                agent_skills: None,
+                commerce: CommerceChecks::default(),
             },
         };
 
