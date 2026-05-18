@@ -1791,16 +1791,32 @@
                 const heading = card.querySelector(':scope > h3, :scope > h4');
                 if (!heading) return;
                 const issueNodes = card.querySelectorAll(issueSelector);
-                const hasIssue = issueNodes.length > 0;
+                let hasIssue = issueNodes.length > 0;
 
                 // Build a status badge for at-a-glance reading on the collapsed card.
-                // For container cards (e.g. .well-known-checks with multiple file-checks)
-                // we show counts of OK vs issues. Otherwise just a single ✅ / ❌ pill.
+                // For container cards (e.g. .well-known-checks with multiple file-checks,
+                // or .emerging-standards with multiple .es-block children) we show counts
+                // of OK vs issues. Otherwise just a single ✅ / ❌ pill.
                 const fileChecks = card.querySelectorAll(':scope .file-check');
+                const esBlocks = card.querySelectorAll(':scope .es-block');
                 let badgeHtml = '';
                 if (fileChecks.length > 0) {
                     const okCount = card.querySelectorAll(':scope .file-check.found').length;
                     const issueCount = card.querySelectorAll(':scope .file-check.missing, :scope .file-check.critical-missing').length;
+                    badgeHtml = `<span class="status-pill ${issueCount > 0 ? 'bad' : 'good'}">`
+                        + (okCount > 0 ? `<span class="pill-ok">✅ ${okCount}</span>` : '')
+                        + (issueCount > 0 ? `<span class="pill-bad">❌ ${issueCount}</span>` : '')
+                        + '</span>';
+                } else if (esBlocks.length > 0) {
+                    // Emerging standards: derive status from each .es-preview text.
+                    let okCount = 0, issueCount = 0;
+                    esBlocks.forEach(b => {
+                        const preview = b.querySelector(':scope > summary > .es-preview');
+                        const txt = (preview?.textContent || '').trim();
+                        if (txt.includes('❌')) issueCount++;
+                        else if (txt.includes('✅')) okCount++;
+                    });
+                    if (issueCount > 0) hasIssue = true;
                     badgeHtml = `<span class="status-pill ${issueCount > 0 ? 'bad' : 'good'}">`
                         + (okCount > 0 ? `<span class="pill-ok">✅ ${okCount}</span>` : '')
                         + (issueCount > 0 ? `<span class="pill-bad">❌ ${issueCount}</span>` : '')
@@ -1838,9 +1854,21 @@
                 const specHtml = spec ? `<a class="es-spec" href="${spec.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${spec.label} ↗</a>` : '';
                 return `<details class="es-block"${open ? ' open' : ''}><summary><strong>${title}</strong>${previewHtml}${specHtml}</summary>${body}</details>`;
             };
+            // Placeholder body when a check has no data (file not present, etc.)
+            const missingBody = (path, reason) => {
+                let b = row('Status', '❌ Not detected');
+                if (path) b += row('Looked for', `<code>${path}</code>`);
+                if (reason) b += row('Why', reason);
+                return b;
+            };
 
-            let html = '<div class="emerging-standards"><h4>🧪 Emerging Agent Standards (informational)</h4>';
-            html += '<p style="color:#666;font-size:0.9em;margin:-4px 0 12px;">These checks surface newer agent / commerce standards. They do not affect the readiness score.</p>';
+            // Convenience: well-known file presence
+            const wk = ai.wellKnown || {};
+            const found = (f) => !!(f && f.found);
+
+            // Build the inner blocks first so we can adapt the heading + intro
+            // depending on whether anything failed.
+            let html = '';
 
             // Link headers
             if (ai.linkHeaders) {
@@ -1850,6 +1878,11 @@
                     useful.map(l => `<code>${l.rel}</code> → <a href="${l.target}" target="_blank">${l.target}</a>`).join(', '));
                 html += block('🔗 Link headers (RFC 8288)', useful.length > 0, body,
                     `${(ai.linkHeaders.links || []).length} links${useful.length ? ` · ${useful.length} agent-useful` : ''}`,
+                    { url: 'https://www.rfc-editor.org/rfc/rfc8288', label: 'RFC 8288' });
+            } else {
+                html += block('🔗 Link headers (RFC 8288)', false,
+                    missingBody(null, 'No <code>Link:</code> response header on the homepage.'),
+                    '❌ No Link header',
                     { url: 'https://www.rfc-editor.org/rfc/rfc8288', label: 'RFC 8288' });
             }
 
@@ -1861,6 +1894,11 @@
                 html += block('📝 Markdown negotiation', !m.supported, body,
                     `${yn(m.supported)} HTTP ${m.status}${ct}`,
                     { url: 'https://datatracker.ietf.org/doc/draft-ietf-httpbis-content-negotiation-history/', label: 'spec' });
+            } else {
+                html += block('📝 Markdown negotiation', false,
+                    missingBody(null, 'Probe did not complete.'),
+                    '❌ Not checked',
+                    { url: 'https://datatracker.ietf.org/doc/draft-ietf-httpbis-content-negotiation-history/', label: 'spec' });
             }
 
             // Robots Content-Signal
@@ -1871,6 +1909,11 @@
                 body += row('ai-input', cs.aiInput || '—');
                 html += block('📡 robots.txt Content-Signal', false, body,
                     [cs.aiTrain, cs.search, cs.aiInput].filter(Boolean).length + ' signals',
+                    { url: 'https://github.com/ai-robots-txt/ai.robots.txt', label: 'proposal' });
+            } else {
+                html += block('📡 robots.txt Content-Signal', false,
+                    missingBody('/robots.txt', 'No <code>Content-Signal</code> directives present.'),
+                    '❌ Not present',
                     { url: 'https://github.com/ai-robots-txt/ai.robots.txt', label: 'proposal' });
             }
 
@@ -1884,6 +1927,12 @@
                 html += block('🔐 OAuth Authorization Server (RFC 8414)', true, body,
                     o.issuer ? `issuer: ${o.issuer}` : '✅ found',
                     { url: 'https://www.rfc-editor.org/rfc/rfc8414', label: 'RFC 8414' });
+            } else {
+                html += block('🔐 OAuth Authorization Server (RFC 8414)', false,
+                    missingBody('/.well-known/oauth-authorization-server',
+                        found(wk.oauthAuthorizationServer) ? 'Found but failed to parse.' : 'File not present.'),
+                    '❌ Not detected',
+                    { url: 'https://www.rfc-editor.org/rfc/rfc8414', label: 'RFC 8414' });
             }
 
             // OAuth PR
@@ -1893,9 +1942,15 @@
                 if (o.resource) body += row('Resource', o.resource);
                 if (o.authorizationServers?.length) body += row('Auth servers', o.authorizationServers.join(', '));
                 if (o.wwwAuthenticate) body += row('WWW-Authenticate', `<code>${o.wwwAuthenticate}</code>`);
-                html += block('🛡️ OAuth Protected Resource', !!o.wwwAuthenticate, body,
+                html += block('🛡️ OAuth Protected Resource (RFC 9728)', !!o.wwwAuthenticate, body,
                     `${yn(o.found)}${o.authorizationServers?.length ? ` · ${o.authorizationServers.length} AS` : ''}`,
-                    { url: 'https://datatracker.ietf.org/doc/draft-ietf-oauth-resource-metadata/', label: 'draft' });
+                    { url: 'https://www.rfc-editor.org/rfc/rfc9728', label: 'RFC 9728' });
+            } else {
+                html += block('🛡️ OAuth Protected Resource (RFC 9728)', false,
+                    missingBody('/.well-known/oauth-protected-resource',
+                        'File not present and no <code>WWW-Authenticate</code> challenge observed.'),
+                    '❌ Not detected',
+                    { url: 'https://www.rfc-editor.org/rfc/rfc9728', label: 'RFC 9728' });
             }
 
             // API catalog
@@ -1910,9 +1965,15 @@
                     body += row('Sample', sample);
                 }
                 if (a.issues?.length) body += row('Issues', a.issues.join('; '));
-                html += block('📇 API Catalog (RFC 9264 linkset)', !a.valid || (a.issues?.length > 0), body,
+                html += block('📇 API Catalog (RFC 9727 linkset)', !a.valid || (a.issues?.length > 0), body,
                     `${yn(a.valid)} · ${a.entryCount} entries`,
-                    { url: 'https://www.rfc-editor.org/rfc/rfc9264', label: 'RFC 9264' });
+                    { url: 'https://www.rfc-editor.org/rfc/rfc9727', label: 'RFC 9727' });
+            } else {
+                html += block('📇 API Catalog (RFC 9727 linkset)', false,
+                    missingBody('/.well-known/api-catalog',
+                        found(wk.apiCatalog) ? 'Found but failed to parse as RFC 9264 linkset.' : 'File not present.'),
+                    '❌ Not detected',
+                    { url: 'https://www.rfc-editor.org/rfc/rfc9727', label: 'RFC 9727' });
             }
 
             // MCP server card
@@ -1925,6 +1986,12 @@
                 if (m.endpoint) body += row('Endpoint', `<code>${m.endpoint}</code>`);
                 html += block('🧰 MCP Server Card', true, body,
                     m.name ? `${m.name}${m.version ? ' v' + m.version : ''}` : `✅ ${m.path}`,
+                    { url: 'https://modelcontextprotocol.io/', label: 'MCP' });
+            } else {
+                html += block('🧰 MCP Server Card', false,
+                    missingBody('/.well-known/mcp-server-card.json',
+                        (found(wk.mcpServerCard) || found(wk.mcpServerCards)) ? 'Found but failed to parse.' : 'No card or card-list present.'),
+                    '❌ Not detected',
                     { url: 'https://modelcontextprotocol.io/', label: 'MCP' });
             }
 
@@ -1942,6 +2009,12 @@
                 html += block('🎯 Agent Skills Index', true, body,
                     `${s.skillCount} skill${s.skillCount === 1 ? '' : 's'}`,
                     { url: 'https://www.anthropic.com/news/agent-skills', label: 'about' });
+            } else {
+                html += block('🎯 Agent Skills Index', false,
+                    missingBody('/.well-known/agent-skills-index.json',
+                        (found(wk.agentSkillsIndex) || found(wk.agentSkillsLegacy)) ? 'Found but failed to parse.' : 'No index or legacy file present.'),
+                    '❌ Not detected',
+                    { url: 'https://www.anthropic.com/news/agent-skills', label: 'about' });
             }
 
             // Web Bot Auth
@@ -1951,36 +2024,57 @@
                 html += block('🤖 Web Bot Auth (HTTP Message Signatures Directory)', false, body,
                     `${yn(w.found)} HTTP ${w.status}${w.contentType ? ' · ' + w.contentType : ''}`,
                     { url: 'https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/', label: 'draft' });
+            } else {
+                html += block('🤖 Web Bot Auth (HTTP Message Signatures Directory)', false,
+                    missingBody('/.well-known/http-message-signatures-directory', 'Probe did not complete.'),
+                    '❌ Not checked',
+                    { url: 'https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/', label: 'draft' });
             }
 
-            // Commerce
+            // Commerce — always render; show per-protocol rows with ❌ when missing.
             const c = ai.commerce || {};
-            const hasCommerce = c.ucp || c.acp || c.mpp || (c.x402 && c.x402.detected);
-            if (hasCommerce) {
+            {
                 let body = '';
-                if (c.ucp) {
-                    body += row('UCP', yn(c.ucp.found),
-                        `${c.ucp.version ? 'v' + c.ucp.version : ''} ${c.ucp.services?.length ? '· ' + c.ucp.services.join(', ') : ''}`);
-                }
-                if (c.acp) {
-                    body += row('ACP', yn(c.acp.found),
-                        `${c.acp.version ? 'v' + c.acp.version : ''} ${c.acp.apiBaseUrl ? '· ' + c.acp.apiBaseUrl : ''}`);
-                }
+                body += row('UCP', c.ucp ? yn(c.ucp.found) : '❌',
+                    c.ucp
+                        ? `${c.ucp.version ? 'v' + c.ucp.version : ''} ${c.ucp.services?.length ? '· ' + c.ucp.services.join(', ') : ''}`.trim() || '—'
+                        : 'No /.well-known/ucp.json');
+                body += row('ACP', c.acp ? yn(c.acp.found) : '❌',
+                    c.acp
+                        ? `${c.acp.version ? 'v' + c.acp.version : ''} ${c.acp.apiBaseUrl ? '· ' + c.acp.apiBaseUrl : ''}`.trim() || '—'
+                        : 'No /.well-known/acp.json');
                 if (c.x402) {
                     const probes = (c.x402.probes || []).map(p => `${p.path}: ${p.status}`).join(', ');
-                    body += row('x402', yn(c.x402.detected), probes);
+                    body += row('x402', yn(c.x402.detected), probes || '—');
+                } else {
+                    body += row('x402', '❌', 'Probe did not complete.');
                 }
-                const parts = [];
-                if (c.ucp) parts.push('UCP ' + yn(c.ucp.found));
-                if (c.acp) parts.push('ACP ' + yn(c.acp.found));
-                if (c.x402) parts.push('x402 ' + yn(c.x402.detected));
-                html += block('🛒 Agent Commerce', true, body,
+                const ucpOk = !!(c.ucp && c.ucp.found);
+                const acpOk = !!(c.acp && c.acp.found);
+                const x402Ok = !!(c.x402 && c.x402.detected);
+                const anyOk = ucpOk || acpOk || x402Ok;
+                const parts = [
+                    'UCP ' + yn(ucpOk),
+                    'ACP ' + yn(acpOk),
+                    'x402 ' + yn(x402Ok),
+                ];
+                html += block('🛒 Agent Commerce', anyOk, body,
                     parts.join(' · '),
                     { url: 'https://www.x402.org/', label: 'x402' });
             }
 
-            html += '</div>';
-            return html;
+            // Count failing previews to adapt the section heading. When
+            // anything is red the section is actionable, not just FYI, so
+            // drop "(informational)" and the "no scoring impact" note.
+            const failingCount = (html.match(/class="es-preview">[^<]*❌/g) || []).length;
+            const heading = failingCount > 0
+                ? '🧪 Emerging Agent Standards'
+                : '🧪 Emerging Agent Standards <span style="color:#8b92a7;font-weight:400;font-size:0.85em;">(informational)</span>';
+            const intro = failingCount > 0
+                ? '<p style="color:#a8b0c2;font-size:0.9em;margin:-4px 0 12px;">Newer agent / commerce standards. Adopting them improves agent compatibility.</p>'
+                : '<p style="color:#8b92a7;font-size:0.9em;margin:-4px 0 12px;">These checks surface newer agent / commerce standards.</p>';
+
+            return `<div class="emerging-standards"><h4>${heading}</h4>${intro}${html}</div>`;
         }
         
         // Toggle rules visibility
