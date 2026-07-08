@@ -507,23 +507,65 @@
         details.es-block > summary::-webkit-details-marker { display: none; }
         details.file-check > summary::before,
         details.es-block > summary::before {
-            content: '▸';
+            content: '';
             display: inline-block;
-            font-size: 0.8em;
-            opacity: 0.6;
-            transition: transform 0.15s ease;
-            width: 12px;
+            flex-shrink: 0;
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(-45deg);
+            opacity: 0.45;
+            transition: transform 0.18s ease, opacity 0.18s ease;
         }
         details.file-check[open] > summary::before,
-        details.es-block[open] > summary::before { transform: rotate(90deg); }
+        details.es-block[open] > summary::before { transform: rotate(45deg); opacity: 0.7; }
+        details.file-check > summary:hover::before,
+        details.es-block > summary:hover::before { opacity: 0.9; }
         details.file-check > summary:hover,
-        details.es-block > summary:hover { background: rgba(255,255,255,0.04); border-radius: 8px; }
+        details.es-block > summary:hover { background: rgba(255,255,255,0.04); }
+        details.file-check > summary { border-radius: var(--pon-radius-md); }
         details.file-check[open] > summary {
             margin-bottom: 10px;
+            border-radius: var(--pon-radius-md) var(--pon-radius-md) 0 0;
             border-bottom: 1px solid rgba(255,255,255,0.08);
         }
         details.file-check > *:not(summary) { padding: 0 16px 16px; }
         details.es-block > *:not(summary) { padding: 0 12px 10px 12px; }
+
+        /* Callout boxes inside a file-check keep their own padding and inset from
+           the card edges. Without this, the generic child-padding rule above
+           flattens their top padding (text sticks to the top) and pushes them
+           edge-to-edge. */
+        details.file-check > .impact-box,
+        details.file-check > .benefit-box,
+        details.file-check > .explainer-box {
+            margin: 2px 16px 14px;
+            padding: 13px 15px;
+        }
+
+        /* File-check header: caret, status icon, title, right-aligned status pill. */
+        details.file-check > summary { padding: 14px 16px; gap: 11px; }
+        .file-check .fc-icon { font-size: 15px; line-height: 1; flex-shrink: 0; }
+        .file-check .fc-title { flex: 1; min-width: 0; font-size: 14px; }
+        .file-check .fc-title strong { font-weight: 600; }
+        .file-check .fc-status {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 11px;
+            border-radius: var(--pon-radius-pill);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            font-variant-numeric: tabular-nums;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .file-check .fc-status .fc-code { opacity: 0.72; font-weight: 500; }
+        .file-check .fc-status.found   { background: rgba(82,233,192,0.16); color: #0f7a63; border-color: rgba(21,128,61,0.30); }
+        .file-check .fc-status.missing { background: rgba(239,68,68,0.12); color: #b42318; border-color: rgba(185,28,28,0.28); }
 
         .file-check-description {
             margin: 10px 0 0;
@@ -592,22 +634,18 @@
         details.card-collapsible.has-issue { border-left: 3px solid rgba(255,107,107,0.65); }
 
         .file-check.found {
-            background: rgba(126,231,135,0.08);
-            border-left-color: #7ee787;
-            color: #7ee787;
+            background: rgba(82,233,192,0.06);
+            border-left-color: var(--pon-success);
         }
 
         .file-check.missing {
-            background: rgba(255,107,107,0.08);
-            border-left-color: #ff6b6b;
-            color: #ff6b6b;
+            background: rgba(239,68,68,0.05);
+            border-left-color: var(--pon-error);
         }
-        
-        .file-check.critical-missing { 
-            background: rgba(255,255,255,0.02);
-            border-left: 4px solid #ff3366; 
-            color: #ff6f91;
-            font-weight: 600; 
+
+        .file-check.critical-missing {
+            background: rgba(239,68,68,0.06);
+            border-left: 4px solid var(--pon-error);
         }
         
         .invalid { color: #ff6b6b; font-weight: bold; font-size: 12px; }
@@ -698,8 +736,8 @@
         .explainer-box strong { color: #0b4f7f; }
         .benefit-box { background: rgba(126,231,135,0.08); border-left-color: #7ee787; color: #7ee787; }
         .benefit-box strong { color: #7ee787; }
-        .impact-box { background: rgba(255,166,87,0.08); border-left-color: #ffa657; color: #ffa657; }
-        .impact-box strong { color: #ffa657; }
+        .impact-box { background: rgba(255,166,87,0.08); border-left-color: #ffa657; color: #c7c9d3; }
+        .impact-box strong { color: #ffb877; }
         .section-intro { background: rgba(255,255,255,0.03); padding: 18px; border-radius: var(--pon-radius-md); margin-bottom: 24px; line-height: 1.7; color: #8b92a7; }
         .section-intro a { color: #00d4ff; text-decoration: none; }
         .section-intro a:hover { color: #00b8e6; text-decoration: underline; }
@@ -931,7 +969,6 @@
         }
 
         .insight-card.critical,
-        .file-check.missing,
         .rich-result.not-eligible {
             border-left-color: var(--pon-error);
             background: rgba(239, 68, 68, 0.08);
@@ -1029,13 +1066,13 @@
         }
 
         .file-check.found {
-            background: rgba(82, 233, 192, 0.12);
+            background: rgba(82, 233, 192, 0.08);
             border-left-color: #15803d;
-            color: #14532d;
         }
 
-        .file-check.missing,
-        .file-check.critical-missing,
+        .file-check.missing { border-left-color: #b91c1c; }
+        .file-check.critical-missing { border-left-color: var(--pon-error); }
+
         .invalid,
         .plugin-issues,
         .mcp-issues,
@@ -1045,6 +1082,9 @@
             border-left-color: #b91c1c;
         }
 
+        .file-check .fc-status.found   { background: rgba(82,233,192,0.16); color: #0f7a63; border-color: rgba(21,128,61,0.30); }
+        .file-check .fc-status.missing { background: rgba(239,68,68,0.12); color: #b42318; border-color: rgba(185,28,28,0.30); }
+
         .accessibility-table .good { color: #166534; }
         .accessibility-table .ok { color: #8a5a00; }
         .accessibility-table .poor { color: #7f1d1d; }
@@ -1053,6 +1093,10 @@
         .robots-warning strong {
             color: #8a5a00;
         }
+
+        /* Light theme impact callout: body copy stays readable slate; the amber
+           left border + bold label carry the warning meaning. */
+        .impact-box { color: var(--pon-text-secondary); }
 
         .benefit-box strong {
             color: #14532d;
@@ -1213,6 +1257,10 @@
             color: #fde68a;
         }
 
+        /* Dark impact callout: body copy stays readable on the navy panel; the
+           amber left border + bold label carry the warning meaning. */
+        html[data-theme="dark"] .impact-box { color: #c7d2e0; }
+
         html[data-theme="dark"] .benefit-box strong,
         html[data-theme="dark"] .explainer-box strong,
         html[data-theme="dark"] .robots-recommendation strong,
@@ -1221,8 +1269,6 @@
         }
 
         html[data-theme="dark"] .insight-card.critical,
-        html[data-theme="dark"] .file-check.missing,
-        html[data-theme="dark"] .file-check.critical-missing,
         html[data-theme="dark"] .rich-result.not-eligible,
         html[data-theme="dark"] .invalid,
         html[data-theme="dark"] .plugin-issues,
@@ -1234,6 +1280,25 @@
             border-left-color: var(--pon-error);
             background: rgba(239, 68, 68, 0.2);
             border-color: rgba(239, 68, 68, 0.42);
+        }
+
+        /* File-check status cards: keep the surface calm, let the left accent
+           bar and the status pill carry the red/green meaning (no full flood). */
+        html[data-theme="dark"] .file-check.missing {
+            background: rgba(239, 68, 68, 0.07);
+            border-left-color: var(--pon-error);
+            border-color: rgba(239, 68, 68, 0.22);
+        }
+        html[data-theme="dark"] .file-check.critical-missing {
+            background: rgba(239, 68, 68, 0.08);
+            border-left-color: var(--pon-error);
+            border-color: rgba(239, 68, 68, 0.28);
+        }
+        html[data-theme="dark"] .file-check .fc-status.found {
+            background: rgba(82,233,192,0.16); color: #7ee7c8; border-color: rgba(82,233,192,0.34);
+        }
+        html[data-theme="dark"] .file-check .fc-status.missing {
+            background: rgba(239,68,68,0.18); color: #ffb4b4; border-color: rgba(239,68,68,0.40);
         }
 
         /* Callouts nested inside colored cards get a solid panel so their tint
@@ -1338,11 +1403,16 @@
             color: #a8bfd2;
         }
 
-        html[data-theme="dark"] .strengths-list li,
-        html[data-theme="dark"] .file-check.found {
+        html[data-theme="dark"] .strengths-list li {
             background: rgba(82, 233, 192, 0.16);
             color: #d1fae5;
             border-color: rgba(82, 233, 192, 0.4);
+            border-left-color: var(--pon-accent-mint);
+        }
+
+        html[data-theme="dark"] .file-check.found {
+            background: rgba(82, 233, 192, 0.07);
+            border-color: rgba(82, 233, 192, 0.22);
             border-left-color: var(--pon-accent-mint);
         }
 
@@ -1926,7 +1996,6 @@
             checks.forEach(check => {
                 const file = aiReadiness.wellKnown?.[check.key] || { found: false, status: 'Not checked', valid: null };
                 const icon = file.found ? '✅' : '❌';
-                const statusText = file.found ? `Found (${file.status})` : `Not found (${file.status})`;
                 const stateClass = file.found ? 'found' : 'missing';
                 const classList = ['file-check', stateClass];
                 if (check.critical && !file.found) {
@@ -1935,8 +2004,22 @@
                 // Open by default when there's something to investigate: missing or invalid.
                 const shouldOpen = !file.found || file.valid === false;
                 const openAttr = shouldOpen ? ' open' : '';
-                let summary = `${icon} <strong>${check.label}</strong>: ${statusText}`;
-                if (file.valid === false) summary += ' <span class="invalid">(Invalid JSON)</span>';
+                let badgeLabel, badgeCode;
+                if (file.found) {
+                    badgeLabel = 'Found';
+                    badgeCode = file.status;
+                } else if (file.status === 'Not checked') {
+                    badgeLabel = 'Not checked';
+                    badgeCode = '';
+                } else {
+                    badgeLabel = 'Not found';
+                    badgeCode = file.status;
+                }
+                if (file.valid === false) { badgeCode = 'Invalid JSON'; }
+                const codeHtml = badgeCode ? ` <span class="fc-code">${badgeCode}</span>` : '';
+                const summary = `<span class="fc-icon">${icon}</span>`
+                    + `<span class="fc-title"><strong>${check.label}</strong></span>`
+                    + `<span class="fc-status ${stateClass}">${badgeLabel}${codeHtml}</span>`;
                 html += `<details class="${classList.join(' ')}"${openAttr}>`;
                 html += `<summary>${summary}</summary>`;
                 
