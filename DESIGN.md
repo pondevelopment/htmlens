@@ -38,6 +38,13 @@ Across web, slides, and posters the same chrome appears in identical proportions
 - **Warning** (`{colors.warning}` — `#f59e0b`): Data health alerts, threshold warnings, degraded-state indicators.
 - **Info** (`{colors.info}` — `#b399ff`): Mirrors `{colors.accent-purple}` — informational banners, tooltip accents, non-critical callouts.
 
+### Dark Mode (Web Implementation)
+- **Theme trigger:** Web UI uses `html[data-theme="dark"]` token remapping for surfaces, borders, text, links, tables, status cards, and code blocks.
+- **Default behavior:** If no user preference exists, theme follows `prefers-color-scheme`.
+- **User override:** Theme toggle persists preference in `localStorage` (`htmlens-theme`).
+- **Flash prevention:** Theme is applied in `<head>` before first paint to avoid light/dark flicker.
+- **Dark surface model:** Primary backgrounds shift to deep navy surfaces (`--color-surface-dark-code-strong`, `--color-surface-dark-code`, `--color-surface-dark-input`) while semantic states (success/warning/error) keep meaning via border + text contrast instead of full-saturation fills.
+
 ## Typography
 
 ### Font Family
@@ -319,7 +326,7 @@ The Datalab wordmark (Pon Datalab) is the primary brand asset and must be handle
 ## Known Gaps
 
 - **Data visualization palette:** Charts, graphs, and dashboard widgets used within Pon Datalab's products need a dedicated dataviz palette. Recommended starting point: sequential scale from `{colors.brand-blue}` → `{colors.deep-navy}`, with `{colors.accent-mint}` and `{colors.accent-purple}` as callout/highlight series colors. Categorical palette needs 5–6 distinct hues.
-- **Dark mode:** Not specified in this version. The `{colors.deep-navy}` / `{colors.canvas}` polarity makes a logical inversion feasible but requires separate token mapping for all surfaces.
+- **Dark mode for slide/print outputs:** Web dark mode is implemented, but slide and print deliverables still define only the light export standard. A dedicated dark slide/poster variant (token map + contrast guardrails) is still pending.
 - **Icon system:** Not yet defined. Recommended: consistent outline-weight icon set at 2px stroke with rounded caps and joins matching `{rounded.sm}` to align with the system's rounded-corner language.
 - **Motion & animation:** Not specified. Recommended baseline: ease-out transitions at 200ms for button state changes; 300ms for card hover elevation; 400ms for section/slide transitions.
 - **Dutch / NL language adaptations:** As Pon is a Netherlands-based company, all layouts should accommodate Dutch text, which runs approximately 30% longer than English on average. Avoid fixed-width text containers below `{typography.heading-md}` — allow text containers to flex rather than truncate.
