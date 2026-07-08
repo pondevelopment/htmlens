@@ -4,53 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTMLens - Semantic Knowledge Graph Extractor</title>
+    <link
+        rel="stylesheet"
+        href="https://use.typekit.net/poi7egf.css"
+        integrity="sha384-oAqMpqX481BWq/0jYaKAEPZ0/CPeoE0uuDoPujcTsqcunWQqHoY5WObZiF0H+Cgt"
+        crossorigin="anonymous"
+    >
     <style>
+        :root {
+            --pon-deep-navy: #002c47;
+            --pon-brand-blue: #dae7fe;
+            --pon-canvas: #ffffff;
+            --pon-accent-purple: #b399ff;
+            --pon-accent-mint: #52e9c0;
+            --pon-text-secondary: #5c7185;
+            --pon-hairline: #d1dde8;
+            --pon-success: #52e9c0;
+            --pon-warning: #f59e0b;
+            --pon-error: #ef4444;
+            --pon-radius-lg: 20px;
+            --pon-radius-md: 12px;
+            --pon-shadow-1: 0 2px 8px rgba(0, 44, 71, 0.08);
+            --pon-shadow-2: 0 4px 16px rgba(0, 44, 71, 0.14);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* Modern dark theme inspired by the screenshot */
+        /* Pon Datalab design system */
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif; 
-            background: #0a0e27; 
-            color: #e4e6eb;
+            font-family: 'PT Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--pon-canvas);
+            color: var(--pon-deep-navy);
             min-height: 100vh; 
             padding: 0;
         }
         
-        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
         
-        /* Modern header with gradient text */
         header { 
             text-align: center; 
-            padding: 60px 20px 40px;
-            background: linear-gradient(180deg, #0a0e27 0%, #131a3a 100%);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 56px 20px 32px;
+            background: var(--pon-brand-blue);
+            border-bottom: 1px solid var(--pon-hairline);
+            border-radius: 0 0 var(--pon-radius-lg) var(--pon-radius-lg);
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        button.theme-toggle {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            min-height: 44px;
+            padding: 10px 16px;
+            border: 1px solid var(--pon-hairline);
+            border-radius: var(--pon-radius-lg);
+            background: var(--pon-canvas);
+            color: var(--pon-deep-navy);
+            font-family: 'PT Sans', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        button.theme-toggle:hover {
+            background: #f0f4f8;
+            border-color: var(--pon-accent-purple);
+            transform: translateY(-1px);
+        }
+
+        button.theme-toggle:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(0, 44, 71, 0.12);
         }
         
         h1 { 
-            font-size: 3.5em; 
-            margin-bottom: 15px; 
-            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 50%, #667eea 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-family: 'PT Serif', serif;
+            font-size: clamp(2.6rem, 5vw, 5rem);
+            margin-bottom: 12px;
+            color: var(--pon-deep-navy);
             font-weight: 700;
             letter-spacing: -0.02em;
+            line-height: 1.05;
         }
         
         .tagline { 
-            font-size: 1.3em; 
-            color: #8b92a7;
+            font-size: 1.125rem;
+            color: var(--pon-text-secondary);
             font-weight: 400;
+            max-width: 780px;
+            margin: 0 auto;
         }
         
-        /* Modern card design */
         .card { 
-            background: #15192d; 
-            border-radius: 16px; 
+            background: var(--pon-canvas);
+            border-radius: var(--pon-radius-lg);
             padding: 32px; 
-            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+            box-shadow: var(--pon-shadow-1);
             margin-bottom: 24px;
-            border: 1px solid rgba(255,255,255,0.05);
+            border: 1px solid var(--pon-hairline);
         }
         
         .input-section { margin-bottom: 24px; }
@@ -59,30 +112,29 @@
             display: block; 
             font-weight: 600; 
             margin-bottom: 10px; 
-            color: #e4e6eb;
+            color: var(--pon-deep-navy);
             font-size: 15px;
         }
         
-        /* Modern input field */
         input[type="url"] { 
             width: 100%; 
             padding: 14px 18px; 
-            background: #1e2139;
-            border: 2px solid rgba(255,255,255,0.08); 
-            border-radius: 12px; 
+            background: var(--pon-canvas);
+            border: 1.5px solid var(--pon-hairline);
+            border-radius: var(--pon-radius-md);
             font-size: 16px;
-            color: #e4e6eb;
+            color: var(--pon-deep-navy);
             transition: all 0.3s ease;
         }
         
         input[type="url"]:focus { 
             outline: none; 
-            border-color: #00d4ff; 
-            background: #252942;
-            box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+            border-color: var(--pon-deep-navy);
+            background: var(--pon-canvas);
+            box-shadow: 0 0 0 4px rgba(0,44,71,0.12);
         }
         
-        input[type="url"]::placeholder { color: #5a5f7d; }
+        input[type="url"]::placeholder { color: var(--pon-text-secondary); }
         
         .examples-section { margin-bottom: 24px; padding-top: 10px; }
         .example-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -92,79 +144,80 @@
             padding: 10px 18px; 
             font-size: 14px; 
             font-weight: 500; 
-            background: rgba(0,212,255,0.08);
-            color: #00d4ff; 
-            border: 1px solid rgba(0,212,255,0.2); 
-            border-radius: 8px; 
+            background: var(--pon-brand-blue);
+            color: var(--pon-deep-navy);
+            border: 1px solid var(--pon-hairline);
+            border-radius: var(--pon-radius-lg);
             cursor: pointer; 
             transition: all 0.2s ease;
         }
         
         .example-btn:hover { 
-            background: rgba(0,212,255,0.15);
-            border-color: #00d4ff;
+            background: rgba(179, 153, 255, 0.18);
+            border-color: var(--pon-accent-purple);
             transform: translateY(-1px); 
         }
         
         .button-group { display: flex; gap: 12px; margin-top: 24px; align-items: center; flex-wrap: wrap; }
-        .bypass-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9em; color: #555; cursor: pointer; user-select: none; }
+        .bypass-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.9em; color: var(--pon-text-secondary); cursor: pointer; user-select: none; }
         .bypass-toggle input { cursor: pointer; }
-        .bypass-inline { display: flex; justify-content: flex-end; margin-top: 6px; color: #8b92a7; }
-        .stats-strip { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; margin: 0 0 18px; padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
+        .bypass-inline { display: flex; justify-content: flex-end; margin-top: 6px; color: var(--pon-text-secondary); }
+        .stats-strip { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; margin: 0 0 18px; padding: 12px 16px; background: #f0f4f8; border: 1px solid var(--pon-hairline); border-radius: var(--pon-radius-lg); }
         .stat { display: flex; flex-direction: column; line-height: 1.15; min-width: 60px; }
-        .stat.muted .stat-num { color: #666; }
+        .stat.muted .stat-num { color: var(--pon-text-secondary); }
         .stat-num { font-size: 1.35em; font-weight: 600; }
-        .stat-lbl { font-size: 0.72em; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; white-space: nowrap; }
+        .stat-lbl { font-size: 0.72em; color: var(--pon-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; white-space: nowrap; }
         .stat-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
-        .stat-chips.empty { color: #888; font-style: italic; font-size: 0.85em; }
-        .stat-chip { display: inline-block; padding: 2px 8px; background: rgba(102,126,234,0.15); color: #667eea; border-radius: 10px; font-size: 0.78em; font-weight: 500; }
-        .stat-chip.more { background: rgba(255,255,255,0.08); color: #aaa; }
-        .emerging-standards { margin: 28px 0; padding: 16px 20px; background: rgba(102,126,234,0.06); border: 1px solid rgba(102,126,234,0.25); border-radius: 8px; color: #e5e7ee; }
-        .emerging-standards h4 { margin: 0 0 6px; color: #fff; }
-        .emerging-standards > p { color: #a8b0c2 !important; }
-        .es-block { margin: 12px 0; padding: 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-size: 0.9em; }
-        .es-block > summary > strong { color: #fff; }
-        .es-preview { color: #a8b0c2; font-size: 0.9em; margin-left: 4px; }
-        .es-spec { margin-left: auto; font-size: 0.8em; color: #8ab4ff; text-decoration: none; padding: 2px 8px; border: 1px solid rgba(138,180,255,0.3); border-radius: 4px; }
-        .es-spec:hover { background: rgba(138,180,255,0.1); }
+        .stat-chips.empty { color: var(--pon-text-secondary); font-style: italic; font-size: 0.85em; }
+        .stat-chip { display: inline-block; padding: 2px 8px; background: rgba(179, 153, 255, 0.14); color: var(--pon-deep-navy); border-radius: var(--pon-radius-lg); font-size: 0.78em; font-weight: 500; border: 1px solid rgba(179, 153, 255, 0.35); }
+        .stat-chip.more { background: #f0f4f8; color: var(--pon-text-secondary); border-color: var(--pon-hairline); }
+        .emerging-standards { margin: 28px 0; padding: 16px 20px; background: var(--pon-brand-blue); border: 1px solid var(--pon-hairline); border-radius: var(--pon-radius-lg); color: var(--pon-deep-navy); }
+        .emerging-standards h4 { margin: 0 0 6px; color: var(--pon-deep-navy); }
+        .emerging-standards > p { color: var(--pon-text-secondary) !important; }
+        .es-block { margin: 12px 0; padding: 0; background: var(--pon-canvas); border: 1px solid var(--pon-hairline); border-radius: var(--pon-radius-md); font-size: 0.9em; }
+        .es-block > summary > strong { color: var(--pon-deep-navy); }
+        .es-preview { color: var(--pon-text-secondary); font-size: 0.9em; margin-left: 4px; }
+        .es-spec { margin-left: auto; font-size: 0.8em; color: var(--pon-deep-navy); text-decoration: none; padding: 2px 8px; border: 1px solid var(--pon-hairline); border-radius: var(--pon-radius-md); }
+        .es-spec:hover { background: #f0f4f8; }
         .es-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; padding: 3px 0; line-height: 1.4; }
-        .es-row .es-label { color: #a8b0c2; font-weight: 500; }
-        .es-row .es-val { word-break: break-word; color: #e5e7ee; }
-        .es-row .es-val code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
-        .es-row .es-val a { color: #8ab4ff; }
-        .es-row .es-hint { grid-column: 2; color: #7d8599; font-size: 0.85em; }
+        .es-row .es-label { color: var(--pon-text-secondary); font-weight: 500; }
+        .es-row .es-val { word-break: break-word; color: var(--pon-deep-navy); }
+        .es-row .es-val code { background: #f0f4f8; padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+        .es-row .es-val a { color: var(--pon-deep-navy); text-decoration: underline; text-underline-offset: 2px; }
+        .es-row .es-hint { grid-column: 2; color: var(--pon-text-secondary); font-size: 0.85em; }
         
         button { 
             flex: 1; 
             padding: 16px 28px; 
-            font-size: 16px; 
+            font-family: 'PT Sans', sans-serif;
+            font-size: 15px;
             font-weight: 600; 
             border: none; 
-            border-radius: 12px; 
+            border-radius: var(--pon-radius-lg);
             cursor: pointer;
             transition: all 0.3s ease;
         }
         
         .btn-primary { 
-            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
-            color: #0a0e27;
-            box-shadow: 0 4px 16px rgba(0,212,255,0.3);
+            background: var(--pon-accent-mint);
+            color: var(--pon-deep-navy);
+            box-shadow: var(--pon-shadow-1);
         }
         
         .btn-primary:hover:not(:disabled) { 
-            transform: translateY(-2px); 
-            box-shadow: 0 6px 24px rgba(0,212,255,0.4);
+            transform: translateY(-1px);
+            box-shadow: var(--pon-shadow-2);
         }
         
         .btn-secondary { 
-            background: rgba(255,255,255,0.05);
-            color: #8b92a7;
-            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--pon-canvas);
+            color: var(--pon-deep-navy);
+            border: 2px solid var(--pon-deep-navy);
         }
         
         .btn-secondary:hover:not(:disabled) {
-            background: rgba(255,255,255,0.08);
-            color: #e4e6eb;
+            background: #f0f4f8;
+            color: var(--pon-deep-navy);
         }
         
         button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -192,32 +245,35 @@
             display: flex; 
             gap: 4px; 
             margin-bottom: 24px; 
-            background: rgba(255,255,255,0.03);
+            background: #f0f4f8;
             padding: 6px;
-            border-radius: 12px;
+            border-radius: var(--pon-radius-lg);
             overflow-x: auto;
+            border: 1px solid var(--pon-hairline);
         }
         
         .tab { 
             padding: 12px 24px; 
             background: transparent;
             border: none; 
-            border-radius: 8px;
+            border-radius: var(--pon-radius-lg);
             cursor: pointer; 
             font-weight: 600; 
-            color: #8b92a7;
+            color: var(--pon-text-secondary);
             transition: all 0.2s ease;
             white-space: nowrap;
         }
         
         .tab:hover { 
-            background: rgba(255,255,255,0.05);
-            color: #e4e6eb;
+            background: var(--pon-canvas);
+            color: var(--pon-deep-navy);
         }
         
         .tab.active { 
-            background: rgba(0,212,255,0.12);
-            color: #00d4ff;
+            background: var(--pon-canvas);
+            color: var(--pon-deep-navy);
+            border: 1px solid var(--pon-hairline);
+            box-shadow: var(--pon-shadow-1);
         }
         
         .tab-content { display: none; }
@@ -225,9 +281,9 @@
         
         /* Code output styling */
         .json-output, .markdown-output { 
-            background: #0d1121; 
-            border: 1px solid rgba(255,255,255,0.08); 
-            border-radius: 12px; 
+            background: #f0f4f8;
+            border: 1px solid var(--pon-hairline);
+            border-radius: var(--pon-radius-lg);
             padding: 20px; 
             overflow-x: auto; 
             max-height: 600px; 
@@ -235,13 +291,14 @@
             font-size: 13px; 
             line-height: 1.6;
             white-space: pre;
+            color: var(--pon-deep-navy);
         }
         
-        .json-output .json-key { color: #00d4ff; }
-        .json-output .json-string { color: #7ee787; }
-        .json-output .json-number { color: #a5d6ff; }
-        .json-output .json-boolean { color: #ffa657; }
-        .json-output .json-null { color: #8b949e; }
+        .json-output .json-key { color: var(--pon-deep-navy); }
+        .json-output .json-string { color: #1f6f67; }
+        .json-output .json-number { color: #184f80; }
+        .json-output .json-boolean { color: #7152c7; }
+        .json-output .json-null { color: var(--pon-text-secondary); }
         
         .markdown-output table { 
             border-collapse: collapse; 
@@ -251,26 +308,26 @@
         }
         
         .markdown-output th, .markdown-output td { 
-            border: 1px solid rgba(255,255,255,0.1); 
+            border: 1px solid var(--pon-hairline);
             padding: 10px 14px; 
             text-align: left; 
         }
         
         .markdown-output th { 
-            background: rgba(0,212,255,0.12);
-            color: #00d4ff; 
+            background: var(--pon-brand-blue);
+            color: var(--pon-deep-navy);
             font-weight: 600; 
         }
         
-        .markdown-output tr:nth-child(even) { background: rgba(255,255,255,0.02); }
-        .markdown-output hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 20px 0; }
+        .markdown-output tr:nth-child(even) { background: #f7f9fc; }
+        .markdown-output hr { border: none; border-top: 1px solid var(--pon-hairline); margin: 20px 0; }
         
         .error { 
-            background: rgba(220,53,69,0.1); 
-            border: 2px solid rgba(220,53,69,0.3); 
-            border-radius: 12px; 
+            background: rgba(239, 68, 68, 0.08);
+            border: 2px solid rgba(239, 68, 68, 0.25);
+            border-radius: var(--pon-radius-lg);
             padding: 18px; 
-            color: #ff6b6b; 
+            color: var(--pon-error);
             margin-top: 20px; 
             display: none; 
         }
@@ -407,7 +464,7 @@
             transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
 
-        /* Collapsible <details> styling — closed when OK, open when there's something to investigate. */
+        /* Collapsible <details> styling - closed when OK, open when there's something to investigate. */
         details.file-check > summary,
         details.es-block > summary {
             list-style: none;
@@ -576,7 +633,7 @@
         .rules-detail { display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; font-family: 'SF Mono', monospace; font-size: 12px; color: #8b92a7; }
         .rules-detail.show { display: block; }
         .explainer-box { background: rgba(0,212,255,0.08); border-left: 4px solid #00d4ff; padding: 14px; margin: 18px 0; border-radius: 8px; }
-        .explainer-box strong { color: #00d4ff; }
+        .explainer-box strong { color: #0b4f7f; }
         .benefit-box { background: rgba(126,231,135,0.08); border-left: 4px solid #7ee787; padding: 12px; margin: 10px 0; border-radius: 8px; font-size: 13px; color: #7ee787; }
         .benefit-box strong { color: #7ee787; }
         .impact-box { background: rgba(255,166,87,0.08); border-left: 4px solid #ffa657; padding: 12px; margin: 10px 0; border-radius: 8px; font-size: 13px; color: #ffa657; }
@@ -659,11 +716,11 @@
             overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
         }
-        .faq-question { 
-            padding: 16px 18px; 
-            font-weight: 600; 
-            color: #e4e6eb; 
-            background: rgba(0,212,255,0.08);
+        .faq-question {
+            padding: 16px 18px;
+            font-weight: 600;
+            color: var(--pon-deep-navy);
+            background: var(--pon-brand-blue);
             display: flex;
             align-items: flex-start;
             gap: 12px;
@@ -674,8 +731,8 @@
             justify-content: center;
             min-width: 26px;
             height: 26px;
-            background: #00d4ff;
-            color: #0a0e27;
+            background: var(--pon-accent-mint);
+            color: var(--pon-deep-navy);
             border-radius: 50%;
             font-size: 13px;
             font-weight: 700;
@@ -689,33 +746,607 @@
         .faq-meta { 
             margin-top: 16px; 
             padding-top: 16px; 
-            border-top: 1px solid rgba(255,255,255,0.08); 
-            color: #5a5f7d; 
+            border-top: 1px solid var(--pon-hairline);
+            color: var(--pon-text-secondary);
             font-size: 13px; 
+        }
+
+        /* Global tokenized surface overrides for generated insight panels */
+        .loading p,
+        .insight-why,
+        .ai-readiness-container p,
+        .section-intro,
+        .bot-description,
+        .sitemap-status > div,
+        .sample-urls-table td,
+        .mcp-capabilities li,
+        .sitemap-list li,
+        .faq-description,
+        .faq-answer {
+            color: var(--pon-text-secondary);
+        }
+
+        .spinner {
+            border-color: rgba(0, 44, 71, 0.15);
+            border-top-color: var(--pon-deep-navy);
+        }
+
+        .status-badge,
+        .rich-result,
+        .heading-badge,
+        .landmark-item,
+        .file-check,
+        .faq-item,
+        .well-known-checks,
+        .ai-plugin-status,
+        .mcp-status,
+        .openapi-status,
+        .robots-txt-status,
+        .llms-txt-status,
+        .security-txt-status,
+        .sitemap-status,
+        .semantic-html-status,
+        .faq-schema-section,
+        .insight-card,
+        .ai-crawlers-table,
+        .sitemap-stats,
+        .content-types,
+        .nested-sitemaps,
+        .sample-urls,
+        .sitemap-issues,
+        .sitemap-recommendations,
+        .landmarks-section,
+        .headings-section,
+        .accessibility-section,
+        .semantic-issues,
+        .semantic-recommendations {
+            border-radius: var(--pon-radius-lg);
+        }
+
+        .well-known-checks,
+        .ai-plugin-status,
+        .mcp-status,
+        .openapi-status,
+        .robots-txt-status,
+        .llms-txt-status,
+        .security-txt-status,
+        .sitemap-status,
+        .semantic-html-status,
+        .faq-schema-section {
+            background: #f7f9fc;
+            border: 1px solid var(--pon-hairline);
+        }
+
+        .well-known-checks h4,
+        .ai-plugin-status h4,
+        .mcp-status h4,
+        .openapi-status h4,
+        .robots-txt-status h4,
+        .llms-txt-status h4,
+        .security-txt-status h4,
+        .insight-header,
+        .insight-title,
+        .ai-readiness-container h2,
+        .sitemap-status h3,
+        .semantic-html-status h3,
+        .faq-schema-section h3,
+        .sitemap-status h4,
+        .semantic-html-status h4 {
+            color: var(--pon-deep-navy);
+        }
+
+        .insight-card,
+        .file-check,
+        .ai-plugin-status div,
+        .mcp-status div,
+        .openapi-status div,
+        .robots-txt-status div,
+        .llms-txt-status div,
+        .security-txt-status div,
+        .section-intro,
+        .sitemap-stats,
+        .content-types,
+        .nested-sitemaps,
+        .sample-urls,
+        .sitemap-issues,
+        .sitemap-recommendations,
+        .landmarks-section,
+        .headings-section,
+        .accessibility-section,
+        .semantic-issues,
+        .semantic-recommendations,
+        .faq-item,
+        .rules-detail {
+            background: var(--pon-canvas);
+            border: 1px solid var(--pon-hairline);
+            color: var(--pon-text-secondary);
+        }
+
+        .insight-fix {
+            background: #f0f4f8;
+            border: 1px solid var(--pon-hairline);
+            color: var(--pon-deep-navy);
+        }
+
+        .insight-card.critical,
+        .file-check.missing,
+        .rich-result.not-eligible {
+            border-left-color: var(--pon-error);
+            background: rgba(239, 68, 68, 0.08);
+            color: var(--pon-error);
+        }
+
+        .insight-card.high,
+        .rich-result.partial,
+        .robots-warning,
+        .impact-box,
+        .sitemap-issues li,
+        .semantic-issues li {
+            border-left-color: var(--pon-warning);
+            background: rgba(245, 158, 11, 0.08);
+            color: #8a5a00;
+        }
+
+        .insight-card.recommended,
+        .insight-card.optional,
+        .rich-result.eligible,
+        .status-good,
+        .status-excellent,
+        .benefit-box,
+        .explainer-box,
+        .robots-recommendation,
+        .sitemap-recommendation,
+        .sitemap-recommendations li,
+        .semantic-recommendations li,
+        .landmark-item,
+        .heading-badge {
+            border-left-color: var(--pon-accent-mint);
+            background: rgba(82, 233, 192, 0.12);
+            color: #15564b;
+        }
+
+        .status-needs-attention { background: rgba(245, 158, 11, 0.12); color: #8a5a00; border-color: rgba(245, 158, 11, 0.3); }
+        .status-critical { background: rgba(239, 68, 68, 0.12); color: #7f1d1d; border-color: rgba(239, 68, 68, 0.3); }
+
+        .ai-crawlers-table th,
+        .sample-urls-table th {
+            background: var(--pon-brand-blue);
+            color: var(--pon-deep-navy);
+        }
+
+        .ai-crawlers-table td,
+        .sample-urls-table td,
+        .sitemap-stats-table td,
+        .content-types-table td,
+        .accessibility-table td {
+            border-bottom: 1px solid var(--pon-hairline);
+        }
+
+        .ai-readiness-container a,
+        .insight-why a,
+        .insight-reference a,
+        .section-intro a,
+        .file-link a,
+        .sample-urls-table a {
+            color: var(--pon-deep-navy);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .ai-readiness-container a:hover,
+        .insight-why a:hover,
+        .insight-reference a:hover,
+        .section-intro a:hover,
+        .file-link a:hover,
+        .sample-urls-table a:hover {
+            color: #004070;
+        }
+
+        .emerging-standards > p,
+        .es-preview {
+            color: #3f5970 !important;
+        }
+
+        .strengths-list li {
+            background: rgba(82, 233, 192, 0.14);
+            color: #14532d;
+            border: 1px solid rgba(21, 128, 61, 0.28);
+            border-left: 3px solid #15803d;
+        }
+
+        .status-pill.good {
+            background: rgba(82, 233, 192, 0.15);
+            color: #14532d;
+            border-color: rgba(21, 128, 61, 0.35);
+        }
+
+        .status-pill.bad {
+            background: rgba(239, 68, 68, 0.14);
+            color: #7f1d1d;
+            border-color: rgba(185, 28, 28, 0.35);
+        }
+
+        .file-check.found {
+            background: rgba(82, 233, 192, 0.12);
+            border-left-color: #15803d;
+            color: #14532d;
+        }
+
+        .file-check.missing,
+        .file-check.critical-missing,
+        .invalid,
+        .plugin-issues,
+        .mcp-issues,
+        .api-issues,
+        .robots-issues {
+            color: #7f1d1d;
+            border-left-color: #b91c1c;
+        }
+
+        .accessibility-table .good { color: #166534; }
+        .accessibility-table .ok { color: #8a5a00; }
+        .accessibility-table .poor { color: #7f1d1d; }
+
+        .impact-box strong,
+        .robots-warning strong {
+            color: #8a5a00;
+        }
+
+        .benefit-box strong {
+            color: #14532d;
+        }
+
+        .sitemap-stats-table td:last-child,
+        .content-types-table td:last-child,
+        .sample-urls-table th,
+        .ai-crawlers-table th {
+            color: var(--pon-deep-navy);
+        }
+
+        html[data-theme="dark"] {
+            color-scheme: dark;
+        }
+
+        html[data-theme="dark"] body {
+            background: #081523;
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] header {
+            background: #10263b;
+            border-bottom-color: #2b4157;
+        }
+
+        html[data-theme="dark"] h1 {
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] .tagline,
+        html[data-theme="dark"] .bypass-toggle,
+        html[data-theme="dark"] .bypass-inline,
+        html[data-theme="dark"] .stat-lbl,
+        html[data-theme="dark"] .es-preview,
+        html[data-theme="dark"] .faq-meta,
+        html[data-theme="dark"] footer {
+            color: #a8bfd2;
+        }
+
+        html[data-theme="dark"] .card,
+        html[data-theme="dark"] .es-block,
+        html[data-theme="dark"] .json-output,
+        html[data-theme="dark"] .markdown-output,
+        html[data-theme="dark"] .tab,
+        html[data-theme="dark"] .tab.active,
+        html[data-theme="dark"] .tab:hover,
+        html[data-theme="dark"] .faq-item,
+        html[data-theme="dark"] .section-intro,
+        html[data-theme="dark"] .ai-plugin-status div,
+        html[data-theme="dark"] .mcp-status div,
+        html[data-theme="dark"] .openapi-status div,
+        html[data-theme="dark"] .robots-txt-status div,
+        html[data-theme="dark"] .llms-txt-status div,
+        html[data-theme="dark"] .security-txt-status div,
+        html[data-theme="dark"] .sitemap-stats,
+        html[data-theme="dark"] .content-types,
+        html[data-theme="dark"] .nested-sitemaps,
+        html[data-theme="dark"] .sample-urls,
+        html[data-theme="dark"] .sitemap-issues,
+        html[data-theme="dark"] .sitemap-recommendations,
+        html[data-theme="dark"] .landmarks-section,
+        html[data-theme="dark"] .headings-section,
+        html[data-theme="dark"] .accessibility-section,
+        html[data-theme="dark"] .semantic-issues,
+        html[data-theme="dark"] .semantic-recommendations,
+        html[data-theme="dark"] .rules-detail,
+        html[data-theme="dark"] .insight-card,
+        html[data-theme="dark"] .file-check {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.08);
+            color: #c7c9d3;
+        }
+
+        html[data-theme="dark"] .tabs,
+        html[data-theme="dark"] .stats-strip,
+        html[data-theme="dark"] .emerging-standards {
+            background: #10263b;
+            border-color: #2b4157;
+        }
+
+        html[data-theme="dark"] .markdown-output tr:nth-child(even),
+        html[data-theme="dark"] .example-btn,
+        html[data-theme="dark"] .stat-chip.more,
+        html[data-theme="dark"] .es-row .es-val code {
+            background: #0f2133;
+            border-color: #2b4157;
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] .status-badge,
+        html[data-theme="dark"] .rich-result,
+        html[data-theme="dark"] .heading-badge,
+        html[data-theme="dark"] .landmark-item,
+        html[data-theme="dark"] .well-known-checks,
+        html[data-theme="dark"] .ai-plugin-status,
+        html[data-theme="dark"] .mcp-status,
+        html[data-theme="dark"] .openapi-status,
+        html[data-theme="dark"] .robots-txt-status,
+        html[data-theme="dark"] .llms-txt-status,
+        html[data-theme="dark"] .security-txt-status,
+        html[data-theme="dark"] .sitemap-status,
+        html[data-theme="dark"] .semantic-html-status,
+        html[data-theme="dark"] .faq-schema-section,
+        html[data-theme="dark"] .ai-crawlers-table,
+        html[data-theme="dark"] .sample-urls-table th,
+        html[data-theme="dark"] .ai-crawlers-table th,
+        html[data-theme="dark"] .markdown-output th {
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        html[data-theme="dark"] .well-known-checks,
+        html[data-theme="dark"] .ai-plugin-status,
+        html[data-theme="dark"] .mcp-status,
+        html[data-theme="dark"] .openapi-status,
+        html[data-theme="dark"] .robots-txt-status,
+        html[data-theme="dark"] .llms-txt-status,
+        html[data-theme="dark"] .security-txt-status,
+        html[data-theme="dark"] .sitemap-status,
+        html[data-theme="dark"] .semantic-html-status,
+        html[data-theme="dark"] .faq-schema-section {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        html[data-theme="dark"] .insight-card.recommended,
+        html[data-theme="dark"] .insight-card.optional,
+        html[data-theme="dark"] .rich-result.eligible,
+        html[data-theme="dark"] .status-good,
+        html[data-theme="dark"] .status-excellent,
+        html[data-theme="dark"] .benefit-box,
+        html[data-theme="dark"] .explainer-box,
+        html[data-theme="dark"] .robots-recommendation,
+        html[data-theme="dark"] .sitemap-recommendation,
+        html[data-theme="dark"] .sitemap-recommendations li,
+        html[data-theme="dark"] .semantic-recommendations li,
+        html[data-theme="dark"] .landmark-item,
+        html[data-theme="dark"] .heading-badge {
+            color: #d1fae5;
+            border-left-color: var(--pon-accent-mint);
+            background: rgba(82, 233, 192, 0.16);
+        }
+
+        html[data-theme="dark"] .insight-card.high,
+        html[data-theme="dark"] .rich-result.partial,
+        html[data-theme="dark"] .robots-warning,
+        html[data-theme="dark"] .impact-box,
+        html[data-theme="dark"] .sitemap-issues li,
+        html[data-theme="dark"] .semantic-issues li,
+        html[data-theme="dark"] .status-needs-attention {
+            color: #fde68a;
+            border-left-color: var(--pon-warning);
+            background: rgba(245, 158, 11, 0.16);
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+
+        html[data-theme="dark"] .impact-box strong,
+        html[data-theme="dark"] .robots-warning strong {
+            color: #fde68a;
+        }
+
+        html[data-theme="dark"] .benefit-box strong,
+        html[data-theme="dark"] .robots-recommendation strong,
+        html[data-theme="dark"] .sitemap-recommendation strong {
+            color: #d1fae5;
+        }
+
+        html[data-theme="dark"] .insight-card.critical,
+        html[data-theme="dark"] .file-check.missing,
+        html[data-theme="dark"] .file-check.critical-missing,
+        html[data-theme="dark"] .rich-result.not-eligible,
+        html[data-theme="dark"] .invalid,
+        html[data-theme="dark"] .plugin-issues,
+        html[data-theme="dark"] .mcp-issues,
+        html[data-theme="dark"] .api-issues,
+        html[data-theme="dark"] .robots-issues,
+        html[data-theme="dark"] .status-critical {
+            color: #fecaca;
+            border-left-color: var(--pon-error);
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.42);
+        }
+
+        html[data-theme="dark"] .theme-toggle {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: #2b4157;
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #7da8ff;
+        }
+
+        html[data-theme="dark"] .insight-header,
+        html[data-theme="dark"] .well-known-checks h4,
+        html[data-theme="dark"] .ai-plugin-status h4,
+        html[data-theme="dark"] .mcp-status h4,
+        html[data-theme="dark"] .openapi-status h4,
+        html[data-theme="dark"] .robots-txt-status h4,
+        html[data-theme="dark"] .llms-txt-status h4,
+        html[data-theme="dark"] .security-txt-status h4,
+        html[data-theme="dark"] .insight-title,
+        html[data-theme="dark"] .ai-readiness-container h2,
+        html[data-theme="dark"] .sitemap-status h3,
+        html[data-theme="dark"] .semantic-html-status h3,
+        html[data-theme="dark"] .faq-schema-section h3,
+        html[data-theme="dark"] .sitemap-status h4,
+        html[data-theme="dark"] .semantic-html-status h4,
+        html[data-theme="dark"] .faq-question,
+        html[data-theme="dark"] .es-row .es-val,
+        html[data-theme="dark"] .es-block > summary > strong,
+        html[data-theme="dark"] .stat-num,
+        html[data-theme="dark"] .json-output .json-key,
+        html[data-theme="dark"] .tab.active,
+        html[data-theme="dark"] .tab:hover,
+        html[data-theme="dark"] label,
+        html[data-theme="dark"] .status-pill.bad,
+        html[data-theme="dark"] .status-pill.good,
+        html[data-theme="dark"] .faq-answer strong,
+        html[data-theme="dark"] footer a {
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] .insight-why,
+        html[data-theme="dark"] .insight-impact,
+        html[data-theme="dark"] .insight-reference,
+        html[data-theme="dark"] .file-check-description,
+        html[data-theme="dark"] .bot-description,
+        html[data-theme="dark"] .sample-urls-table td,
+        html[data-theme="dark"] .sitemap-list li,
+        html[data-theme="dark"] .mcp-capabilities li,
+        html[data-theme="dark"] .ai-readiness-container p {
+            color: #a8bfd2;
+        }
+
+        html[data-theme="dark"] .emerging-standards h4 {
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] .emerging-standards > p,
+        html[data-theme="dark"] .es-preview {
+            color: #a8bfd2 !important;
+        }
+
+        html[data-theme="dark"] .json-output .json-string {
+            color: #8de6d6;
+        }
+
+        html[data-theme="dark"] .json-output .json-number {
+            color: #7db7ff;
+        }
+
+        html[data-theme="dark"] .json-output .json-boolean {
+            color: #c9adff;
+        }
+
+        html[data-theme="dark"] .json-output .json-null {
+            color: #a8bfd2;
+        }
+
+        html[data-theme="dark"] .strengths-list li,
+        html[data-theme="dark"] .file-check.found {
+            background: rgba(82, 233, 192, 0.16);
+            color: #d1fae5;
+            border-color: rgba(82, 233, 192, 0.4);
+            border-left-color: var(--pon-accent-mint);
+        }
+
+        html[data-theme="dark"] input[type="url"],
+        html[data-theme="dark"] .btn-secondary {
+            background: #0f2133;
+            border-color: #2b4157;
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] input[type="url"]:focus,
+        html[data-theme="dark"] .theme-toggle:focus-visible {
+            box-shadow: 0 0 0 4px rgba(82, 233, 192, 0.2);
+        }
+
+        html[data-theme="dark"] input[type="url"]::placeholder {
+            color: #8faac0;
+        }
+
+        html[data-theme="dark"] .btn-secondary:hover:not(:disabled),
+        html[data-theme="dark"] .example-btn:hover,
+        html[data-theme="dark"] .es-spec:hover {
+            background: #17314b;
+            color: #e6f0ff;
+        }
+
+        html[data-theme="dark"] .error {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.35);
+            color: #ffb4b4;
+        }
+
+        html[data-theme="dark"] .spinner {
+            border-color: rgba(230, 240, 255, 0.18);
+            border-top-color: var(--pon-accent-mint);
+        }
+
+        html[data-theme="dark"] .ai-readiness-container a,
+        html[data-theme="dark"] .insight-why a,
+        html[data-theme="dark"] .insight-reference a,
+        html[data-theme="dark"] .section-intro a,
+        html[data-theme="dark"] .file-link a,
+        html[data-theme="dark"] .sample-urls-table a {
+            color: #8fc9ff;
+        }
+
+        html[data-theme="dark"] .ai-readiness-container a:hover,
+        html[data-theme="dark"] .insight-why a:hover,
+        html[data-theme="dark"] .insight-reference a:hover,
+        html[data-theme="dark"] .section-intro a:hover,
+        html[data-theme="dark"] .file-link a:hover,
+        html[data-theme="dark"] .sample-urls-table a:hover,
+        html[data-theme="dark"] footer a:hover {
+            color: #c9e5ff;
+        }
+
+        html[data-theme="dark"] footer {
+            border-top-color: #2b4157;
         }
         
         /* Mobile responsiveness */
         @media (max-width: 768px) {
-            .tab { padding: 12px 16px; font-size: 20px; }
-            .tab .tab-text { display: none; }
+            .tab { padding: 12px 14px; font-size: 14px; }
+            .container { padding: 0 16px; }
+            .card { padding: 20px; }
+            .button-group button { width: 100%; }
+            h1 { font-size: clamp(2rem, 9vw, 2.6rem); }
+            .tagline { font-size: 1rem; }
+            .theme-toggle {
+                position: static;
+                margin-bottom: 14px;
+            }
         }
         
-        footer { text-align: center; color: #5a5f7d; margin-top: 60px; padding: 24px; border-top: 1px solid rgba(255,255,255,0.05); }
-        footer a { color: #00d4ff; text-decoration: none; }
-        footer a:hover { color: #00b8e6; text-decoration: underline; }
+        footer { text-align: center; color: var(--pon-text-secondary); margin-top: 60px; padding: 24px; border-top: 1px solid var(--pon-hairline); }
+        footer a { color: var(--pon-deep-navy); text-decoration: underline; text-underline-offset: 2px; }
+        footer a:hover { color: #004070; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔍 HTMLens</h1>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch theme">Dark mode</button>
+            <h1>HTMLens</h1>
             <p class="tagline">Analyze your website and reveal AI readiness and structured data in seconds</p>
         </header>
         <div class="card">
             <div class="input-section">
                 <label for="urlInput">Enter a URL to analyze:</label>
                 <input type="url" id="urlInput" placeholder="https://example.com" value="https://schema.org" />
-                <label class="bypass-toggle bypass-inline" title="Results are cached at the Cloudflare edge for 5–15 minutes to reduce load on the target site. Tick this to force a fresh fetch of every file.">
+                <label class="bypass-toggle bypass-inline" title="Results are cached at the Cloudflare edge for 5-15 minutes to reduce load on the target site. Tick this to force a fresh fetch of every file.">
                     <input type="checkbox" id="bypassCache" />
                     <span>Bypass cache</span>
                 </label>
@@ -723,25 +1354,25 @@
             <div class="examples-section">
                 <label>Try these examples:</label>
                 <div class="example-buttons">
-                    <button class="example-btn" data-url="https://kalkhoff-bikes.com/nl_nl/image-5-advance-blx">🚴 Kalkhoff Bike</button>
-                    <button class="example-btn" data-url="https://schema.org">📚 Schema.org</button>
-                    <button class="example-btn" data-url="https://www.gazelle.nl">🏪 Gazelle</button>
+                    <button class="example-btn" data-url="https://kalkhoff-bikes.com/nl_nl/image-5-advance-blx">Kalkhoff Bike</button>
+                    <button class="example-btn" data-url="https://schema.org">Schema.org</button>
+                    <button class="example-btn" data-url="https://www.gazelle.nl">Gazelle</button>
                 </div>
             </div>
             <div class="button-group">
-                <button class="btn-primary" id="analyzeBtn">🚀 Analyze</button>
-                <button class="btn-secondary" id="shareBtn">🔗 Share</button>
-                <button class="btn-secondary" id="downloadBtn" disabled title="Run an analysis first">⬇️ Download report</button>
-                <button class="btn-secondary" id="clearBtn">🗑️ Clear</button>
+                <button class="btn-primary" id="analyzeBtn">Analyze</button>
+                <button class="btn-secondary" id="shareBtn">Share</button>
+                <button class="btn-secondary" id="downloadBtn" disabled title="Run an analysis first">Download report</button>
+                <button class="btn-secondary" id="clearBtn">Clear</button>
             </div>
             <div class="loading" id="loading"><div class="spinner"></div><p>Analyzing webpage...</p></div>
             <div class="results" id="results">
                 <div class="tabs">
-                    <button class="tab active" data-tab="insights">🎯<span class="tab-text"> Insights</span></button>
-                    <button class="tab" data-tab="ai-readiness">🤖<span class="tab-text"> AI Readiness</span></button>
-                    <button class="tab" data-tab="jsonld">🗂️<span class="tab-text"> JSON-LD</span></button>
-                    <button class="tab" data-tab="structured">🧱<span class="tab-text"> Structured Data</span></button>
-                    <button class="tab" data-tab="page">📄<span class="tab-text"> Page Content</span></button>
+                    <button class="tab active" data-tab="insights"><span class="tab-text">Insights</span></button>
+                    <button class="tab" data-tab="ai-readiness"><span class="tab-text">AI Readiness</span></button>
+                    <button class="tab" data-tab="jsonld"><span class="tab-text">JSON-LD</span></button>
+                    <button class="tab" data-tab="structured"><span class="tab-text">Structured Data</span></button>
+                    <button class="tab" data-tab="page"><span class="tab-text">Page Content</span></button>
                 </div>
                 <div class="tab-content active" id="insights-content">
                     <div id="insightsOutput"></div>
@@ -768,6 +1399,54 @@
     </div>
     <script>
         const API_BASE = "${origin}";
+        const THEME_STORAGE_KEY = 'htmlens-theme';
+
+        function getSystemTheme() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function updateThemeToggle(theme) {
+            const toggle = document.getElementById('themeToggle');
+            if (!toggle) return;
+            const nextTheme = theme === 'dark' ? 'light' : 'dark';
+            toggle.textContent = nextTheme === 'dark' ? 'Dark mode' : 'Light mode';
+            toggle.setAttribute('aria-pressed', String(theme === 'dark'));
+            toggle.setAttribute('aria-label', `Switch to ${nextTheme} mode`);
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            updateThemeToggle(theme);
+        }
+
+        function initializeTheme() {
+            const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+            const initialTheme = storedTheme === 'dark' || storedTheme === 'light'
+                ? storedTheme
+                : getSystemTheme();
+            applyTheme(initialTheme);
+
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            const syncSystemTheme = event => {
+                if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+                    applyTheme(event.matches ? 'dark' : 'light');
+                }
+            };
+            if (typeof mediaQuery.addEventListener === 'function') {
+                mediaQuery.addEventListener('change', syncSystemTheme);
+            } else if (typeof mediaQuery.addListener === 'function') {
+                mediaQuery.addListener(syncSystemTheme);
+            }
+        }
+
+        initializeTheme();
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+            applyTheme(nextTheme);
+        });
         
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -810,9 +1489,9 @@
                 // Show success feedback
                 const btn = document.getElementById('shareBtn');
                 const originalText = btn.innerHTML;
-                btn.innerHTML = '✅ Copied!';
-                btn.style.background = '#28a745';
-                btn.style.color = 'white';
+                btn.innerHTML = 'Copied';
+                btn.style.background = '#52e9c0';
+                btn.style.color = '#002c47';
                 
                 setTimeout(() => {
                     btn.innerHTML = originalText;
@@ -1074,7 +1753,7 @@
         function renderAiReadinessTab(url, aiReadiness) {
             let html = '<div class="ai-readiness-container">';
             html += '<h2 style="margin-top: 0;">🤖 AI Agent Readiness</h2>';
-            html += '<p style="color: #666; margin-bottom: 30px;">Check how well your website communicates with AI agents and chatbots.</p>';
+            html += '<p style="color: #5c7185; margin-bottom: 30px;">Check how well your website communicates with AI agents and chatbots.</p>';
             
             // .well-known files
             html += '<div class="well-known-checks">';
@@ -1273,7 +1952,7 @@
             }
             
             // llms.txt status
-            // llms.txt status — always rendered as its own top-level card (peer of robots.txt / sitemap)
+            // llms.txt status - always rendered as its own top-level card (peer of robots.txt / sitemap)
             if (aiReadiness.llmsTxt) {
                 const llms = aiReadiness.llmsTxt;
                 html += '<div class="llms-txt-status">';
@@ -1335,7 +2014,7 @@
                     html += '</ul></div>';
                 }
                 if (sec.expires) {
-                    const expiryStatus = sec.isExpired ? ' <span style="color: #e53e3e; font-weight: bold;">⚠️ EXPIRED</span>' : ' <span style="color: #38a169;">✅ Valid</span>';
+                    const expiryStatus = sec.isExpired ? ' <span style="color: #7f1d1d; font-weight: bold;">⚠️ EXPIRED</span>' : ' <span style="color: #166534;">✅ Valid</span>';
                     html += `<div><strong>Expires:</strong> ${escapeHtml(sec.expires)}${expiryStatus}</div>`;
                 }
                 if (sec.preferredLanguages) {
@@ -1586,8 +2265,8 @@
                             const shortUrl = url.loc.length > 60 ? url.loc.substring(0, 57) + '...' : url.loc;
                             html += '<tr>';
                             html += `<td><a href="${url.loc}" target="_blank" title="${url.loc}">${shortUrl}</a></td>`;
-                            html += `<td>${url.lastmod || '<span style="color: #999;">-</span>'}</td>`;
-                            html += `<td>${url.priority !== null ? url.priority.toFixed(1) : '<span style="color: #999;">-</span>'}</td>`;
+                            html += `<td>${url.lastmod || '<span style="color: #5c7185;">-</span>'}</td>`;
+                            html += `<td>${url.priority !== null ? url.priority.toFixed(1) : '<span style="color: #5c7185;">-</span>'}</td>`;
                             html += '</tr>';
                         });
                         html += '</tbody>';
@@ -1874,7 +2553,7 @@
             if (ai.linkHeaders) {
                 const useful = ai.linkHeaders.agentUseful || [];
                 let body = row('Total links', String((ai.linkHeaders.links || []).length));
-                body += row('Agent-useful', useful.length === 0 ? '—' :
+                body += row('Agent-useful', useful.length === 0 ? '-' :
                     useful.map(l => `<code>${l.rel}</code> → <a href="${l.target}" target="_blank">${l.target}</a>`).join(', '));
                 html += block('🔗 Link headers (RFC 8288)', useful.length > 0, body,
                     `${(ai.linkHeaders.links || []).length} links${useful.length ? ` · ${useful.length} agent-useful` : ''}`,
@@ -1904,9 +2583,9 @@
             // Robots Content-Signal
             const cs = ai.robotsTxt?.contentSignals;
             if (cs && cs.found) {
-                let body = row('ai-train', cs.aiTrain || '—');
-                body += row('search', cs.search || '—');
-                body += row('ai-input', cs.aiInput || '—');
+                let body = row('ai-train', cs.aiTrain || '-');
+                body += row('search', cs.search || '-');
+                body += row('ai-input', cs.aiInput || '-');
                 html += block('📡 robots.txt Content-Signal', false, body,
                     [cs.aiTrain, cs.search, cs.aiInput].filter(Boolean).length + ' signals',
                     { url: 'https://github.com/ai-robots-txt/ai.robots.txt', label: 'proposal' });
@@ -1920,9 +2599,9 @@
             // OAuth AS
             if (ai.oauthAuthorizationServer) {
                 const o = ai.oauthAuthorizationServer;
-                let body = row('Issuer', o.issuer || '—');
-                body += row('Authorization', o.authorizationEndpoint || '—');
-                body += row('Token', o.tokenEndpoint || '—');
+                let body = row('Issuer', o.issuer || '-');
+                body += row('Authorization', o.authorizationEndpoint || '-');
+                body += row('Token', o.tokenEndpoint || '-');
                 if (o.scopesSupported?.length) body += row('Scopes', o.scopesSupported.join(', '));
                 html += block('🔐 OAuth Authorization Server (RFC 8414)', true, body,
                     o.issuer ? `issuer: ${o.issuer}` : '✅ found',
@@ -2002,7 +2681,7 @@
                 body += row('Skills', String(s.skillCount));
                 if (s.skills?.length) {
                     const sample = s.skills.slice(0, 5)
-                        .map(sk => `<code>${sk.name}</code>${sk.description ? ` — ${sk.description}` : ''}`)
+                        .map(sk => `<code>${sk.name}</code>${sk.description ? ` - ${sk.description}` : ''}`)
                         .join('<br>');
                     body += row('Sample', sample);
                 }
@@ -2031,21 +2710,21 @@
                     { url: 'https://datatracker.ietf.org/doc/draft-meunier-web-bot-auth-architecture/', label: 'draft' });
             }
 
-            // Commerce — always render; show per-protocol rows with ❌ when missing.
+            // Commerce - always render; show per-protocol rows with ❌ when missing.
             const c = ai.commerce || {};
             {
                 let body = '';
                 body += row('UCP', c.ucp ? yn(c.ucp.found) : '❌',
                     c.ucp
-                        ? `${c.ucp.version ? 'v' + c.ucp.version : ''} ${c.ucp.services?.length ? '· ' + c.ucp.services.join(', ') : ''}`.trim() || '—'
+                        ? `${c.ucp.version ? 'v' + c.ucp.version : ''} ${c.ucp.services?.length ? '· ' + c.ucp.services.join(', ') : ''}`.trim() || '-'
                         : 'No /.well-known/ucp.json');
                 body += row('ACP', c.acp ? yn(c.acp.found) : '❌',
                     c.acp
-                        ? `${c.acp.version ? 'v' + c.acp.version : ''} ${c.acp.apiBaseUrl ? '· ' + c.acp.apiBaseUrl : ''}`.trim() || '—'
+                        ? `${c.acp.version ? 'v' + c.acp.version : ''} ${c.acp.apiBaseUrl ? '· ' + c.acp.apiBaseUrl : ''}`.trim() || '-'
                         : 'No /.well-known/acp.json');
                 if (c.x402) {
                     const probes = (c.x402.probes || []).map(p => `${p.path}: ${p.status}`).join(', ');
-                    body += row('x402', yn(c.x402.detected), probes || '—');
+                    body += row('x402', yn(c.x402.detected), probes || '-');
                 } else {
                     body += row('x402', '❌', 'Probe did not complete.');
                 }
@@ -2069,10 +2748,10 @@
             const failingCount = (html.match(/class="es-preview">[^<]*❌/g) || []).length;
             const heading = failingCount > 0
                 ? '🧪 Emerging Agent Standards'
-                : '🧪 Emerging Agent Standards <span style="color:#8b92a7;font-weight:400;font-size:0.85em;">(informational)</span>';
+                : '🧪 Emerging Agent Standards <span style="color:#5c7185;font-weight:400;font-size:0.85em;">(informational)</span>';
             const intro = failingCount > 0
-                ? '<p style="color:#a8b0c2;font-size:0.9em;margin:-4px 0 12px;">Newer agent / commerce standards. Adopting them improves agent compatibility.</p>'
-                : '<p style="color:#8b92a7;font-size:0.9em;margin:-4px 0 12px;">These checks surface newer agent / commerce standards.</p>';
+                ? '<p style="color:#5c7185;font-size:0.9em;margin:-4px 0 12px;">Newer agent / commerce standards. Adopting them improves agent compatibility.</p>'
+                : '<p style="color:#5c7185;font-size:0.9em;margin:-4px 0 12px;">These checks surface newer agent / commerce standards.</p>';
 
             return `<div class="emerging-standards"><h4>${heading}</h4>${intro}${html}</div>`;
         }
@@ -2282,7 +2961,7 @@
                 });
                 insights.overallStatus = 'status-critical';
                 insights.statusText = 'Critical Issues Found';
-                // Do NOT return early — continue so AI Readiness positives
+                // Do NOT return early - continue so AI Readiness positives
                 // still populate `strengths` and the user can see what IS working.
             }
             
