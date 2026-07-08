@@ -183,6 +183,7 @@
             /* Semantic color aliases */
             --color-black-alpha-2: var(--clr-rgb-0-0-0-0_2);
             --color-black-alpha-3: var(--clr-rgb-0-0-0-0_3);
+            --color-border: var(--pon-hairline);
             --color-border-dark: var(--clr-hex-2b4157);
             --color-border-dark-focus: var(--clr-hex-3f5970);
             --color-border-dark-panel: var(--clr-hex-24384d);
@@ -220,6 +221,8 @@
             --color-json-number-light: var(--clr-hex-184f80);
             --color-json-string-dark: var(--clr-hex-c9e5ff);
             --color-json-string-light: var(--clr-hex-1f6f67);
+            --color-icon-button-bg: var(--pon-canvas);
+            --color-icon-button-text: var(--pon-deep-navy);
             --color-link: var(--clr-hex-004070);
             --color-link-dark: var(--clr-hex-7db7ff);
             --color-link-dark-emphasis: var(--clr-hex-15564b);
@@ -322,21 +325,45 @@
             position: relative;
         }
 
+        .brand-logo {
+            position: absolute;
+            top: var(--space-4);
+            left: var(--space-5);
+            width: clamp(90px, 11vw, 140px);
+            height: auto;
+            margin: 0;
+            opacity: 0.9;
+            filter: brightness(0) saturate(100%) invert(13%) sepia(49%) saturate(1500%) hue-rotate(169deg) brightness(91%) contrast(103%);
+            transition: filter 0.2s ease, opacity 0.2s ease;
+        }
+
         button.theme-toggle {
             position: absolute;
             top: var(--space-4);
             right: var(--space-5);
-            min-height: 44px;
-            padding: 10px 16px;
-            border: 1px solid var(--pon-hairline);
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 44px;
+            border: 1px solid var(--color-border);
             border-radius: var(--pon-radius-pill);
-            background: var(--pon-canvas);
-            color: var(--pon-deep-navy);
-            font-family: 'PT Sans', sans-serif;
-            font-size: var(--fs-base);
-            font-weight: 700;
+            background: var(--color-icon-button-bg);
+            color: var(--color-icon-button-text);
             cursor: pointer;
-            transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button.theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
         }
 
         button.theme-toggle:hover {
@@ -1375,6 +1402,9 @@
 
         html[data-theme="dark"] {
             color-scheme: dark;
+            --color-border: var(--color-border-dark);
+            --color-icon-button-bg: var(--color-white-alpha-06);
+            --color-icon-button-text: var(--color-text-inverse);
         }
 
         html[data-theme="dark"] body {
@@ -1599,9 +1629,13 @@
         }
 
         html[data-theme="dark"] .theme-toggle {
-            background: var(--color-white-alpha-06);
-            border-color: var(--color-border-dark);
-            color: var(--color-text-inverse);
+            background: var(--color-icon-button-bg);
+            border-color: var(--color-border);
+            color: var(--color-icon-button-text);
+        }
+
+        html[data-theme="dark"] .brand-logo {
+            filter: brightness(0) saturate(100%) invert(93%) sepia(10%) saturate(747%) hue-rotate(185deg) brightness(96%) contrast(94%);
         }
 
         html[data-theme="dark"] .theme-toggle:hover {
@@ -1803,7 +1837,12 @@
 <body>
     <div class="container">
         <header>
-            <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch theme">Dark mode</button>
+            <img
+                class="brand-logo"
+                src="https://tokensight.pon-ai.com/assets/datalab-logo-navy.svg"
+                alt="Pon Datalab logo"
+            >
+            <button class="theme-toggle icon-button" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch theme" title="Switch theme"></button>
             <h1>HTMLens</h1>
             <p class="tagline">Analyze your website and reveal AI readiness and structured data in seconds</p>
         </header>
@@ -1873,10 +1912,13 @@
         function updateThemeToggle(theme) {
             const toggle = document.getElementById('themeToggle');
             if (!toggle) return;
+            const moonIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg>';
+            const sunIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>';
             const nextTheme = theme === 'dark' ? 'light' : 'dark';
-            toggle.textContent = nextTheme === 'dark' ? 'Dark mode' : 'Light mode';
+            toggle.innerHTML = nextTheme === 'dark' ? moonIcon : sunIcon;
             toggle.setAttribute('aria-pressed', String(theme === 'dark'));
             toggle.setAttribute('aria-label', `Switch to ${nextTheme} mode`);
+            toggle.setAttribute('title', `Switch to ${nextTheme} mode`);
         }
 
         function applyTheme(theme) {
