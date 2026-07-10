@@ -14,8 +14,8 @@ name = "htmlens"
 path = "src/main.rs"
 
 [dependencies]
-# Use core library with full expansion features
-htmlens-core = { workspace = true, features = ["full-expansion"] }
+# Use core library with full expansion + WASM-safe AI readiness parsers
+htmlens-core = { workspace = true, features = ["full-expansion", "ai-readiness-parser"] }
 
 # Workspace dependencies
 anyhow.workspace = true

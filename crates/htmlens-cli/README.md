@@ -70,6 +70,7 @@ htmlens https://schema.org -g
 ## Features
 
 - ✅ Extract JSON-LD from HTML pages
+- ✅ Website WebMCP support scan (multi-signal + active probes)
 - ✅ Analyze ProductGroup with variants
 - ✅ Extract offers, pricing, and availability
 - ✅ Build breadcrumb navigation
@@ -78,6 +79,20 @@ htmlens https://schema.org -g
 - ✅ Support all standard Schema.org Product properties
 - ✅ Dynamic variant table columns based on `variesBy`
 - ✅ Markdown conversion of page content
+
+### WebMCP scan output
+
+When the input is a URL, htmlens now includes a **WebMCP Scan** section with:
+- support status (`supported`)
+- confidence (`low`/`medium`/`high`) and score (`0-100`)
+- detected signals
+- outdated metadata findings (legacy links / old protocol versions)
+- all available discovered routes
+- all detected available tools (from `registerTool(...)` and MCP metadata)
+- active probe results for well-known files and discovered endpoint
+- in-page WebMCP API signals (e.g. `document.modelContext` / `registerTool`)
+
+In `--graph-only` mode, it also adds a condensed single-line WebMCP status.
 
 ## License
 

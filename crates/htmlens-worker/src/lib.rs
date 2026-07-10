@@ -2,7 +2,17 @@
 //!
 //! Pure Rust implementation that serves a web UI and extracts JSON-LD using htmlens-core
 
-use htmlens_core::{GraphNode, normalize_origin, parser};
+use htmlens_core::{
+    GraphNode,
+    ai_readiness::web_mcp::{
+        WebMcpEvidence, WebMcpProbe, WebMcpScanResult, analyze_web_mcp_html_signals,
+        detect_outdated_protocol_version, detect_outdated_web_mcp_details,
+        detect_web_mcp_link_hints, extract_web_mcp_tools_from_html,
+        extract_web_mcp_tools_from_json, parse_web_mcp_candidate, route_appears_available,
+        score_web_mcp_evidence,
+    },
+    normalize_origin, parser,
+};
 use serde::Serialize;
 use url::Url;
 use worker::*;
@@ -74,6 +84,8 @@ struct AiReadinessData {
     web_bot_auth: Option<WebBotAuthInfo>,
     #[serde(rename = "agentSkills")]
     agent_skills: Option<AgentSkillsInfo>,
+    #[serde(rename = "webMcp")]
+    web_mcp: WebMcpScanResult,
     commerce: CommerceChecks,
 }
 
@@ -706,6 +718,14 @@ async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiR
             None
         };
     let web_bot_auth = check_web_bot_auth(&origin).await;
+    let web_mcp = check_web_mcp(
+        &origin,
+        signals.html,
+        &signals.link_header,
+        mcp.as_ref(),
+        mcp_server_card.as_ref(),
+    )
+    .await;
 
     let commerce = CommerceChecks {
         ucp: if well_known.ucp.found {
@@ -740,6 +760,7 @@ async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiR
         mcp_server_card,
         web_bot_auth,
         agent_skills,
+        web_mcp,
         commerce,
     }
 }
@@ -1992,38 +2013,39 @@ async fn check_oauth_protected_resource(
     };
     if let Some(mut response) = fetch_with_ua(&url).await
         && response.status_code() == 200
-            && let Ok(text) = response.text().await
-                && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-                    let resource = json
-                        .get("resource")
-                        .and_then(|v| v.as_str())
-                        .map(String::from);
-                    let authorization_servers = json
-                        .get("authorization_servers")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|x| x.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    let scopes_supported = json
-                        .get("scopes_supported")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|x| x.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    return Some(OauthProtectedResourceInfo {
-                        found: true,
-                        resource,
-                        authorization_servers,
-                        scopes_supported,
-                        www_authenticate: www_auth_opt,
-                    });
-                }
+        && let Ok(text) = response.text().await
+        && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text)
+    {
+        let resource = json
+            .get("resource")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let authorization_servers = json
+            .get("authorization_servers")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let scopes_supported = json
+            .get("scopes_supported")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        return Some(OauthProtectedResourceInfo {
+            found: true,
+            resource,
+            authorization_servers,
+            scopes_supported,
+            www_authenticate: www_auth_opt,
+        });
+    }
     // Fall back to header-only signal.
     www_auth_opt.as_ref()?;
     Some(OauthProtectedResourceInfo {
@@ -2101,48 +2123,287 @@ async fn check_mcp_server_card(base_url: &str) -> Option<McpServerCardInfo> {
         let url = format!("{}{}", base_url, path);
         if let Some(mut response) = fetch_with_ua(&url).await
             && response.status_code() == 200
-                && let Ok(text) = response.text().await
-                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-                        // server-cards.json is typically an array; flatten to first entry.
-                        let node = if json.is_array() {
-                            json.as_array()
-                                .and_then(|a| a.first().cloned())
-                                .unwrap_or(json)
-                        } else {
-                            json
-                        };
-                        let name = node.get("name").and_then(|v| v.as_str()).map(String::from);
-                        let version = node
-                            .get("version")
-                            .and_then(|v| v.as_str())
-                            .map(String::from);
-                        let transport = node
-                            .get("transport")
-                            .and_then(|v| v.as_str())
-                            .map(String::from)
-                            .or_else(|| {
-                                node.get("transports")
-                                    .and_then(|v| v.as_array())
-                                    .and_then(|a| a.first())
-                                    .and_then(|v| v.as_str())
-                                    .map(String::from)
-                            });
-                        let endpoint = node
-                            .get("endpoint")
-                            .and_then(|v| v.as_str())
-                            .map(String::from)
-                            .or_else(|| node.get("url").and_then(|v| v.as_str()).map(String::from));
-                        return Some(McpServerCardInfo {
-                            found: true,
-                            path: path.to_string(),
-                            name,
-                            version,
-                            transport,
-                            endpoint,
-                        });
-                    }
+            && let Ok(text) = response.text().await
+            && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text)
+        {
+            // server-cards.json is typically an array; flatten to first entry.
+            let node = if json.is_array() {
+                json.as_array()
+                    .and_then(|a| a.first().cloned())
+                    .unwrap_or(json)
+            } else {
+                json
+            };
+            let name = node.get("name").and_then(|v| v.as_str()).map(String::from);
+            let version = node
+                .get("version")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let transport = node
+                .get("transport")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| {
+                    node.get("transports")
+                        .and_then(|v| v.as_array())
+                        .and_then(|a| a.first())
+                        .and_then(|v| v.as_str())
+                        .map(String::from)
+                });
+            let endpoint = node
+                .get("endpoint")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| node.get("url").and_then(|v| v.as_str()).map(String::from));
+            return Some(McpServerCardInfo {
+                found: true,
+                path: path.to_string(),
+                name,
+                version,
+                transport,
+                endpoint,
+            });
+        }
     }
     None
+}
+
+async fn check_web_mcp(
+    base_url: &str,
+    homepage_html: &str,
+    homepage_link_header: &str,
+    mcp_status: Option<&McpStatus>,
+    mcp_server_card: Option<&McpServerCardInfo>,
+) -> WebMcpScanResult {
+    const WEB_MCP_PATHS: [&str; 3] = [
+        "/.well-known/mcp.json",
+        "/.well-known/mcp/server-card.json",
+        "/.well-known/mcp/server-cards.json",
+    ];
+
+    let mut result = WebMcpScanResult::default();
+    let mut evidence = WebMcpEvidence::default();
+
+    let html_signals = analyze_web_mcp_html_signals(homepage_html);
+    evidence.html_marker_count = html_signals.signals.len();
+    evidence.in_page_model_context_api = html_signals.has_model_context_api;
+    evidence.in_page_register_tool_usage = html_signals.has_register_tool_usage;
+    evidence.in_page_tool_schema_usage = html_signals.has_tool_schema_usage;
+    result.signals.extend(html_signals.signals);
+    result
+        .available_tools
+        .extend(extract_web_mcp_tools_from_html(homepage_html));
+
+    let link_signals = detect_web_mcp_link_hints(homepage_link_header);
+    evidence.link_hint_count = link_signals.len();
+    result.signals.extend(link_signals);
+
+    if let Some(mcp) = mcp_status {
+        evidence.manifest_found = true;
+        if mcp.valid {
+            evidence.manifest_valid = true;
+            result
+                .signals
+                .push("Valid MCP manifest was parsed".to_string());
+        }
+        if !mcp.endpoint.is_empty() {
+            evidence.endpoint_found = true;
+            result.endpoint = Some(mcp.endpoint.clone());
+        }
+        if !mcp.protocol_version.is_empty() && mcp.protocol_version != "Unknown" {
+            evidence.protocol_version_found = true;
+            result.protocol_version = Some(mcp.protocol_version.clone());
+            if let Some(detail) = detect_outdated_protocol_version(&mcp.protocol_version) {
+                result.outdated_details.push(detail);
+            }
+        }
+        result.manifest_url = Some(format!("{}/.well-known/mcp.json", base_url));
+    }
+
+    if let Some(card) = mcp_server_card {
+        evidence.server_card_found = true;
+        if card.endpoint.is_some() && card.name.is_some() {
+            evidence.server_card_valid = true;
+        }
+        if result.endpoint.is_none() {
+            result.endpoint = card.endpoint.clone();
+            if result.endpoint.is_some() {
+                evidence.endpoint_found = true;
+            }
+        }
+        if card.found {
+            result
+                .signals
+                .push("MCP server-card metadata discovered".to_string());
+        }
+    }
+
+    let mut manifest_candidate = None;
+    let mut server_card_candidate = None;
+    let mut server_cards_candidate = None;
+
+    for path in WEB_MCP_PATHS {
+        let url = format!("{}{}", base_url, path);
+        let (probe, json) = run_web_mcp_probe_worker(&url, path).await;
+        if probe.status == 200 {
+            match path {
+                "/.well-known/mcp.json" => {
+                    evidence.manifest_found = true;
+                    result.manifest_url = Some(url.clone());
+                }
+                "/.well-known/mcp/server-card.json" => evidence.server_card_found = true,
+                "/.well-known/mcp/server-cards.json" => evidence.server_cards_found = true,
+                _ => {}
+            }
+        }
+        if let Some(value) = json.as_ref() {
+            result
+                .outdated_details
+                .extend(detect_outdated_web_mcp_details(value));
+            result
+                .available_tools
+                .extend(extract_web_mcp_tools_from_json(value, path));
+            let candidate = parse_web_mcp_candidate(value, base_url, path);
+            if candidate.valid_structure {
+                match path {
+                    "/.well-known/mcp.json" => evidence.manifest_valid = true,
+                    "/.well-known/mcp/server-card.json" => evidence.server_card_valid = true,
+                    "/.well-known/mcp/server-cards.json" => evidence.server_cards_valid = true,
+                    _ => {}
+                }
+            }
+            match path {
+                "/.well-known/mcp.json" => manifest_candidate = Some(candidate),
+                "/.well-known/mcp/server-card.json" => server_card_candidate = Some(candidate),
+                "/.well-known/mcp/server-cards.json" => server_cards_candidate = Some(candidate),
+                _ => {}
+            }
+        }
+        if route_appears_available(probe.status) {
+            result.available_routes.push(path.to_string());
+        }
+        result.probes.push(probe);
+    }
+
+    let picked_candidate = manifest_candidate
+        .as_ref()
+        .or(server_card_candidate.as_ref())
+        .or(server_cards_candidate.as_ref());
+
+    if let Some(candidate) = picked_candidate {
+        if result.endpoint.is_none() {
+            result.endpoint = candidate.endpoint.clone();
+        }
+        if result.protocol_version.is_none() {
+            result.protocol_version = candidate.protocol_version.clone();
+        }
+        if result.endpoint.is_some() {
+            evidence.endpoint_found = true;
+        }
+        if result.protocol_version.is_some() {
+            evidence.protocol_version_found = true;
+        }
+        if let Some(protocol_version) = result.protocol_version.as_ref()
+            && let Some(detail) = detect_outdated_protocol_version(protocol_version)
+        {
+            result.outdated_details.push(detail);
+        }
+        if candidate.valid_structure {
+            result
+                .signals
+                .push("Valid WebMCP JSON structure detected".to_string());
+        }
+    }
+
+    if let Some(endpoint) = result.endpoint.clone() {
+        let probe_path = format!("endpoint:{endpoint}");
+        let (probe, _) = run_web_mcp_probe_worker(&endpoint, &probe_path).await;
+        if probe.status > 0 && probe.status < 500 {
+            evidence.endpoint_probe_success = true;
+            if evidence.manifest_valid {
+                evidence.endpoint_probe_from_manifest_success = true;
+            }
+        }
+        if route_appears_available(probe.status) {
+            result.available_routes.push(endpoint);
+        }
+        result.probes.push(probe);
+    }
+
+    if evidence.manifest_found {
+        result
+            .signals
+            .push("Found /.well-known/mcp.json during active probing".to_string());
+    }
+    if evidence.server_card_found || evidence.server_cards_found {
+        result
+            .signals
+            .push("Found WebMCP server-card endpoints".to_string());
+    }
+    if evidence.endpoint_probe_success {
+        result
+            .signals
+            .push("Advertised MCP endpoint responded to active probe".to_string());
+    }
+
+    let (score, confidence, supported) = score_web_mcp_evidence(&evidence);
+    result.score = score;
+    result.confidence = confidence;
+    result.supported = supported;
+    result.signals.sort();
+    result.signals.dedup();
+    result.outdated_details.sort();
+    result.outdated_details.dedup();
+    result.available_routes.sort();
+    result.available_routes.dedup();
+    result.available_tools.sort();
+    result.available_tools.dedup();
+    result
+}
+
+async fn run_web_mcp_probe_worker(
+    url: &str,
+    path: &str,
+) -> (WebMcpProbe, Option<serde_json::Value>) {
+    if let Some(mut response) = fetch_with_ua(url).await {
+        let status = response.status_code();
+        let content_type = response
+            .headers()
+            .get("Content-Type")
+            .ok()
+            .flatten()
+            .map(String::from);
+        let text = response.text().await.unwrap_or_default();
+        let mut details = Vec::new();
+        if status == 200 {
+            details.push("HTTP 200".to_string());
+        }
+        let parsed = serde_json::from_str::<serde_json::Value>(&text).ok();
+        if parsed.is_some() {
+            details.push("valid JSON".to_string());
+        } else if status == 200 {
+            details.push("body is not valid JSON".to_string());
+        }
+        return (
+            WebMcpProbe {
+                path: path.to_string(),
+                status,
+                content_type,
+                details: Some(details.join(", ")),
+            },
+            parsed,
+        );
+    }
+
+    (
+        WebMcpProbe {
+            path: path.to_string(),
+            status: 0,
+            content_type: None,
+            details: Some("request failed".to_string()),
+        },
+        None,
+    )
 }
 
 /// Probe for the http-message-signatures-directory presence (Cloudflare's
@@ -2175,43 +2436,41 @@ async fn check_agent_skills(base_url: &str) -> Option<AgentSkillsInfo> {
         let url = format!("{}{}", base_url, path);
         if let Some(mut response) = fetch_with_ua(&url).await
             && response.status_code() == 200
-                && let Ok(text) = response.text().await
-                    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
-                        let arr = json
-                            .get("skills")
-                            .and_then(|v| v.as_array())
-                            .cloned()
-                            .or_else(|| json.as_array().cloned())
-                            .unwrap_or_default();
-                        let skills: Vec<AgentSkillEntry> = arr
-                            .iter()
-                            .filter_map(|s| {
-                                let name = s
-                                    .get("name")
-                                    .or_else(|| s.get("id"))
-                                    .and_then(|v| v.as_str())?
-                                    .to_string();
-                                Some(AgentSkillEntry {
-                                    name,
-                                    skill_type: s
-                                        .get("type")
-                                        .and_then(|v| v.as_str())
-                                        .map(String::from),
-                                    description: s
-                                        .get("description")
-                                        .and_then(|v| v.as_str())
-                                        .map(String::from),
-                                    url: s.get("url").and_then(|v| v.as_str()).map(String::from),
-                                })
-                            })
-                            .collect();
-                        return Some(AgentSkillsInfo {
-                            found: true,
-                            path: path.to_string(),
-                            skill_count: skills.len(),
-                            skills,
-                        });
-                    }
+            && let Ok(text) = response.text().await
+            && let Ok(json) = serde_json::from_str::<serde_json::Value>(&text)
+        {
+            let arr = json
+                .get("skills")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .or_else(|| json.as_array().cloned())
+                .unwrap_or_default();
+            let skills: Vec<AgentSkillEntry> = arr
+                .iter()
+                .filter_map(|s| {
+                    let name = s
+                        .get("name")
+                        .or_else(|| s.get("id"))
+                        .and_then(|v| v.as_str())?
+                        .to_string();
+                    Some(AgentSkillEntry {
+                        name,
+                        skill_type: s.get("type").and_then(|v| v.as_str()).map(String::from),
+                        description: s
+                            .get("description")
+                            .and_then(|v| v.as_str())
+                            .map(String::from),
+                        url: s.get("url").and_then(|v| v.as_str()).map(String::from),
+                    })
+                })
+                .collect();
+            return Some(AgentSkillsInfo {
+                found: true,
+                path: path.to_string(),
+                skill_count: skills.len(),
+                skills,
+            });
+        }
     }
     None
 }
@@ -2918,13 +3177,14 @@ fn format_cli_style_markdown(
                 md.push_str(&format!("• Name             : {}\n", name));
             }
             if let Some(address) = business.get("address")
-                && let Some(street) = address.get("streetAddress").and_then(|s| s.as_str()) {
-                    md.push_str(&format!("• Address          : {}", street));
-                    if let Some(city) = address.get("addressLocality").and_then(|c| c.as_str()) {
-                        md.push_str(&format!(", {}", city));
-                    }
-                    md.push('\n');
+                && let Some(street) = address.get("streetAddress").and_then(|s| s.as_str())
+            {
+                md.push_str(&format!("• Address          : {}", street));
+                if let Some(city) = address.get("addressLocality").and_then(|c| c.as_str()) {
+                    md.push_str(&format!(", {}", city));
                 }
+                md.push('\n');
+            }
             if let Some(phone) = business.get("telephone").and_then(|p| p.as_str()) {
                 md.push_str(&format!("• Phone            : {}\n", phone));
             }
@@ -2951,9 +3211,10 @@ fn format_cli_style_markdown(
                 md.push_str(&format!("• End Date         : {}\n", end));
             }
             if let Some(location) = event.get("location")
-                && let Some(name) = location.get("name").and_then(|n| n.as_str()) {
-                    md.push_str(&format!("• Location         : {}\n", name));
-                }
+                && let Some(name) = location.get("name").and_then(|n| n.as_str())
+            {
+                md.push_str(&format!("• Location         : {}\n", name));
+            }
             if let Some(status) = event.get("eventStatus").and_then(|s| s.as_str()) {
                 md.push_str(&format!("• Status           : {}\n", status));
             }
@@ -3017,9 +3278,10 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
         let mut bypass_cache = false;
         // Also accept Cache-Control: no-cache request header as bypass signal.
         if let Ok(Some(cc)) = req.headers().get("Cache-Control")
-            && cc.to_lowercase().contains("no-cache") {
-                bypass_cache = true;
-            }
+            && cc.to_lowercase().contains("no-cache")
+        {
+            bypass_cache = true;
+        }
         for (k, v) in url.query_pairs() {
             match k.as_ref() {
                 "url" => target_url_opt = Some(v.to_string()),
@@ -3405,6 +3667,7 @@ mod integration_tests {
                 mcp_server_card: None,
                 web_bot_auth: None,
                 agent_skills: None,
+                web_mcp: WebMcpScanResult::default(),
                 commerce: CommerceChecks::default(),
             },
         };

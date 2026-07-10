@@ -17,6 +17,7 @@ offline analysis.
 - Mermaid diagram generation for entity connections
 - Detection of `DataDownload` resources
 - **NEW**: Cloudflare Worker API with beautiful web interface
+- **NEW**: Website WebMCP support scan (multi-signal detection + active probing)
 
 ## Topics Covered
 
@@ -178,6 +179,7 @@ The program outputs to `stdout` in the following order:
      - Common properties (shared by all variants)
      - Variant tables (SKU, color, size, price, availability, etc.)
      - Dynamic property extraction based on `variesBy` field
+   - Website WebMCP scan (support/confidence/score/signals/probes) for URL input, including in-page WebMCP API hints (`document.modelContext.registerTool(...)`)
 3. **Data downloads** (when `-dd` flag is used)
 4. **Knowledge graph** visualization (when `-m` flag is used):
    - JSON representation of all graph nodes and edges
@@ -325,6 +327,21 @@ curl "https://your-worker.workers.dev/health"
     "htmlLength": 173130,
     "jsonldCount": 4,
     "wasmStatus": "rust"
+  },
+  "aiReadiness": {
+    "webMcp": {
+      "supported": true,
+      "confidence": "high",
+      "score": 92,
+      "signals": ["Found /.well-known/mcp.json during active probing"],
+      "manifestUrl": "https://example.com/.well-known/mcp.json",
+      "endpoint": "https://example.com/mcp",
+      "protocolVersion": "2025-06-18",
+      "outdatedDetails": [],
+      "availableRoutes": ["/.well-known/mcp.json", "https://example.com/mcp"],
+      "availableTools": [{"name":"search_catalog","description":"Search products","source":"in-page registerTool"}],
+      "probes": [{"path":"/.well-known/mcp.json","status":200}]
+    }
   }
 }
 ```

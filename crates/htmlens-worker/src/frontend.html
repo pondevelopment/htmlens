@@ -745,7 +745,7 @@
         .ai-readiness-container h2 { color: var(--pon-deep-navy); margin-bottom: 12px; font-weight: 700; }
         .ai-readiness-container p { color: var(--color-text-muted); line-height: 1.7; }
         
-        .well-known-checks, .ai-plugin-status, .mcp-status, .openapi-status, .robots-txt-status, .llms-txt-status, .security-txt-status { 
+        .well-known-checks, .ai-plugin-status, .mcp-status, .webmcp-status, .openapi-status, .robots-txt-status, .llms-txt-status, .security-txt-status { 
             background: var(--color-white-alpha-03);
             padding: 24px; 
             border-radius: 12px; 
@@ -753,7 +753,7 @@
             border: 1px solid var(--color-white-alpha-08);
         }
         
-        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .openapi-status h4, .robots-txt-status h4, .llms-txt-status h4, .security-txt-status h4 { 
+        .well-known-checks h4, .ai-plugin-status h4, .mcp-status h4, .webmcp-status h4, .openapi-status h4, .robots-txt-status h4, .llms-txt-status h4, .security-txt-status h4 { 
             margin-top: 0; 
             color: var(--color-text-heading-strong); 
             font-size: var(--fs-xl); 
@@ -946,7 +946,7 @@
             border-left: 3px solid var(--pon-error);
         }
         
-        .ai-plugin-status div, .mcp-status div, .openapi-status div, .robots-txt-status div, .llms-txt-status div, .security-txt-status div { 
+        .ai-plugin-status div, .mcp-status div, .webmcp-status div, .openapi-status div, .robots-txt-status div, .llms-txt-status div, .security-txt-status div { 
             margin: 10px 0; 
             padding: 10px; 
             background: var(--color-black-alpha-2);
@@ -2422,52 +2422,129 @@
                 html += '</div>';
             }
             
-            // MCP status
-            if (aiReadiness.mcp) {
+            // Combined MCP/WebMCP section:
+            // - webMcp => canonical website support verdict
+            // - mcp    => manifest diagnostics/details
+            if (aiReadiness.webMcp || aiReadiness.mcp) {
+                const wm = aiReadiness.webMcp || { supported: false, confidence: 'low', score: 0, signals: [], availableRoutes: [], availableTools: [], probes: [] };
                 const mcp = aiReadiness.mcp;
-                html += '<div class="mcp-status">';
-                html += '<h4>🔮 Model Context Protocol (Anthropic) <a href="https://modelcontextprotocol.io/" target="_blank" class="docs-link">📚 Docs</a></h4>';
-                
+                const supportBadge = wm.supported
+                    ? '<span style="color:#7ee787;font-weight:700;">✅ Supported</span>'
+                    : '<span style="color:#ff8a8a;font-weight:700;">❌ Not detected</span>';
+                html += '<div class="webmcp-status mcp-status">';
+                html += '<h4>🧭 WebMCP + MCP Support <a href="https://modelcontextprotocol.io/" target="_blank" class="docs-link">📚 Docs</a></h4>';
                 html += '<div class="explainer-box">';
-                html += '<p><strong>What is this?</strong> Your website supports the Model Context Protocol (MCP) - the newest standard for AI-website communication developed by Anthropic (makers of Claude AI).</p>';
-                html += '<p style="margin-top: 8px;"><strong>Why it matters:</strong> MCP is like USB-C for AI integration - a universal standard that will work with many future AI assistants. It\'s more flexible and powerful than older plugin systems.</p>';
-                html += '<p style="margin-top: 8px;"><strong>Real example:</strong> Claude AI can read your documentation, access your data, or perform actions on your site - all through this standardized protocol.</p>';
+                html += '<p><strong>How this is evaluated:</strong> WebMCP is the canonical website verdict, while MCP manifest fields are shown as diagnostics.</p>';
+                html += '<p style="margin-top:8px;"><strong>Signals:</strong> well-known manifests/cards, link/header hints, homepage markers, JSON shape validation, and endpoint probes.</p>';
                 html += '</div>';
-                
-                html += `<div><strong>Server Name:</strong> ${mcp.name}</div>`;
-                html += `<div><strong>Version:</strong> ${mcp.version} (Protocol: ${mcp.protocolVersion})</div>`;
-                html += `<div><strong>Connection:</strong> ${mcp.transportType} endpoint at <code>${mcp.endpoint}</code></div>`;
-                
-                html += '<div class="mcp-capabilities">';
-                html += '<strong>🛠️ What AI Assistants Can Do:</strong>';
-                html += '<ul>';
-                if (mcp.hasToolsCapability) {
-                    html += `<li>✅ <strong>Execute ${mcp.toolCount} Tools</strong> - AI can perform actions like searching, creating, or updating data</li>`;
+
+                html += `<div><strong>Website support:</strong> ${supportBadge}</div>`;
+                html += `<div><strong>Confidence:</strong> ${escapeHtml(wm.confidence || 'low')}</div>`;
+                html += `<div><strong>Score:</strong> ${Number(wm.score || 0)}/100</div>`;
+                if (wm.manifestUrl) html += `<div><strong>Manifest:</strong> <a href="${escapeHtml(wm.manifestUrl)}" target="_blank">${escapeHtml(wm.manifestUrl)}</a></div>`;
+                if (wm.endpoint) html += `<div><strong>Endpoint:</strong> <code>${escapeHtml(wm.endpoint)}</code></div>`;
+                if (wm.protocolVersion) html += `<div><strong>Protocol Version:</strong> ${escapeHtml(wm.protocolVersion)}</div>`;
+                if (Array.isArray(wm.outdatedDetails) && wm.outdatedDetails.length > 0) {
+                    html += `<div><strong>Outdated metadata:</strong> <span style="color:#ffb86b;">${wm.outdatedDetails.length} issue(s)</span></div>`;
                 }
-                if (mcp.hasResourcesCapability) {
-                    html += `<li>✅ <strong>Access ${mcp.resourceCount} Resources</strong> - AI can read your data, documents, or content</li>`;
+                if (Array.isArray(wm.availableRoutes) && wm.availableRoutes.length > 0) {
+                    html += `<div><strong>Available routes:</strong> ${wm.availableRoutes.length}</div>`;
                 }
-                if (mcp.hasPromptsCapability) {
-                    html += `<li>✅ <strong>Use ${mcp.promptCount} Prompts</strong> - Pre-configured AI instructions for common tasks</li>`;
+
+                html += '<div style="margin-top:14px;"><strong>Detected signals</strong></div>';
+                if (Array.isArray(wm.signals) && wm.signals.length > 0) {
+                    html += '<ul style="margin:8px 0 0 18px;">';
+                    wm.signals.forEach(sig => {
+                        html += `<li style="margin:6px 0;color:#c7c9d3;">${escapeHtml(sig)}</li>`;
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<div style="color:#8b92a7;">No WebMCP indicators detected.</div>';
                 }
-                if (mcp.hasEventsCapability) {
-                    html += `<li>✅ <strong>Receive Events</strong> - AI can be notified when things change on your site</li>`;
+
+                html += '<div style="margin-top:14px;"><strong>Outdated details</strong></div>';
+                if (Array.isArray(wm.outdatedDetails) && wm.outdatedDetails.length > 0) {
+                    html += '<ul style="margin:8px 0 0 18px;">';
+                    wm.outdatedDetails.forEach(item => {
+                        html += `<li style="margin:6px 0;color:#ffb86b;">${escapeHtml(item)}</li>`;
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<div style="color:#8b92a7;">No outdated MCP metadata detected.</div>';
                 }
-                if (!mcp.hasToolsCapability && !mcp.hasResourcesCapability && !mcp.hasPromptsCapability && !mcp.hasEventsCapability) {
-                    html += '<li>⚠️ No capabilities declared - MCP server may not be fully configured</li>';
+
+                html += '<div style="margin-top:14px;"><strong>Available routes</strong></div>';
+                if (Array.isArray(wm.availableRoutes) && wm.availableRoutes.length > 0) {
+                    html += '<ul style="margin:8px 0 0 18px;">';
+                    wm.availableRoutes.forEach(route => {
+                        html += `<li style="margin:6px 0;color:#c7c9d3;"><code>${escapeHtml(route)}</code></li>`;
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<div style="color:#8b92a7;">No available WebMCP routes detected.</div>';
                 }
-                html += '</ul>';
-                html += '</div>';
-                
-                html += '<div class="benefit-box"><strong>✅ Benefits:</strong> Future-proof AI integration. Works with Claude AI now and will work with other MCP-compatible assistants. More powerful than simple API access - AI can understand context and perform complex workflows.</div>';
-                
-                if (mcp.healthEndpoint) html += `<div><strong>Health Monitor:</strong> <a href="${mcp.healthEndpoint}" target="_blank">${mcp.healthEndpoint}</a> - Check if the server is running</div>`;
-                
-                if (mcp.issues.length > 0) {
-                    html += '<div class="mcp-issues"><strong>⚠️ Configuration Issues:</strong> ' + mcp.issues.join(', ') + '</div>';
-                    html += '<div class="impact-box"><strong>Impact:</strong> These issues may prevent AI assistants from connecting properly. Review your MCP configuration.</div>';
+
+                html += '<div style="margin-top:14px;"><strong>Available tools</strong></div>';
+                if (Array.isArray(wm.availableTools) && wm.availableTools.length > 0) {
+                    html += '<table class="ai-crawlers-table" style="margin-top:8px;">';
+                    html += '<thead><tr><th>Tool</th><th>Description</th><th>Source</th></tr></thead><tbody>';
+                    wm.availableTools.forEach(tool => {
+                        html += '<tr class="access-allowed">';
+                        html += `<td><code>${escapeHtml(tool.name || '—')}</code></td>`;
+                        html += `<td>${escapeHtml(tool.description || '—')}</td>`;
+                        html += `<td>${escapeHtml(tool.source || '—')}</td>`;
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<div style="color:#8b92a7;">No WebMCP tools detected.</div>';
                 }
-                html += '<div class="section-footer">Learn about MCP at <a href="https://modelcontextprotocol.io/" target="_blank">MCP Documentation →</a> or <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic Announcement</a></div>';
+
+                html += '<div style="margin-top:14px;"><strong>Active probes</strong></div>';
+                if (Array.isArray(wm.probes) && wm.probes.length > 0) {
+                    html += '<table class="ai-crawlers-table" style="margin-top:8px;">';
+                    html += '<thead><tr><th>Path</th><th>Status</th><th>Content-Type</th><th>Details</th></tr></thead><tbody>';
+                    wm.probes.forEach(p => {
+                        const statusCls = (p.status && p.status < 400) ? 'access-allowed' : 'access-blocked';
+                        html += `<tr class="${statusCls}">`;
+                        html += `<td><code>${escapeHtml(p.path || '—')}</code></td>`;
+                        html += `<td>${p.status ?? 0}</td>`;
+                        html += `<td>${escapeHtml(p.contentType || '—')}</td>`;
+                        html += `<td>${escapeHtml(p.details || '—')}</td>`;
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                } else {
+                    html += '<div style="color:#8b92a7;">No probes completed.</div>';
+                }
+
+                if (mcp) {
+                    html += '<div style="margin-top:14px;"><strong>MCP manifest details</strong></div>';
+                    html += `<div><strong>Server Name:</strong> ${escapeHtml(mcp.name)}</div>`;
+                    html += `<div><strong>Version:</strong> ${escapeHtml(mcp.version)} (Protocol: ${escapeHtml(mcp.protocolVersion)})</div>`;
+                    html += `<div><strong>Connection:</strong> ${escapeHtml(mcp.transportType)} endpoint at <code>${escapeHtml(mcp.endpoint)}</code></div>`;
+                    html += '<div class="mcp-capabilities">';
+                    html += '<strong>🛠️ Declared capabilities:</strong>';
+                    html += '<ul>';
+                    if (mcp.hasToolsCapability) html += `<li>✅ Tools (${mcp.toolCount})</li>`;
+                    if (mcp.hasResourcesCapability) html += `<li>✅ Resources (${mcp.resourceCount})</li>`;
+                    if (mcp.hasPromptsCapability) html += `<li>✅ Prompts (${mcp.promptCount})</li>`;
+                    if (mcp.hasEventsCapability) html += '<li>✅ Events</li>';
+                    if (!mcp.hasToolsCapability && !mcp.hasResourcesCapability && !mcp.hasPromptsCapability && !mcp.hasEventsCapability) {
+                        html += '<li>⚠️ No capabilities declared</li>';
+                    }
+                    html += '</ul>';
+                    html += '</div>';
+                    if (mcp.healthEndpoint) {
+                        html += `<div><strong>Health Monitor:</strong> <a href="${escapeHtml(mcp.healthEndpoint)}" target="_blank">${escapeHtml(mcp.healthEndpoint)}</a></div>`;
+                    }
+                    if (mcp.issues && mcp.issues.length > 0) {
+                        html += '<div class="mcp-issues"><strong>⚠️ Configuration Issues:</strong> ' + mcp.issues.map(escapeHtml).join(', ') + '</div>';
+                    }
+                } else {
+                    html += '<div style="margin-top:14px;color:#8b92a7;"><strong>MCP manifest details:</strong> no valid manifest parsed.</div>';
+                }
+
                 html += '</div>';
             }
             
@@ -2981,7 +3058,7 @@
             if (!root) return;
             const selectors = [
                 '.well-known-checks',
-                '.ai-plugin-status', '.mcp-status', '.openapi-status',
+                '.ai-plugin-status', '.mcp-status', '.webmcp-status', '.openapi-status',
                 '.robots-txt-status', '.sitemap-status', '.semantic-html-status',
                 '.llms-txt-status', '.security-txt-status', '.emerging-standards'
             ];
@@ -3207,13 +3284,13 @@
                 }
                 html += block('🎯 Agent Skills Index', true, body,
                     `${s.skillCount} skill${s.skillCount === 1 ? '' : 's'}`,
-                    { url: 'https://www.anthropic.com/news/agent-skills', label: 'about' });
+                    { url: 'https://modelcontextprotocol.io/', label: 'MCP docs' });
             } else {
                 html += block('🎯 Agent Skills Index', false,
                     missingBody('/.well-known/agent-skills-index.json',
                         (found(wk.agentSkillsIndex) || found(wk.agentSkillsLegacy)) ? 'Found but failed to parse.' : 'No index or legacy file present.'),
                     '❌ Not detected',
-                    { url: 'https://www.anthropic.com/news/agent-skills', label: 'about' });
+                    { url: 'https://modelcontextprotocol.io/', label: 'MCP docs' });
             }
 
             // Web Bot Auth
@@ -4253,14 +4330,39 @@
                     insights.strengths.push(`AI Plugin: "${ar.aiPlugin.name}" - ${ar.aiPlugin.description}`);
                 }
                 
-                // Check MCP
-                if (ar.mcp && ar.mcp.valid) {
-                    const capabilities = [];
-                    if (ar.mcp.hasResourcesCapability) capabilities.push('resources');
-                    if (ar.mcp.hasToolsCapability) capabilities.push('tools');
-                    if (ar.mcp.hasPromptsCapability) capabilities.push('prompts');
-                    const capStr = capabilities.length > 0 ? ` (${capabilities.join(', ')})` : '';
-                    insights.strengths.push(`MCP Server: "${ar.mcp.name}"${capStr}`);
+                if (ar.webMcp) {
+                    if (ar.webMcp.supported) {
+                        const details = [];
+                        if (ar.mcp && ar.mcp.valid && ar.mcp.name) details.push(`manifest: "${ar.mcp.name}"`);
+                        if (ar.webMcp.endpoint) details.push(`endpoint: ${ar.webMcp.endpoint}`);
+                        if (Array.isArray(ar.webMcp.availableRoutes) && ar.webMcp.availableRoutes.length > 0) {
+                            details.push(`routes: ${ar.webMcp.availableRoutes.length}`);
+                        }
+                        if (Array.isArray(ar.webMcp.availableTools) && ar.webMcp.availableTools.length > 0) {
+                            details.push(`tools: ${ar.webMcp.availableTools.length}`);
+                        }
+                        const detailSuffix = details.length > 0 ? ` — ${details.join(' · ')}` : '';
+                        insights.strengths.push(`WebMCP support detected (${ar.webMcp.confidence} confidence, ${ar.webMcp.score}/100)${detailSuffix}`);
+                        if (Array.isArray(ar.webMcp.outdatedDetails) && ar.webMcp.outdatedDetails.length > 0) {
+                            insights.recommended.push({
+                                title: 'Refresh outdated MCP metadata',
+                                why: 'WebMCP is detected, but some metadata appears outdated (for example old protocolVersion values or legacy Anthropic references).',
+                                fix: 'Update MCP metadata to current MCP docs links and protocolVersion values, then re-scan.',
+                                impact: 'Improves interoperability and reduces client compatibility risk',
+                                reference: 'https://modelcontextprotocol.io/',
+                                referenceText: 'Model Context Protocol'
+                            });
+                        }
+                    } else {
+                        insights.recommended.push({
+                            title: 'Add website WebMCP support',
+                            why: 'Multi-signal scanning did not find reliable website WebMCP support. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for detailed probe results</a>.',
+                            fix: 'Publish /.well-known/mcp.json or MCP server cards and expose a reachable MCP endpoint.',
+                            impact: 'Improves compatibility with WebMCP-capable AI agents',
+                            reference: 'https://modelcontextprotocol.io/',
+                            referenceText: 'Model Context Protocol'
+                        });
+                    }
                 }
                 
                 // Check OpenAPI

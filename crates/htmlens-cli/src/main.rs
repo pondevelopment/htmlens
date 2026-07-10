@@ -5,18 +5,30 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
+use htmlens_core::ai_readiness::web_mcp::{
+    WebMcpEvidence, WebMcpProbe, WebMcpScanResult, WebMcpTool, analyze_web_mcp_html_signals,
+    detect_outdated_protocol_version, detect_outdated_web_mcp_details, detect_web_mcp_link_hints,
+    extract_web_mcp_tools_from_html, extract_web_mcp_tools_from_json, parse_web_mcp_candidate,
+    route_appears_available, score_web_mcp_evidence,
+};
 use json_ld::ReqwestLoader;
+use reqwest::{Client, header::LINK};
 use serde_json::Value as JsonValue;
 use url::Url;
 
 // Import from htmlens-core instead of local modules
 use htmlens_core::{
     graph::{GraphBuilder, GraphEdge, GraphNode, KnowledgeGraph, expand_json_ld},
-    parser,
+    normalize_origin, parser,
 };
 
 const APP_NAME: &str = "htmlens";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const WEB_MCP_PROBE_PATHS: [&str; 3] = [
+    "/.well-known/mcp.json",
+    "/.well-known/mcp/server-card.json",
+    "/.well-known/mcp/server-cards.json",
+];
 
 #[derive(Clone, Copy, PartialEq)]
 enum OutputMode {
@@ -218,20 +230,21 @@ async fn main() -> Result<()> {
 }
 
 async fn run(options: CliOptions) -> Result<()> {
-    let (base_url, markdown, json_ld_blocks) = match &options.input {
+    let (base_url, markdown, json_ld_blocks, web_mcp_scan) = match &options.input {
         InputSource::Url(url) => {
             let parsed_url = Url::parse(url).context("invalid URL")?;
             let html = parser::fetch_html(parsed_url.as_str()).await?;
             let markdown = parser::html_to_markdown(&html);
             let json_ld_blocks = parser::extract_json_ld_blocks(&html)?;
-            (url.clone(), markdown, json_ld_blocks)
+            let web_mcp_scan = scan_web_mcp(parsed_url.as_str(), &html).await;
+            (url.clone(), markdown, json_ld_blocks, Some(web_mcp_scan))
         }
         InputSource::JsonLd(json_ld) => {
             // For direct JSON-LD input, use a placeholder URL and no markdown
             let base_url = "https://example.com/".to_string();
             let markdown = String::new();
             let json_ld_blocks = vec![json_ld.clone()];
-            (base_url, markdown, json_ld_blocks)
+            (base_url, markdown, json_ld_blocks, None)
         }
     };
 
@@ -395,6 +408,50 @@ async fn run(options: CliOptions) -> Result<()> {
 
     if include_condensed_summary {
         render_graph_summary(&mut output, &insights.graph_summary);
+    }
+
+    if let Some(scan) = web_mcp_scan.as_ref() {
+        if include_summary_sections {
+            render_web_mcp_section(&mut output, scan);
+        }
+        if include_condensed_summary {
+            let status = if scan.supported {
+                "supported"
+            } else {
+                "not detected"
+            };
+            let confidence = match scan.confidence {
+                htmlens_core::ai_readiness::web_mcp::WebMcpConfidence::Low => "low",
+                htmlens_core::ai_readiness::web_mcp::WebMcpConfidence::Medium => "medium",
+                htmlens_core::ai_readiness::web_mcp::WebMcpConfidence::High => "high",
+            };
+            let _ = writeln!(
+                &mut output,
+                "WebMCP: {status} ({confidence}, {}/100)",
+                scan.score
+            );
+            if !scan.outdated_details.is_empty() {
+                let _ = writeln!(
+                    &mut output,
+                    "WebMCP outdated details: {}",
+                    scan.outdated_details.len()
+                );
+            }
+            if !scan.available_routes.is_empty() {
+                let _ = writeln!(
+                    &mut output,
+                    "WebMCP available routes: {}",
+                    scan.available_routes.len()
+                );
+            }
+            if !scan.available_tools.is_empty() {
+                let _ = writeln!(
+                    &mut output,
+                    "WebMCP available tools: {}",
+                    scan.available_tools.len()
+                );
+            }
+        }
     }
 
     if let Some(json_pretty) = graph_json_string.as_ref() {
@@ -2150,6 +2207,327 @@ fn render_data_downloads_section(buf: &mut String, entries: &[DataDownloadEntry]
         }
     }
     let _ = writeln!(buf);
+}
+
+fn render_web_mcp_section(buf: &mut String, scan: &WebMcpScanResult) {
+    push_section_header(buf, "🧭", "WebMCP Scan");
+
+    let support_status = if scan.supported { "Yes" } else { "No" };
+    let confidence = match scan.confidence {
+        htmlens_core::ai_readiness::web_mcp::WebMcpConfidence::Low => "low",
+        htmlens_core::ai_readiness::web_mcp::WebMcpConfidence::Medium => "medium",
+        htmlens_core::ai_readiness::web_mcp::WebMcpConfidence::High => "high",
+    };
+
+    push_key_value(buf, "Supported", support_status);
+    push_key_value(buf, "Confidence", confidence);
+    push_key_value(buf, "Score", &format!("{}/100", scan.score));
+    if let Some(manifest_url) = scan.manifest_url.as_ref() {
+        push_key_value(buf, "Manifest URL", manifest_url);
+    }
+    if let Some(endpoint) = scan.endpoint.as_ref() {
+        push_key_value(buf, "Endpoint", endpoint);
+    }
+    if let Some(protocol_version) = scan.protocol_version.as_ref() {
+        push_key_value(buf, "Protocol", protocol_version);
+    }
+
+    let _ = writeln!(buf);
+    let _ = writeln!(buf, "**Detected Signals**");
+    if scan.signals.is_empty() {
+        let _ = writeln!(buf, "- none");
+    } else {
+        for signal in &scan.signals {
+            let _ = writeln!(buf, "- {}", signal);
+        }
+    }
+
+    let _ = writeln!(buf);
+    let _ = writeln!(buf, "**Outdated Details**");
+    if scan.outdated_details.is_empty() {
+        let _ = writeln!(buf, "- none");
+    } else {
+        for detail in &scan.outdated_details {
+            let _ = writeln!(buf, "- {}", detail);
+        }
+    }
+
+    let _ = writeln!(buf);
+    let _ = writeln!(buf, "**Available Routes**");
+    if scan.available_routes.is_empty() {
+        let _ = writeln!(buf, "- none");
+    } else {
+        for route in &scan.available_routes {
+            let _ = writeln!(buf, "- `{route}`");
+        }
+    }
+
+    let _ = writeln!(buf);
+    let _ = writeln!(buf, "**Available Tools**");
+    if scan.available_tools.is_empty() {
+        let _ = writeln!(buf, "- none");
+    } else {
+        let _ = writeln!(buf, "| Tool | Description | Source |");
+        let _ = writeln!(buf, "| --- | --- | --- |");
+        for tool in &scan.available_tools {
+            let description = tool.description.as_deref().unwrap_or("–");
+            let source = tool.source.as_deref().unwrap_or("–");
+            let _ = writeln!(
+                buf,
+                "| `{}` | {} | {} |",
+                tool.name.replace('|', "\\|"),
+                description.replace('|', "\\|"),
+                source.replace('|', "\\|")
+            );
+        }
+    }
+
+    let _ = writeln!(buf);
+    let _ = writeln!(buf, "**Active Probes**");
+    if scan.probes.is_empty() {
+        let _ = writeln!(buf, "- no probes were completed");
+    } else {
+        let _ = writeln!(buf, "| Path | Status | Content-Type | Details |");
+        let _ = writeln!(buf, "| --- | --- | --- | --- |");
+        for probe in &scan.probes {
+            let content_type = probe.content_type.as_deref().unwrap_or("–");
+            let details = probe.details.as_deref().unwrap_or("–");
+            let _ = writeln!(
+                buf,
+                "| `{}` | {} | {} | {} |",
+                probe.path,
+                probe.status,
+                content_type.replace('|', "\\|"),
+                details.replace('|', "\\|")
+            );
+        }
+    }
+
+    let _ = writeln!(buf);
+}
+
+async fn scan_web_mcp(page_url: &str, html: &str) -> WebMcpScanResult {
+    let origin = normalize_origin(page_url);
+    let client = match Client::builder()
+        .user_agent("htmlens-webmcp-scanner/0.5")
+        .timeout(std::time::Duration::from_secs(12))
+        .build()
+    {
+        Ok(client) => client,
+        Err(err) => {
+            let mut result = WebMcpScanResult::default();
+            result.signals.push(format!(
+                "WebMCP scan skipped: failed to build HTTP client ({err})"
+            ));
+            return result;
+        }
+    };
+
+    let mut result = WebMcpScanResult::default();
+    let mut evidence = WebMcpEvidence::default();
+
+    let mut link_header_value = String::new();
+    match client.get(page_url).send().await {
+        Ok(response) => {
+            if let Some(link) = response.headers().get(LINK).and_then(|v| v.to_str().ok()) {
+                link_header_value = link.to_string();
+            }
+        }
+        Err(err) => {
+            result
+                .signals
+                .push(format!("Homepage header probe failed: {err}"));
+        }
+    }
+
+    let html_signals = analyze_web_mcp_html_signals(html);
+    evidence.html_marker_count = html_signals.signals.len();
+    evidence.in_page_model_context_api = html_signals.has_model_context_api;
+    evidence.in_page_register_tool_usage = html_signals.has_register_tool_usage;
+    evidence.in_page_tool_schema_usage = html_signals.has_tool_schema_usage;
+    result.signals.extend(html_signals.signals);
+    result
+        .available_tools
+        .extend(extract_web_mcp_tools_from_html(html));
+
+    let link_signals = detect_web_mcp_link_hints(&link_header_value);
+    evidence.link_hint_count = link_signals.len();
+    result.signals.extend(link_signals);
+
+    let mut manifest_candidate = None;
+    let mut server_card_candidate = None;
+    let mut server_cards_candidate = None;
+
+    for path in WEB_MCP_PROBE_PATHS {
+        let url = format!("{}{}", origin, path);
+        let (probe, body_json) = run_web_mcp_probe(&client, &url, path).await;
+        if probe.status == 200 {
+            match path {
+                "/.well-known/mcp.json" => {
+                    evidence.manifest_found = true;
+                    result.manifest_url = Some(url.clone());
+                }
+                "/.well-known/mcp/server-card.json" => evidence.server_card_found = true,
+                "/.well-known/mcp/server-cards.json" => evidence.server_cards_found = true,
+                _ => {}
+            }
+        }
+        if let Some(json) = body_json.as_ref() {
+            result
+                .outdated_details
+                .extend(detect_outdated_web_mcp_details(json));
+            result
+                .available_tools
+                .extend(extract_web_mcp_tools_from_json(json, path));
+            let candidate = parse_web_mcp_candidate(json, &origin, path);
+            if candidate.valid_structure {
+                match path {
+                    "/.well-known/mcp.json" => evidence.manifest_valid = true,
+                    "/.well-known/mcp/server-card.json" => evidence.server_card_valid = true,
+                    "/.well-known/mcp/server-cards.json" => evidence.server_cards_valid = true,
+                    _ => {}
+                }
+            }
+            match path {
+                "/.well-known/mcp.json" => manifest_candidate = Some(candidate),
+                "/.well-known/mcp/server-card.json" => server_card_candidate = Some(candidate),
+                "/.well-known/mcp/server-cards.json" => server_cards_candidate = Some(candidate),
+                _ => {}
+            }
+        }
+        if route_appears_available(probe.status) {
+            result.available_routes.push(path.to_string());
+        }
+        result.probes.push(probe);
+    }
+
+    let picked_candidate = manifest_candidate
+        .as_ref()
+        .or(server_card_candidate.as_ref())
+        .or(server_cards_candidate.as_ref());
+
+    if let Some(candidate) = picked_candidate {
+        if let Some(endpoint) = candidate.endpoint.as_ref() {
+            evidence.endpoint_found = true;
+            result.endpoint = Some(endpoint.clone());
+        }
+        if let Some(protocol_version) = candidate.protocol_version.as_ref() {
+            evidence.protocol_version_found = true;
+            result.protocol_version = Some(protocol_version.clone());
+            if let Some(detail) = detect_outdated_protocol_version(protocol_version) {
+                result.outdated_details.push(detail);
+            }
+        }
+        if candidate.valid_structure {
+            result
+                .signals
+                .push("Valid WebMCP JSON structure detected".to_string());
+        } else if candidate.has_name || candidate.has_transport || candidate.has_capabilities {
+            result.signals.push(
+                "MCP-like JSON detected, but required WebMCP fields are incomplete".to_string(),
+            );
+        }
+    }
+
+    if let Some(endpoint) = result.endpoint.as_ref() {
+        let path_label = format!("endpoint:{endpoint}");
+        let (probe, _) = run_web_mcp_probe(&client, endpoint, &path_label).await;
+        if probe.status > 0 && probe.status < 500 {
+            evidence.endpoint_probe_success = true;
+            if evidence.manifest_valid {
+                evidence.endpoint_probe_from_manifest_success = true;
+            }
+        }
+        if route_appears_available(probe.status) {
+            result.available_routes.push(endpoint.to_string());
+        }
+        result.probes.push(probe);
+    }
+
+    if evidence.manifest_found {
+        result
+            .signals
+            .push("Found /.well-known/mcp.json during active probing".to_string());
+    }
+    if evidence.server_card_found || evidence.server_cards_found {
+        result
+            .signals
+            .push("Found MCP server-card well-known resources".to_string());
+    }
+    if evidence.endpoint_probe_success {
+        result
+            .signals
+            .push("Advertised MCP endpoint responded to active probe".to_string());
+    }
+
+    let (score, confidence, supported) = score_web_mcp_evidence(&evidence);
+    result.score = score;
+    result.confidence = confidence;
+    result.supported = supported;
+
+    result.signals.sort();
+    result.signals.dedup();
+    result.outdated_details.sort();
+    result.outdated_details.dedup();
+    result.available_routes.sort();
+    result.available_routes.dedup();
+    result.available_tools.sort();
+    dedupe_web_mcp_tools(&mut result.available_tools);
+    result
+}
+
+fn dedupe_web_mcp_tools(tools: &mut Vec<WebMcpTool>) {
+    tools.sort();
+    tools.dedup();
+}
+
+async fn run_web_mcp_probe(
+    client: &Client,
+    url: &str,
+    path: &str,
+) -> (WebMcpProbe, Option<JsonValue>) {
+    match client.get(url).send().await {
+        Ok(response) => {
+            let status = response.status().as_u16();
+            let content_type = response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string);
+            let body = response.text().await.unwrap_or_default();
+            let mut details = Vec::new();
+
+            if status == 200 {
+                details.push("HTTP 200".to_string());
+            }
+
+            let parsed_json = serde_json::from_str::<JsonValue>(&body).ok();
+            if parsed_json.is_some() {
+                details.push("valid JSON".to_string());
+            } else if status == 200 {
+                details.push("body is not valid JSON".to_string());
+            }
+
+            (
+                WebMcpProbe {
+                    path: path.to_string(),
+                    status,
+                    content_type,
+                    details: Some(details.join(", ")),
+                },
+                parsed_json,
+            )
+        }
+        Err(err) => (
+            WebMcpProbe {
+                path: path.to_string(),
+                status: 0,
+                content_type: None,
+                details: Some(format!("request failed: {err}")),
+            },
+            None,
+        ),
+    }
 }
 
 fn render_data_downloads(json: &JsonValue) -> Vec<DataDownloadEntry> {

@@ -9,6 +9,7 @@ pub mod plugin_manifest;
 pub mod robots_txt;
 pub mod semantic_html;
 pub mod sitemap;
+pub mod web_mcp;
 pub mod well_known;
 
 use serde::{Deserialize, Serialize};

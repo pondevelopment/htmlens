@@ -6,6 +6,8 @@ Cloudflare Worker for lightweight JSON-LD extraction from HTML pages.
 
 This is a lightweight API endpoint for extracting JSON-LD blocks from HTML. It uses `htmlens-core` **without** the `full-expansion` feature to keep the WASM bundle small and fast.
 
+It also includes AI-readiness analysis and a dedicated **website WebMCP support scan**.
+
 ## Limitations
 
 - ❌ **No JSON-LD Expansion**: Does not resolve remote `@context` or expand shorthand notation
@@ -14,6 +16,24 @@ This is a lightweight API endpoint for extracting JSON-LD blocks from HTML. It u
 - ✅ **Simple**: Extract JSON-LD blocks from HTML or URLs
 
 ## API Endpoints
+
+### `GET /api?url=<URL>`
+
+Analyze a public URL and return extracted structured data, markdown, and AI-readiness details.
+
+`aiReadiness.webMcp` now always includes:
+- `supported` (bool)
+- `confidence` (`low`/`medium`/`high`)
+- `score` (0–100)
+- `signals` (detected WebMCP indicators)
+- `manifestUrl`, `endpoint`, `protocolVersion` (when available)
+- `outdatedDetails` (legacy or stale MCP metadata findings, e.g. old protocol date / legacy Anthropic docs references)
+- `availableRoutes` (all detected WebMCP routes that responded as available)
+- `availableTools` (detected WebMCP tools from in-page registration and MCP manifests/cards)
+- `probes` (path/status/content-type/details)
+
+The scan combines endpoint probing with passive and in-page signals, including
+WebMCP API usage patterns such as `document.modelContext.registerTool(...)`.
 
 ### `POST /extract`
 
