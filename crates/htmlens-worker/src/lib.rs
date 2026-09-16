@@ -83,6 +83,7 @@ struct AiReadinessData {
 struct HomepageSignals<'a> {
     link_header: String,
     www_authenticate: String,
+    status_code: u16,
     content_type: String,
     html: &'a str,
 }
@@ -743,7 +744,9 @@ async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiR
     let sitemap = check_sitemap(&origin, sitemap_urls).await;
 
     // Analyze the same homepage HTML used for the rest of the report.
-    let semantic_html = Some(build_semantic_html_status(signals.html));
+    let semantic_html =
+        is_semantic_html_response(signals.status_code, &signals.content_type, signals.html)
+            .then(|| build_semantic_html_status(signals.html));
 
     // Parse security.txt content if found
     let security_txt = if well_known.security_txt.found {
@@ -820,6 +823,26 @@ async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiR
         agent_skills,
         commerce,
     }
+}
+
+fn is_semantic_html_response(status_code: u16, content_type: &str, body: &str) -> bool {
+    if status_code != 200 || body.trim().is_empty() {
+        return false;
+    }
+
+    let media_type = content_type.split(';').next().unwrap_or_default().trim();
+    if !media_type.is_empty() {
+        return media_type.eq_ignore_ascii_case("text/html")
+            || media_type.eq_ignore_ascii_case("application/xhtml+xml");
+    }
+
+    let prefix = body
+        .trim_start()
+        .chars()
+        .take(1024)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    prefix.contains("<!doctype html") || prefix.contains("<html")
 }
 
 async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
@@ -3226,6 +3249,7 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                 .ok()
                 .flatten()
                 .unwrap_or_default();
+            let homepage_status_code = fetch_response.status_code();
             let homepage_content_type = fetch_response
                 .headers()
                 .get("Content-Type")
@@ -3315,6 +3339,7 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                 HomepageSignals {
                     link_header: homepage_link_header,
                     www_authenticate: homepage_www_auth,
+                    status_code: homepage_status_code,
                     content_type: homepage_content_type,
                     html: &html,
                 },
@@ -3380,6 +3405,34 @@ mod tests;
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+
+    #[test]
+    fn test_semantic_html_response_requires_successful_html() {
+        let html = "<!doctype html><html><body><main></main></body></html>";
+
+        assert!(is_semantic_html_response(
+            200,
+            "text/html; charset=UTF-8",
+            html
+        ));
+        assert!(is_semantic_html_response(
+            200,
+            "Application/XHTML+XML",
+            html
+        ));
+        assert!(is_semantic_html_response(200, "", html));
+        assert!(!is_semantic_html_response(500, "text/html", html));
+        assert!(!is_semantic_html_response(
+            200,
+            "application/json",
+            r#"{"error":"not found"}"#
+        ));
+        assert!(!is_semantic_html_response(
+            200,
+            "",
+            r#"{"error":"not found"}"#
+        ));
+    }
 
     #[test]
     fn test_api_response_serialization() {

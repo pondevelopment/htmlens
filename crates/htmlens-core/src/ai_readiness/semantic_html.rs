@@ -674,10 +674,14 @@ fn has_forbidden_main_ancestor(element: ElementRef<'_>) -> bool {
     let mut ancestor = element.parent();
     while let Some(node) = ancestor {
         if let Some(element) = ElementRef::wrap(node)
-            && matches!(
+            && (matches!(
                 element.value().name(),
                 "header" | "footer" | "nav" | "article" | "aside"
-            )
+            ) || has_role(element, "banner")
+                || has_role(element, "contentinfo")
+                || has_role(element, "navigation")
+                || has_role(element, "article")
+                || has_role(element, "complementary"))
         {
             return true;
         }
@@ -814,7 +818,7 @@ fn collect_referenced_text(document: &Html) -> HashMap<String, String> {
         let Some(id) = non_empty_attr(element, "id") else {
             continue;
         };
-        let text = element_text_alternative(element);
+        let text = referenced_text_alternative(element);
         if !text.is_empty() {
             referenced_text.entry(id.to_string()).or_insert(text);
         }
@@ -841,7 +845,23 @@ fn referenced_name(
 }
 
 fn element_text_alternative(element: ElementRef<'_>) -> String {
-    let text = normalize_text(&element.text().collect::<Vec<_>>().join(" "));
+    if !is_exposed(element) {
+        return String::new();
+    }
+
+    text_alternative(element, false)
+}
+
+fn referenced_text_alternative(element: ElementRef<'_>) -> String {
+    text_alternative(element, true)
+}
+
+fn text_alternative(element: ElementRef<'_>, include_hidden_descendants: bool) -> String {
+    let text = if include_hidden_descendants {
+        normalize_text(&element.text().collect::<Vec<_>>().join(" "))
+    } else {
+        visible_descendant_text(element)
+    };
     if !text.is_empty() {
         return text;
     }
@@ -853,12 +873,31 @@ fn element_text_alternative(element: ElementRef<'_>) -> String {
     if let Ok(image_selector) = Selector::parse("img[alt]")
         && let Some(alt) = element
             .select(&image_selector)
+            .filter(|image| include_hidden_descendants || is_exposed(*image))
             .find_map(|image| non_empty_attr(image, "alt"))
     {
         return normalize_text(alt);
     }
 
     String::new()
+}
+
+fn visible_descendant_text(element: ElementRef<'_>) -> String {
+    let mut parts = Vec::new();
+    collect_visible_descendant_text(element, &mut parts);
+    normalize_text(&parts.join(" "))
+}
+
+fn collect_visible_descendant_text(element: ElementRef<'_>, parts: &mut Vec<String>) {
+    for child in element.children() {
+        if let Some(child_element) = ElementRef::wrap(child) {
+            if !hides_subtree(child_element) {
+                collect_visible_descendant_text(child_element, parts);
+            }
+        } else if let Some(text) = child.value().as_text() {
+            parts.push(text.to_string());
+        }
+    }
 }
 
 fn normalize_text(value: &str) -> String {
@@ -1021,6 +1060,19 @@ mod tests {
     }
 
     #[test]
+    fn test_role_landmarks_count_as_forbidden_main_ancestors() {
+        let html = r#"
+        <div role="navigation">
+            <div role="main"><h1>Nested main</h1></div>
+        </div>
+        "#;
+
+        let analysis = analyze_semantic_html(html);
+        assert_eq!(analysis.landmarks.main_count, 1);
+        assert_eq!(analysis.landmarks.invalid_main_nesting_count, 1);
+    }
+
+    #[test]
     fn test_section_heading_belongs_to_nearest_sectioning_element() {
         let html = r#"
         <main>
@@ -1128,6 +1180,30 @@ mod tests {
         assert_eq!(analysis.links.links_without_names, 1);
         assert_eq!(analysis.forms.total_inputs, 2);
         assert_eq!(analysis.forms.labeled_inputs, 0);
+    }
+
+    #[test]
+    fn test_hidden_descendants_do_not_create_native_accessible_names() {
+        let html = r#"
+        <main>
+            <h1>Report</h1>
+            <a href="/hidden"><span aria-hidden="true">Hidden link name</span></a>
+            <a href="/hidden-image"><span hidden><img alt="Hidden image name"></span></a>
+            <span id="referenced-name" hidden>Explicitly referenced name</span>
+            <a href="/referenced" aria-labelledby="referenced-name"></a>
+            <form>
+                <label for="hidden-label"><span hidden>Hidden label</span></label>
+                <input id="hidden-label">
+                <input aria-labelledby="referenced-name">
+            </form>
+        </main>
+        "#;
+
+        let analysis = analyze_semantic_html(html);
+        assert_eq!(analysis.links.total_links, 3);
+        assert_eq!(analysis.links.links_without_names, 2);
+        assert_eq!(analysis.forms.total_inputs, 2);
+        assert_eq!(analysis.forms.labeled_inputs, 1);
     }
 
     #[test]
