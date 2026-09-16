@@ -83,6 +83,7 @@ struct AiReadinessData {
 struct HomepageSignals<'a> {
     link_header: String,
     www_authenticate: String,
+    status_code: u16,
     content_type: String,
     html: &'a str,
 }
@@ -405,6 +406,12 @@ struct SitemapUrlEntry {
 struct SemanticHtmlStatus {
     landmarks: LandmarksInfo,
     headings: HeadingsInfo,
+    sections: SectionsInfo,
+    figures: FiguresInfo,
+    links: LinksInfo,
+    #[serde(rename = "elementUsage")]
+    element_usage: ElementUsageInfo,
+    aria: AriaInfo,
     forms: FormsInfo,
     images: ImagesInfo,
     issues: Vec<String>,
@@ -415,6 +422,12 @@ struct SemanticHtmlStatus {
 struct LandmarksInfo {
     #[serde(rename = "hasMain")]
     has_main: bool,
+    #[serde(rename = "mainCount")]
+    main_count: usize,
+    #[serde(rename = "hasSingleMain")]
+    has_single_main: bool,
+    #[serde(rename = "invalidMainNestingCount")]
+    invalid_main_nesting_count: usize,
     #[serde(rename = "hasNavigation")]
     has_navigation: bool,
     #[serde(rename = "hasHeader")]
@@ -423,6 +436,10 @@ struct LandmarksInfo {
     has_footer: bool,
     #[serde(rename = "articleCount")]
     article_count: usize,
+    #[serde(rename = "sectionCount")]
+    section_count: usize,
+    #[serde(rename = "asideCount")]
+    aside_count: usize,
 }
 
 #[derive(Serialize)]
@@ -432,16 +449,74 @@ struct HeadingsInfo {
     #[serde(rename = "properHierarchy")]
     proper_hierarchy: bool,
     distribution: Vec<usize>,
+    #[serde(rename = "hierarchyIssues")]
+    hierarchy_issues: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct SectionsInfo {
+    #[serde(rename = "sectionsWithoutHeadings")]
+    sections_without_headings: usize,
+    #[serde(rename = "articlesWithoutHeadings")]
+    articles_without_headings: usize,
+}
+
+#[derive(Serialize)]
+struct FiguresInfo {
+    #[serde(rename = "totalFigures")]
+    total_figures: usize,
+    #[serde(rename = "figuresWithCaptions")]
+    figures_with_captions: usize,
+    #[serde(rename = "figuresWithoutCaptions")]
+    figures_without_captions: usize,
+}
+
+#[derive(Serialize)]
+struct LinksInfo {
+    #[serde(rename = "totalLinks")]
+    total_links: usize,
+    #[serde(rename = "linksWithoutNames")]
+    links_without_names: usize,
+    #[serde(rename = "genericTextLinks")]
+    generic_text_links: usize,
+}
+
+#[derive(Serialize)]
+struct ElementUsageInfo {
+    #[serde(rename = "divCount")]
+    div_count: usize,
+    #[serde(rename = "semanticContainerCount")]
+    semantic_container_count: usize,
+}
+
+#[derive(Serialize)]
+struct AriaInfo {
+    #[serde(rename = "labeledElements")]
+    labeled_elements: usize,
+    #[serde(rename = "describedElements")]
+    described_elements: usize,
+    #[serde(rename = "liveRegions")]
+    live_regions: usize,
+    #[serde(rename = "interactiveRoles")]
+    interactive_roles: usize,
+    #[serde(rename = "misuseWarnings")]
+    misuse_warnings: Vec<String>,
 }
 
 #[derive(Serialize)]
 struct FormsInfo {
+    #[serde(rename = "formCount")]
+    form_count: usize,
     #[serde(rename = "totalInputs")]
     total_inputs: usize,
     #[serde(rename = "labeledInputs")]
     labeled_inputs: usize,
     #[serde(rename = "labelPercentage")]
     label_percentage: u32,
+    #[serde(rename = "formsWithFieldsets")]
+    forms_with_fieldsets: usize,
+    #[serde(rename = "requiredFieldsMarked")]
+    required_fields_marked: bool,
 }
 
 #[derive(Serialize)]
@@ -450,6 +525,10 @@ struct ImagesInfo {
     total_images: usize,
     #[serde(rename = "imagesWithAlt")]
     images_with_alt: usize,
+    #[serde(rename = "decorativeImages")]
+    decorative_images: usize,
+    #[serde(rename = "imagesMissingAlt")]
+    images_missing_alt: usize,
     #[serde(rename = "altPercentage")]
     alt_percentage: u32,
 }
@@ -664,8 +743,10 @@ async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiR
     };
     let sitemap = check_sitemap(&origin, sitemap_urls).await;
 
-    // Check semantic HTML
-    let semantic_html = check_semantic_html(base_url).await;
+    // Analyze the same homepage HTML used for the rest of the report.
+    let semantic_html =
+        is_semantic_html_response(signals.status_code, &signals.content_type, signals.html)
+            .then(|| build_semantic_html_status(signals.html));
 
     // Parse security.txt content if found
     let security_txt = if well_known.security_txt.found {
@@ -742,6 +823,26 @@ async fn check_ai_readiness(base_url: &str, signals: HomepageSignals<'_>) -> AiR
         agent_skills,
         commerce,
     }
+}
+
+fn is_semantic_html_response(status_code: u16, content_type: &str, body: &str) -> bool {
+    if status_code != 200 || body.trim().is_empty() {
+        return false;
+    }
+
+    let media_type = content_type.split(';').next().unwrap_or_default().trim();
+    if !media_type.is_empty() {
+        return media_type.eq_ignore_ascii_case("text/html")
+            || media_type.eq_ignore_ascii_case("application/xhtml+xml");
+    }
+
+    let prefix = body
+        .trim_start()
+        .chars()
+        .take(1024)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    prefix.contains("<!doctype html") || prefix.contains("<html")
 }
 
 async fn check_well_known_files(base_url: &str) -> WellKnownChecks {
@@ -1763,24 +1864,9 @@ async fn check_llms_txt(base_url: &str) -> Option<LlmsTxtStatus> {
     })
 }
 
-async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
-    // Fetch the HTML page
-    let url = base_url.trim_end_matches('/');
-    Url::parse(url).ok()?;
-    let mut response = fetch_with_ua(url).await?;
-
-    if response.status_code() != 200 {
-        return None;
-    }
-
-    let html = match response.text().await {
-        Ok(text) => text,
-        Err(_) => return None,
-    };
-
-    // Use the semantic_html analyzer from htmlens-core
+fn build_semantic_html_status(html: &str) -> SemanticHtmlStatus {
     use htmlens_core::ai_readiness::semantic_html;
-    let analysis = semantic_html::analyze_semantic_html(&html);
+    let analysis = semantic_html::analyze_semantic_html(html);
 
     // Convert to our simplified API format
     let label_percentage = if analysis.forms.total_inputs > 0 {
@@ -1796,32 +1882,68 @@ async fn check_semantic_html(base_url: &str) -> Option<SemanticHtmlStatus> {
         100
     };
 
-    Some(SemanticHtmlStatus {
+    SemanticHtmlStatus {
         landmarks: LandmarksInfo {
             has_main: analysis.landmarks.has_main,
+            main_count: analysis.landmarks.main_count,
+            has_single_main: analysis.landmarks.has_single_main,
+            invalid_main_nesting_count: analysis.landmarks.invalid_main_nesting_count,
             has_navigation: analysis.landmarks.has_navigation,
             has_header: analysis.landmarks.has_header,
             has_footer: analysis.landmarks.has_footer,
             article_count: analysis.landmarks.article_count,
+            section_count: analysis.landmarks.section_count,
+            aside_count: analysis.landmarks.aside_count,
         },
         headings: HeadingsInfo {
             has_single_h1: analysis.headings.has_single_h1,
             proper_hierarchy: analysis.headings.proper_hierarchy,
             distribution: analysis.headings.distribution,
+            hierarchy_issues: analysis.headings.hierarchy_issues,
+        },
+        sections: SectionsInfo {
+            sections_without_headings: analysis.sections.sections_without_headings,
+            articles_without_headings: analysis.sections.articles_without_headings,
+        },
+        figures: FiguresInfo {
+            total_figures: analysis.figures.total_figures,
+            figures_with_captions: analysis.figures.figures_with_captions,
+            figures_without_captions: analysis.figures.figures_without_captions,
+        },
+        links: LinksInfo {
+            total_links: analysis.links.total_links,
+            links_without_names: analysis.links.links_without_names,
+            generic_text_links: analysis.links.generic_text_links,
+        },
+        element_usage: ElementUsageInfo {
+            div_count: analysis.element_usage.div_count,
+            semantic_container_count: analysis.element_usage.semantic_container_count,
+        },
+        aria: AriaInfo {
+            labeled_elements: analysis.aria.labeled_elements,
+            described_elements: analysis.aria.described_elements,
+            live_regions: analysis.aria.live_regions,
+            interactive_roles: analysis.aria.interactive_roles,
+            misuse_warnings: analysis.aria.misuse_warnings,
         },
         forms: FormsInfo {
+            form_count: analysis.forms.form_count,
             total_inputs: analysis.forms.total_inputs,
             labeled_inputs: analysis.forms.labeled_inputs,
             label_percentage,
+            forms_with_fieldsets: analysis.forms.forms_with_fieldsets,
+            required_fields_marked: analysis.forms.required_fields_marked,
         },
         images: ImagesInfo {
             total_images: analysis.images.total_images,
             images_with_alt: analysis.images.images_with_alt,
+            decorative_images: analysis.images.decorative_images,
+            images_missing_alt: analysis.images.images_missing_alt,
             alt_percentage,
         },
         issues: analysis.issues,
         recommendations: analysis.recommendations,
-    })
+    }
 }
 
 // ============================================================
@@ -3127,6 +3249,7 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                 .ok()
                 .flatten()
                 .unwrap_or_default();
+            let homepage_status_code = fetch_response.status_code();
             let homepage_content_type = fetch_response
                 .headers()
                 .get("Content-Type")
@@ -3216,6 +3339,7 @@ async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
                 HomepageSignals {
                     link_header: homepage_link_header,
                     www_authenticate: homepage_www_auth,
+                    status_code: homepage_status_code,
                     content_type: homepage_content_type,
                     html: &html,
                 },
@@ -3281,6 +3405,34 @@ mod tests;
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+
+    #[test]
+    fn test_semantic_html_response_requires_successful_html() {
+        let html = "<!doctype html><html><body><main></main></body></html>";
+
+        assert!(is_semantic_html_response(
+            200,
+            "text/html; charset=UTF-8",
+            html
+        ));
+        assert!(is_semantic_html_response(
+            200,
+            "Application/XHTML+XML",
+            html
+        ));
+        assert!(is_semantic_html_response(200, "", html));
+        assert!(!is_semantic_html_response(500, "text/html", html));
+        assert!(!is_semantic_html_response(
+            200,
+            "application/json",
+            r#"{"error":"not found"}"#
+        ));
+        assert!(!is_semantic_html_response(
+            200,
+            "",
+            r#"{"error":"not found"}"#
+        ));
+    }
 
     #[test]
     fn test_api_response_serialization() {

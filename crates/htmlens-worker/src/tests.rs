@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod worker_tests {
-    use crate::{extract_description, extract_title, format_cli_style_markdown};
+    use crate::{
+        build_semantic_html_status, extract_description, extract_title, format_cli_style_markdown,
+    };
 
     #[test]
     fn test_extract_title_basic() {
@@ -36,6 +38,41 @@ mod worker_tests {
         let html = "<html><head><title>Test</title></head><body>Content</body></html>";
         let description = extract_description(html);
         assert_eq!(description, "");
+    }
+
+    #[test]
+    fn test_semantic_html_status_serialization_contract() {
+        let html = r#"
+        <header><h1>Page title</h1></header>
+        <nav><a href="/">Home</a></nav>
+        <main>
+            <section><h2>Overview</h2><p>Content</p></section>
+            <article><h2>News</h2><p>Update</p></article>
+            <figure><img src="chart.png" alt="Quarterly chart"><figcaption>Results</figcaption></figure>
+            <form><label for="query">Query</label><input id="query"></form>
+            <button role="button">Submit</button>
+        </main>
+        <footer>Footer</footer>
+        "#;
+
+        let value = serde_json::to_value(build_semantic_html_status(html)).unwrap();
+
+        assert_eq!(value["landmarks"]["mainCount"], 1);
+        assert_eq!(value["landmarks"]["hasSingleMain"], true);
+        assert_eq!(value["landmarks"]["sectionCount"], 1);
+        assert_eq!(value["headings"]["properHierarchy"], true);
+        assert_eq!(value["sections"]["sectionsWithoutHeadings"], 0);
+        assert_eq!(value["figures"]["figuresWithCaptions"], 1);
+        assert_eq!(value["links"]["linksWithoutNames"], 0);
+        assert!(
+            value["elementUsage"]["semanticContainerCount"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+        assert_eq!(value["forms"]["labelPercentage"], 100);
+        assert_eq!(value["images"]["imagesMissingAlt"], 0);
+        assert_eq!(value["aria"]["misuseWarnings"].as_array().unwrap().len(), 1);
     }
 
     #[test]
