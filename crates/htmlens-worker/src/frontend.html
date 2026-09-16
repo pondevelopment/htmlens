@@ -1807,6 +1807,35 @@
             .results.active { margin-top: var(--space-3); }
             h1 { font-size: var(--fs-h1-mobile); }
             .tagline { font-size: var(--fs-tagline-mobile); }
+            .semantic-html-status { padding: var(--space-4); }
+            details.semantic-html-status.card-collapsible > summary { flex-wrap: wrap; }
+            details.semantic-html-status.card-collapsible > summary > h3 {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+            details.semantic-html-status.card-collapsible > summary > .card-status {
+                flex: 0 0 100%;
+                justify-content: flex-end;
+                margin-left: 0;
+            }
+            .landmarks-section,
+            .headings-section,
+            .accessibility-section,
+            .semantic-issues,
+            .semantic-recommendations {
+                min-width: 0;
+                padding: var(--space-3);
+            }
+            .landmarks-grid { grid-template-columns: minmax(0, 1fr); }
+            .landmark-item,
+            .accessibility-table td,
+            .semantic-issues li,
+            .semantic-recommendations li {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+            .accessibility-table { table-layout: fixed; }
+            .accessibility-table td { padding: 10px 8px; vertical-align: top; }
             .theme-toggle {
                 position: static;
                 margin-bottom: var(--space-3);
@@ -2831,6 +2860,9 @@
             // Semantic HTML section
             if (aiReadiness.semanticHtml) {
                 const semantic = aiReadiness.semanticHtml;
+                const mainCount = semantic.landmarks.mainCount ?? (semantic.landmarks.hasMain ? 1 : 0);
+                const hasSingleMain = semantic.landmarks.hasSingleMain ?? semantic.landmarks.hasMain;
+                const invalidMainNestingCount = semantic.landmarks.invalidMainNestingCount ?? 0;
                 html += '<div class="semantic-html-status">';
                 html += '<h3>🏗️ Semantic HTML & Accessibility</h3>';
                 
@@ -2845,24 +2877,42 @@
                 html += '<h4>🗺️ Page Landmarks (Navigation Shortcuts)</h4>';
                 html += '<div class="explainer-box">Landmarks are special HTML tags that mark major page sections. Screen reader users can jump between landmarks instantly (like pressing "skip to main content"). AI tools use these to identify page structure.</div>';
                 html += '<div class="landmarks-grid" style="margin-top: 10px;">';
-                html += `<div class="landmark-item">${semantic.landmarks.hasMain ? '✅' : '❌'} <strong>Main content</strong> <code>&lt;main&gt;</code><br><small>${semantic.landmarks.hasMain ? 'Found - marks primary page content' : 'Missing - add &lt;main&gt; around your main content'}</small></div>`;
+                const mainStatus = mainCount === 0
+                    ? 'Missing - add &lt;main&gt; around primary content'
+                    : hasSingleMain
+                        ? 'Exactly one primary content region'
+                        : `${mainCount} main landmarks found - keep one visible main`;
+                html += `<div class="landmark-item">${hasSingleMain ? '✅' : '❌'} <strong>Main content</strong> <code>&lt;main&gt;</code><br><small>${mainStatus}</small></div>`;
                 html += `<div class="landmark-item">${semantic.landmarks.hasNavigation ? '✅' : '❌'} <strong>Navigation</strong> <code>&lt;nav&gt;</code><br><small>${semantic.landmarks.hasNavigation ? 'Found - marks site navigation' : 'Missing - wrap menus in &lt;nav&gt;'}</small></div>`;
                 html += `<div class="landmark-item">${semantic.landmarks.hasHeader ? '✅' : '❌'} <strong>Header</strong> <code>&lt;header&gt;</code><br><small>${semantic.landmarks.hasHeader ? 'Found - marks page/section header' : 'Missing - use &lt;header&gt; for page top'}</small></div>`;
                 html += `<div class="landmark-item">${semantic.landmarks.hasFooter ? '✅' : '❌'} <strong>Footer</strong> <code>&lt;footer&gt;</code><br><small>${semantic.landmarks.hasFooter ? 'Found - marks page footer' : 'Missing - use &lt;footer&gt; for page bottom'}</small></div>`;
                 if (semantic.landmarks.articleCount > 0) {
                     html += `<div class="landmark-item">✅ <strong>${semantic.landmarks.articleCount} Article(s)</strong><br><small>Self-contained content pieces</small></div>`;
                 }
+                if (semantic.landmarks.sectionCount > 0) {
+                    html += `<div class="landmark-item">✅ <strong>${semantic.landmarks.sectionCount} Section(s)</strong><br><small>Thematically grouped content</small></div>`;
+                }
+                if (semantic.landmarks.asideCount > 0) {
+                    html += `<div class="landmark-item">✅ <strong>${semantic.landmarks.asideCount} Aside(s)</strong><br><small>Supplemental content</small></div>`;
+                }
                 html += '</div>';
                 
                 const missingLandmarks = [];
-                if (!semantic.landmarks.hasMain) missingLandmarks.push('&lt;main&gt;');
+                if (mainCount === 0) missingLandmarks.push('&lt;main&gt;');
                 if (!semantic.landmarks.hasNavigation) missingLandmarks.push('&lt;nav&gt;');
                 if (!semantic.landmarks.hasHeader) missingLandmarks.push('&lt;header&gt;');
                 if (!semantic.landmarks.hasFooter) missingLandmarks.push('&lt;footer&gt;');
+                const landmarkStructureIssues = [];
+                if (mainCount > 1) landmarkStructureIssues.push(`${mainCount} visible main landmarks`);
+                if (invalidMainNestingCount > 0) landmarkStructureIssues.push(`${invalidMainNestingCount} main landmark(s) nested in a forbidden container`);
                 
                 if (missingLandmarks.length > 0) {
                     html += '<div class="impact-box" style="margin-top: 10px;"><strong>Impact of missing landmarks:</strong> Screen reader users can\'t quickly jump to different sections. AI tools may struggle to identify your main content vs. navigation/ads. Consider adding: ' + missingLandmarks.join(', ') + '</div>';
-                } else {
+                }
+                if (landmarkStructureIssues.length > 0) {
+                    html += '<div class="impact-box" style="margin-top: 10px;"><strong>Landmark structure:</strong> ' + landmarkStructureIssues.join('; ') + '. Keep exactly one visible &lt;main&gt; outside &lt;header&gt;, &lt;footer&gt;, &lt;nav&gt;, &lt;article&gt;, and &lt;aside&gt;.</div>';
+                }
+                if (missingLandmarks.length === 0 && landmarkStructureIssues.length === 0) {
                     html += '<div class="benefit-box" style="margin-top: 10px;"><strong>✅ Excellent!</strong> All key landmarks present. Screen readers can navigate efficiently, and AI can clearly identify page structure.</div>';
                 }
                 html += '</div>';
@@ -2880,12 +2930,57 @@
                     }
                 });
                 html += '</div>';
+                if (semantic.headings.hierarchyIssues && semantic.headings.hierarchyIssues.length > 0) {
+                    html += '<ul style="margin-top: 10px;">';
+                    semantic.headings.hierarchyIssues.forEach(issue => {
+                        html += `<li>${escapeHtml(issue)}</li>`;
+                    });
+                    html += '</ul>';
+                }
                 
                 if (!semantic.headings.hasSingleH1 || !semantic.headings.properHierarchy) {
                     html += '<div class="impact-box" style="margin-top: 10px;"><strong>Impact:</strong> Broken heading hierarchy makes it harder for screen readers to navigate and AI to understand your content structure. Fix by using exactly one h1, then h2s for main sections, h3s for subsections, etc.</div>';
                 } else {
                     html += '<div class="benefit-box" style="margin-top: 10px;"><strong>✅ Great structure!</strong> Your headings create a clear content hierarchy that both humans and AI can follow easily.</div>';
                 }
+                html += '</div>';
+
+                // Content semantics
+                const sections = semantic.sections || { sectionsWithoutHeadings: 0, articlesWithoutHeadings: 0 };
+                const figures = semantic.figures || { totalFigures: 0, figuresWithCaptions: 0, figuresWithoutCaptions: 0 };
+                const links = semantic.links || { totalLinks: 0, linksWithoutNames: 0, genericTextLinks: 0 };
+                const elementUsage = semantic.elementUsage || { divCount: 0, semanticContainerCount: 0 };
+                const aria = semantic.aria || { misuseWarnings: [] };
+                html += '<div class="accessibility-section" style="margin-top: 20px;">';
+                html += '<h4>Content Semantics</h4>';
+                html += '<table class="accessibility-table" style="margin-top: 10px;">';
+                if (semantic.landmarks.sectionCount > 0) {
+                    const headedSections = semantic.landmarks.sectionCount - sections.sectionsWithoutHeadings;
+                    const sectionClass = sections.sectionsWithoutHeadings === 0 ? 'good' : 'ok';
+                    html += `<tr><td><strong>Sections with Headings</strong><br><small>Each section needs a name that describes its topic</small></td><td class="${sectionClass}">${sections.sectionsWithoutHeadings === 0 ? '✅' : '⚠️'} ${headedSections}/${semantic.landmarks.sectionCount}</td></tr>`;
+                }
+                if (semantic.landmarks.articleCount > 0) {
+                    const headedArticles = semantic.landmarks.articleCount - sections.articlesWithoutHeadings;
+                    const articleClass = sections.articlesWithoutHeadings === 0 ? 'good' : 'ok';
+                    html += `<tr><td><strong>Articles with Headings</strong><br><small>Standalone content should have its own title</small></td><td class="${articleClass}">${sections.articlesWithoutHeadings === 0 ? '✅' : '⚠️'} ${headedArticles}/${semantic.landmarks.articleCount}</td></tr>`;
+                }
+                if (figures.totalFigures > 0) {
+                    const figureClass = figures.figuresWithoutCaptions === 0 ? 'good' : 'ok';
+                    html += `<tr><td><strong>Figures with Captions</strong><br><small>Use captions when media needs visible context</small></td><td class="${figureClass}">${figures.figuresWithoutCaptions === 0 ? '✅' : 'ℹ️'} ${figures.figuresWithCaptions}/${figures.totalFigures}</td></tr>`;
+                }
+                if (links.totalLinks > 0) {
+                    const namedLinks = links.totalLinks - links.linksWithoutNames;
+                    const linkClass = links.linksWithoutNames === 0 ? 'good' : 'poor';
+                    html += `<tr><td><strong>Links with Accessible Names</strong><br><small>Descriptive link names explain the destination</small></td><td class="${linkClass}">${links.linksWithoutNames === 0 ? '✅' : '❌'} ${namedLinks}/${links.totalLinks}</td></tr>`;
+                    if (links.genericTextLinks > 0) {
+                        html += `<tr><td colspan="2" class="impact-box"><strong>Generic link text:</strong> ${links.genericTextLinks} link(s) use wording such as “click here” or “read more.” Replace it with destination-specific text.</td></tr>`;
+                    }
+                }
+                html += `<tr><td><strong>Structural Element Mix</strong><br><small>Semantic containers describe purpose; divs remain useful for layout</small></td><td>${elementUsage.semanticContainerCount} semantic / ${elementUsage.divCount} div</td></tr>`;
+                if (aria.misuseWarnings && aria.misuseWarnings.length > 0) {
+                    html += `<tr><td><strong>ARIA Usage</strong><br><small>Prefer native HTML semantics when available</small></td><td class="ok">⚠️ ${aria.misuseWarnings.length} warning(s)</td></tr>`;
+                }
+                html += '</table>';
                 html += '</div>';
                 
                 // Forms & Images
@@ -2932,7 +3027,7 @@
                     html += '<h4>⚠️ Issues Found</h4>';
                     html += '<ul>';
                     semantic.issues.forEach(issue => {
-                        html += `<li>${issue}</li>`;
+                        html += `<li>${escapeHtml(issue)}</li>`;
                     });
                     html += '</ul>';
                     html += '<div class="impact-box"><strong>Overall Impact:</strong> These issues make your site harder to use for people with disabilities and harder for AI to understand. Fixing them improves accessibility and SEO.</div>';
@@ -2945,13 +3040,13 @@
                     html += '<h4>💡 Recommendations</h4>';
                     html += '<ul>';
                     semantic.recommendations.forEach(rec => {
-                        html += `<li>${rec}</li>`;
+                        html += `<li>${escapeHtml(rec)}</li>`;
                     });
                     html += '</ul>';
                     html += '</div>';
                 }
                 
-                html += '<div class="section-footer">Used by AI-enabled browsers, screen readers, and voice assistants • Learn more at <a href="https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA" target="_blank">MDN Web Docs →</a></div>';
+                html += '<div class="section-footer">Scope: analyzes the server-delivered HTML; elements added only after JavaScript runs are not included.<br>Used by AI-enabled browsers, screen readers, and voice assistants • Learn more in the <a href="https://www.semrush.com/blog/semantic-html5-guide" target="_blank">Semrush semantic HTML guide →</a> and <a href="https://developer.mozilla.org/en-US/docs/Glossary/Semantics" target="_blank">MDN Web Docs →</a></div>';
                 html += '</div>';
             }
             
@@ -2985,7 +3080,7 @@
                 '.robots-txt-status', '.sitemap-status', '.semantic-html-status',
                 '.llms-txt-status', '.security-txt-status', '.emerging-standards'
             ];
-            const issueSelector = '.critical-missing, .invalid, .plugin-issues, .mcp-issues, .api-issues, .robots-issues, .sitemap-issues, .llms-issues, .file-check.missing';
+            const issueSelector = '.critical-missing, .invalid, .plugin-issues, .mcp-issues, .api-issues, .robots-issues, .sitemap-issues, .semantic-issues, .llms-issues, .file-check.missing';
             root.querySelectorAll(selectors.join(', ')).forEach(card => {
                 const heading = card.querySelector(':scope > h3, :scope > h4');
                 if (!heading) return;
@@ -4312,11 +4407,12 @@
                     const sh = ar.semanticHtml;
                     const hasLandmarks = sh.landmarks && (sh.landmarks.hasMain || sh.landmarks.hasNavigation || sh.landmarks.hasHeader || sh.landmarks.hasFooter);
                     const hasGoodHeadings = sh.headings && sh.headings.hasSingleH1 && sh.headings.properHierarchy;
-                    const hasGoodImages = sh.images && sh.images.totalImages > 0 && sh.images.altPercentage > 80;
+                    const hasGoodImages = sh.images && sh.images.totalImages > 0 && sh.images.altPercentage >= 90;
+                    const hasSemanticIssues = sh.issues && sh.issues.length > 0;
                     
                     if (hasLandmarks) {
                         const landmarkDetails = [];
-                        if (sh.landmarks.hasMain) landmarkDetails.push('main');
+                        if (sh.landmarks.hasSingleMain ?? sh.landmarks.hasMain) landmarkDetails.push('main');
                         if (sh.landmarks.hasNavigation) landmarkDetails.push('nav');
                         if (sh.landmarks.hasHeader) landmarkDetails.push('header');
                         if (sh.landmarks.hasFooter) landmarkDetails.push('footer');
@@ -4332,14 +4428,17 @@
                         insights.strengths.push(`Image Accessibility: ${sh.images.altPercentage}% have alt text`);
                     }
                     
-                    if (!hasLandmarks) {
+                    if (!hasLandmarks || hasSemanticIssues) {
+                        const suggestedFixes = sh.recommendations && sh.recommendations.length > 0
+                            ? sh.recommendations.slice(0, 3).join(' ')
+                            : 'Use native landmark elements and a logical heading outline.';
                         insights.recommended.push({
-                            title: 'Use Semantic HTML5 Landmark Elements',
-                            why: 'Semantic landmarks help search engines and AI understand your content structure. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for more details</a>.',
-                            fix: 'Replace generic <div> tags with semantic elements like <main>, <nav>, <header>, <footer>, <article>, <section>, <aside>.',
+                            title: 'Improve Semantic HTML Structure',
+                            why: 'Semantic elements and accessible names help search engines, AI, and assistive technology understand the page. <a href="#" class="switch-to-ai-tab">See the AI Readiness tab for the detected issues</a>.',
+                            fix: suggestedFixes,
                             impact: 'Improves content understanding and accessibility',
-                            reference: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element',
-                            referenceText: 'MDN HTML Elements Reference'
+                            reference: 'https://www.semrush.com/blog/semantic-html5-guide',
+                            referenceText: 'Semrush Semantic HTML Guide'
                         });
                     }
                 }
